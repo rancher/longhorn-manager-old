@@ -1,5 +1,7 @@
-/.dapper
-/bin
-/dist
+.dapper
+bin/
+dist/
 *.swp
-/.trash-cache
+.trash-cache/
+.bash_history
+tmp/
