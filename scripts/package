@@ -1,18 +1,24 @@
 #!/bin/bash
 set -e
 
-source $(dirname $0)/version
+cd $(dirname $0)/..
 
-ARCH=${ARCH:?"ARCH not set"}
+ARCH=${ARCH:-amd64}
 SUFFIX=""
 [ "${ARCH}" != "amd64" ] && SUFFIX="_${ARCH}"
 
-cd $(dirname $0)/../package
+export VERSION=${VERSION:-$(./scripts/version)}
 
 TAG=${TAG:-${VERSION}${SUFFIX}}
-REPO=${REPO:-rancher}
+REPO=${REPO:-rancher/longhorn-orc}
+IMAGE=${IMAGE:-${REPO}:${TAG}}
 
-cp ../bin/longhorn-orc .
-docker build -t ${REPO}/longhorn-orc:${TAG} .
+if [ ! -e ./bin/longhorn-orc ]; then
+    ./scripts/build
+fi
 
-echo Built ${REPO}/longhorn-orc:${TAG}
+cp -a ./bin ./package/
+trap 'rm -rf ./package/bin' exit
+docker build -t ${IMAGE} ./package
+
+echo Built ${IMAGE}

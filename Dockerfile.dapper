@@ -1,7 +1,7 @@
 FROM ubuntu:16.04
 # FROM arm=armhf/ubuntu:16.04
 
-ARG DAPPER_HOST_ARCH
+ARG DAPPER_HOST_ARCH=amd64
 ENV HOST_ARCH=${DAPPER_HOST_ARCH} ARCH=${DAPPER_HOST_ARCH}
 
 RUN apt-get update && \
@@ -21,8 +21,9 @@ RUN wget -O - https://storage.googleapis.com/golang/go1.7.4.linux-${!GOLANG_ARCH
     go get github.com/rancher/trash && go get github.com/golang/lint/golint
 
 ENV DAPPER_SOURCE /go/src/github.com/rancher/longhorn-orc/
-ENV DAPPER_OUTPUT ./bin ./dist
+ENV DAPPER_OUTPUT ./bin
 ENV DAPPER_DOCKER_SOCKET true
+ENV DAPPER_ENV IMAGE REPO VERSION TAG
 ENV TRASH_CACHE ${DAPPER_SOURCE}/.trash-cache
 ENV HOME ${DAPPER_SOURCE}
 WORKDIR ${DAPPER_SOURCE}
