@@ -1,6 +1,7 @@
 package util
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -40,4 +41,11 @@ func TestConvertSize(t *testing.T) {
 	if sizeGB != "1" {
 		t.Fatalf("SizeGB is: %v. Expected 1", sizeGB)
 	}
+}
+
+func TestReplicaName(t *testing.T) {
+	assert := require.New(t)
+
+	assert.Equal("replica-XX", ReplicaName("tcp://replica-XX:9502", "tt"))
+	assert.Equal("replica-XX", ReplicaName("tcp://replica-XX.volume-tt:9502", "tt"))
 }

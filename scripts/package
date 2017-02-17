@@ -10,8 +10,8 @@ SUFFIX=""
 export VERSION=${VERSION:-$(./scripts/version)}
 
 TAG=${TAG:-${VERSION}${SUFFIX}}
-REPO=${REPO:-rancher/longhorn-orc}
-IMAGE=${IMAGE:-${REPO}:${TAG}}
+REPO=${REPO:-rancher}
+IMAGE=${IMAGE:-${REPO}/longhorn-orc:${TAG}}
 
 if [ ! -e ./bin/longhorn-orc ]; then
     ./scripts/build
