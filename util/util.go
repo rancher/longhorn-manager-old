@@ -1,13 +1,13 @@
 package util
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
-	"strconv"
-	"time"
 	"github.com/docker/go-units"
-	"crypto/md5"
+	"strconv"
 	"strings"
+	"time"
 )
 
 const (
