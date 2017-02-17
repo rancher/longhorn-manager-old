@@ -1,7 +1,0 @@
-./bin
-./.dapper
-./dist
-./.trash-cache
-./integration/.venv
-./integration/.tox
-./integration/.idea
