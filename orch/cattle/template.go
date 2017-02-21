@@ -68,10 +68,9 @@ services:
 
   ## Metadata
   volmd:
-    image: alpine
-    command: [sh]
-    stdin_open: true
-    tty: true
+    image: rancher/none
+    labels:
+      io.rancher.service.selector.container: none,volmd
 
   ## End
 `
