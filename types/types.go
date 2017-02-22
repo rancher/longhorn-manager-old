@@ -50,7 +50,7 @@ type Controller interface {
 }
 
 type Orchestrator interface {
-	CreateVolume(volume *VolumeInfo) (*VolumeInfo, error) // creates (but does not start) replicas as well
+	CreateVolume(volume *VolumeInfo) (*VolumeInfo, error) // creates replicas and volume metadata
 	DeleteVolume(volumeName string) error                 // removes all the volume components
 	GetVolume(volumeName string) (*VolumeInfo, error)
 	MarkBadReplica(volumeName string, replica *ReplicaInfo) error // find replica by Address
