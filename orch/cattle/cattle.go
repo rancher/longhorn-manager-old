@@ -501,7 +501,7 @@ func (orc *cattleOrc) startSvc(attempts int, svc0 *client.Service, errCh chan<- 
 	}
 }
 
-func (orc *cattleOrc) StartReplica(instanceID string) error {
+func (orc *cattleOrc) StartInstance(instanceID string) error {
 	svc, err := orc.rancher.Service.ById(instanceID)
 	if err != nil {
 		return errors.Wrapf(err, "error getting service '%s'", instanceID)
@@ -544,7 +544,7 @@ func (orc *cattleOrc) stopSvc(attempts int, svc0 *client.Service, errCh chan<- e
 	}
 }
 
-func (orc *cattleOrc) StopReplica(instanceID string) error {
+func (orc *cattleOrc) StopInstance(instanceID string) error {
 	svc, err := orc.rancher.Service.ById(instanceID)
 	if err != nil {
 		return errors.Wrapf(err, "error getting service '%s'", instanceID)

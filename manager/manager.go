@@ -97,11 +97,12 @@ func (man *volumeManager) Attach(name string) error {
 	if err != nil {
 		return err
 	}
-	if volume.Controller != nil && volume.Controller.Running {
-		if volume.Controller.HostID == man.orc.GetThisHostID() {
+	if volume.Controller != nil {
+		if volume.Controller.Running && volume.Controller.HostID == man.orc.GetThisHostID() {
 			man.startMonitoring(volume)
 			return nil
-		} else if err := man.Detach(name); err != nil {
+		}
+		if err := man.Detach(name); err != nil {
 			return errors.Wrapf(err, "failed to detach before reattaching volume '%s'", name)
 		}
 	}
@@ -115,7 +116,7 @@ func (man *volumeManager) Attach(name string) error {
 			wg.Add(1)
 			go func(replica *types.ReplicaInfo) {
 				defer wg.Done()
-				if err := man.orc.StopReplica(replica.ID); err != nil {
+				if err := man.orc.StopInstance(replica.ID); err != nil {
 					errCh <- errors.Wrapf(err, "failed to stop replica '%s' for volume '%s'", replica.Name, volume.Name)
 				}
 			}(replica)
@@ -151,7 +152,7 @@ func (man *volumeManager) Attach(name string) error {
 		wg.Add(1)
 		go func(replica *types.ReplicaInfo) {
 			defer wg.Done()
-			if err := man.orc.StartReplica(replica.ID); err != nil {
+			if err := man.orc.StartInstance(replica.ID); err != nil {
 				errCh <- errors.Wrapf(err, "failed to start replica '%s' for volume '%s'", replica.Name, volume.Name)
 			}
 		}(replica)
@@ -169,12 +170,12 @@ func (man *volumeManager) Attach(name string) error {
 		return errs
 	}
 
-	controllerInfo, err := man.orc.CreateController(volume.Name, replicas)
+	controller, err := man.orc.CreateController(volume.Name, replicas)
 	if err != nil {
 		return errors.Wrapf(err, "failed to start the controller for volume '%s'", volume.Name)
 	}
 
-	volume.Controller = controllerInfo
+	volume.Controller = controller
 	man.startMonitoring(volume)
 	return nil
 }
@@ -188,19 +189,15 @@ func (man *volumeManager) Detach(name string) error {
 	errCh := make(chan error)
 	wg := &sync.WaitGroup{}
 	if volume.Controller != nil && volume.Controller.Running {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := man.orc.RemoveInstance(volume.Controller.ID); err != nil {
-				errCh <- errors.Wrapf(err, "failed to remove controller '%s' from volume '%s'", volume.Controller.ID, volume.Name)
-			}
-		}()
+		if err := man.orc.StopInstance(volume.Controller.ID); err != nil {
+			return errors.Wrapf(err, "error stopping the controller id='%s', volume '%s'", volume.Controller.ID, volume.Name)
+		}
 	}
 	for _, replica := range volume.Replicas {
 		wg.Add(1)
 		go func(replica *types.ReplicaInfo) {
 			defer wg.Done()
-			if err := man.orc.StopReplica(replica.ID); err != nil {
+			if err := man.orc.StopInstance(replica.ID); err != nil {
 				errCh <- errors.Wrapf(err, "failed to stop replica '%s' for volume '%s'", replica.Name, volume.Name)
 			}
 		}(replica)
@@ -216,6 +213,11 @@ func (man *volumeManager) Detach(name string) error {
 	}
 	if len(errs) > 0 {
 		return errs
+	}
+	if volume.Controller != nil {
+		if err := man.orc.RemoveInstance(volume.Controller.ID); err != nil {
+			return errors.Wrapf(err, "error removing the controller id='%s', volume '%s'", volume.Controller.ID, volume.Name)
+		}
 	}
 	return nil
 }
@@ -335,7 +337,7 @@ func (man *volumeManager) Cleanup(v *types.VolumeInfo) error {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					err := man.orc.StopReplica(replica.ID)
+					err := man.orc.StopInstance(replica.ID)
 					errCh <- errors.Wrapf(err, "error stopping bad replica '%s', volume '%s'", replica.Name, volume.Name)
 				}()
 			}

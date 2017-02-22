@@ -58,8 +58,8 @@ type Orchestrator interface {
 	CreateController(volumeName string, replicas map[string]*ReplicaInfo) (*ControllerInfo, error)
 	CreateReplica(volumeName string) (*ReplicaInfo, error)
 
-	StartReplica(instanceID string) error
-	StopReplica(instanceID string) error
+	StartInstance(instanceID string) error
+	StopInstance(instanceID string) error
 
 	RemoveInstance(instanceID string) error
 
