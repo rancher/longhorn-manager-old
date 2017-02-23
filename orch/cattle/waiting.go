@@ -42,7 +42,7 @@ func (w *hiddenDragon) WaitForController(volumeName string) error {
 	}
 	errCh := make(chan error)
 	defer close(errCh)
-	go w.waitForOK(30, "http://controller."+util.VolumeStackName(volumeName)+":9501/v1/replicas", errCh)
+	go w.waitForOK(30, "http://controller."+util.VolumeStackName(volumeName)+".rancher.internal:9501/v1/replicas", errCh)
 	return <-errCh
 }
 
@@ -52,6 +52,6 @@ func (w *hiddenDragon) WaitForReplica(volumeName, replicaName string) error {
 	}
 	errCh := make(chan error)
 	defer close(errCh)
-	go w.waitForOK(30, "http://"+replicaName+"."+util.VolumeStackName(volumeName)+":9502/v1", errCh)
+	go w.waitForOK(30, "http://"+replicaName+".rancher.internal:9502/v1", errCh)
 	return <-errCh
 }

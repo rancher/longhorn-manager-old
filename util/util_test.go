@@ -47,5 +47,6 @@ func TestReplicaName(t *testing.T) {
 	assert := require.New(t)
 
 	assert.Equal("replica-XX", ReplicaName("tcp://replica-XX:9502", "tt"))
+	assert.Equal("replica-XX", ReplicaName("tcp://replica-XX.rancher.internal:9502", "tt"))
 	assert.Equal("replica-XX", ReplicaName("tcp://replica-XX.volume-tt:9502", "tt"))
 }

@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	VolumeStackPrefix = "volume-"
-	ControllerName    = "controller"
+	VolumeStackPrefix     = "volume-"
+	ControllerServiceName = "controller"
+	ReplicaServiceName    = "replica"
 )
 
 type MetadataConfig struct {
@@ -35,15 +36,16 @@ func VolumeStackName(volumeName string) string {
 }
 
 func ControllerAddress(volumeName string) string {
-	return fmt.Sprintf("http://%s.%s.rancher.internal:9501", ControllerName, VolumeStackName(volumeName))
+	return fmt.Sprintf("http://%s.%s.rancher.internal:9501", ControllerServiceName, VolumeStackName(volumeName))
 }
 
 func ReplicaAddress(name, volumeName string) string {
-	return fmt.Sprintf("tcp://%s.%s:9502", name, VolumeStackName(volumeName))
+	return fmt.Sprintf("tcp://%s.rancher.internal:9502", name)
 }
 
 func ReplicaName(address, volumeName string) string {
 	s := strings.TrimSuffix(strings.TrimPrefix(address, "tcp://"), ":9502")
+	s = strings.TrimSuffix(s, ".rancher.internal")
 	return strings.TrimSuffix(s, "."+VolumeStackName(volumeName))
 }
 
