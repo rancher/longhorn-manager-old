@@ -509,9 +509,9 @@ func (orc *cattleOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, erro
 	replica := replicas[index]
 
 	if err := orc.dragon.WaitForReplica(volumeName, replica.Name); err != nil {
-		if svc, err := orc.rancher.Service.ById(replica.ID); err != nil {
+		if cnt, err := orc.rancher.Container.ById(replica.ID); err != nil {
 			logrus.Errorf("%+v", errors.Wrapf(err, "error getting replica '%s' for cleanup, volume '%s'", replica.Name, volumeName))
-		} else if err := orc.rancher.Service.Delete(svc); err != nil {
+		} else if err := orc.rancher.Container.Delete(cnt); err != nil {
 			logrus.Errorf("%+v", errors.Wrapf(err, "error deleting replica '%s', volume '%s'", replica.Name, volumeName))
 		}
 		return nil, errors.Wrapf(err, "error waiting for replica '%s', volume '%s'", replica.Name, volumeName)
