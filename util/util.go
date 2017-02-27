@@ -2,10 +2,9 @@ package util
 
 import (
 	"crypto/md5"
-	"errors"
 	"fmt"
 	"github.com/docker/go-units"
-	"strconv"
+	"github.com/pkg/errors"
 	"strings"
 	"time"
 )
@@ -49,22 +48,34 @@ func ReplicaName(address, volumeName string) string {
 	return strings.TrimSuffix(s, "."+VolumeStackName(volumeName))
 }
 
-func ConvertSize(size string) (string, string, error) {
-	if size == "" {
-		return "", "", nil
+func ConvertSize(size interface{}) (int64, error) {
+	switch size := size.(type) {
+	case int64:
+		return size, nil
+	case int:
+		return int64(size), nil
+	case string:
+		if size == "" {
+			return 0, nil
+		}
+		sizeInBytes, err := units.RAMInBytes(size)
+		if err != nil {
+			return 0, errors.Wrapf(err, "error parsing size '%s'", size)
+		}
+		return sizeInBytes, nil
 	}
+	return 0, errors.Errorf("could not parse size '%v'", size)
+}
 
-	sizeInBytes, err := units.RAMInBytes(size)
-	if err != nil {
-		return "", "", err
+func RoundUpSize(size int64) int64 {
+	if size <= 0 {
+		return 4096
 	}
-
-	gbSize := sizeInBytes / units.GiB
-	if gbSize < 1 && sizeInBytes != 0 {
-		gbSize = 1
+	r := size % 4096
+	if r == 0 {
+		return size
 	}
-	return strconv.FormatInt(sizeInBytes, 10), strconv.FormatInt(gbSize, 10), nil
-
+	return size - r + 4096
 }
 
 func Backoff(maxDuration time.Duration, timeoutMessage string, f func() (bool, error)) error {

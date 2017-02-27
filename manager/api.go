@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-orc/util"
 	"github.com/unrolled/render"
 	"net/http"
 )
@@ -61,10 +63,16 @@ func Name2VolumeHandlerFunc(f func(name string) (*types.VolumeInfo, error)) http
 
 func Volume2VolumeHandlerFunc(f func(volume *types.VolumeInfo) (*types.VolumeInfo, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		volume0 := new(types.VolumeInfo)
-		if err := json.NewDecoder(req.Body).Decode(volume0); err != nil {
+		data := map[string]interface{}{}
+		if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
 			logrus.Errorf("%+v", errors.Wrap(err, "could not parse body"))
 			r.JSON(w, http.StatusBadRequest, errors.Wrap(err, "could not parse"))
+			return
+		}
+		volume0, err := Map2VolumeInfo(data)
+		if err != nil {
+			logrus.Errorf("%+v", errors.Wrapf(err, "could not convert to volume info: '%+v'", data))
+			r.JSON(w, http.StatusBadRequest, errors.Wrap(err, "could not convert"))
 			return
 		}
 		volume, err := f(volume0)
@@ -77,4 +85,18 @@ func Volume2VolumeHandlerFunc(f func(volume *types.VolumeInfo) (*types.VolumeInf
 			r.JSON(w, http.StatusBadGateway, map[string]interface{}{"error": err})
 		}
 	}
+}
+
+func Map2VolumeInfo(m map[string]interface{}) (*types.VolumeInfo, error) {
+	sizeVal := m["Size"]
+	size, err := util.ConvertSize(sizeVal)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error converting size '%s'", sizeVal)
+	}
+	m["Size"] = util.RoundUpSize(size)
+	v := new(types.VolumeInfo)
+	if err := mapstructure.Decode(m, v); err != nil {
+		return nil, errors.Wrapf(err, "error converting volume info '%+v'", m)
+	}
+	return v, nil
 }

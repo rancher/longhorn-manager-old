@@ -6,41 +6,26 @@ import (
 )
 
 func TestConvertSize(t *testing.T) {
+	assert := require.New(t)
 
-	size, sizeGB, err := ConvertSize("0b")
-	if err != nil {
-		t.Fatalf("Couldn't parse zero. Error: %v", err)
-	}
+	size, err := ConvertSize("0b")
+	assert.Nil(err)
+	assert.Equal(int64(0), size)
 
-	if size != "0" {
-		t.Fatalf("Size is: %v. Expected 0", size)
-	}
+	size, err = ConvertSize("1024b")
+	assert.Nil(err)
+	assert.Equal(int64(1024), size)
 
-	if sizeGB != "0" {
-		t.Fatalf("SizeGB is: %v. Expected 0", sizeGB)
-	}
+	size, err = ConvertSize("1024")
+	assert.Nil(err)
+	assert.Equal(int64(1024), size)
+}
 
-	size, sizeGB, err = ConvertSize("1024b")
-	if err != nil {
-		t.Fatalf("Couldn't parse zero. Error: %v", err)
-	}
+func TestRoundUpSize(t *testing.T) {
+	assert := require.New(t)
 
-	if size != "1024" {
-		t.Fatalf("Size is: %v. Expected 0", size)
-	}
-
-	if sizeGB != "1" {
-		t.Fatalf("SizeGB is: %v. Expected 1", sizeGB)
-	}
-
-	size, sizeGB, err = ConvertSize("1024")
-	if size != "1024" {
-		t.Fatalf("Size is: %v. Expected 0", size)
-	}
-
-	if sizeGB != "1" {
-		t.Fatalf("SizeGB is: %v. Expected 1", sizeGB)
-	}
+	assert.Equal(int64(4096), RoundUpSize(0))
+	assert.Equal(int64(8192), RoundUpSize(2323+4096))
 }
 
 func TestReplicaName(t *testing.T) {
