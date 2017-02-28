@@ -1,16 +1,16 @@
 package manager
 
 import (
-	"testing"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestMap2VolumeInfo(t *testing.T) {
 	assert := require.New(t)
 
 	m := map[string]interface{}{
-		"Name": "qq",
-		"Size": "200g",
+		"Name":             "qq",
+		"Size":             "200g",
 		"NumberOfReplicas": 2,
 	}
 	v, err := Map2VolumeInfo(m)
