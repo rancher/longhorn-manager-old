@@ -277,10 +277,15 @@ func (orc *cattleOrc) getReplicas(volumeName string, stack *client.Stack) (map[s
 		if err != nil {
 			return nil, err
 		}
+		hostID, err := orc.getHostID(&cnt)
+		if err != nil {
+			return nil, err
+		}
 		replicas[replicaIndex(cnt.Name)] = &types.ReplicaInfo{
 			InstanceInfo: types.InstanceInfo{
 				ID:      cnt.Id,
 				Running: cnt.State == "running",
+				HostID:  hostID,
 				Address: util.ReplicaAddress(cnt.Name, volumeName),
 			},
 			Name:         cnt.Name,
@@ -289,6 +294,17 @@ func (orc *cattleOrc) getReplicas(volumeName string, stack *client.Stack) (map[s
 	}
 
 	return replicas, nil
+}
+
+func (orc *cattleOrc) getHostID(cnt *client.Container) (string, error) {
+	if cnt.HostId == "" {
+		return "", nil
+	}
+	host, err := orc.rancher.Host.ById(cnt.HostId)
+	if err != nil {
+		return "", errors.Wrapf(err, "error getting host for container '%s', id='%s'", cnt.Name, cnt.Id)
+	}
+	return host.Uuid, nil
 }
 
 func (orc *cattleOrc) getController(volumeName string, stack *client.Stack) (*types.ControllerInfo, error) {
@@ -305,10 +321,15 @@ func (orc *cattleOrc) getController(volumeName string, stack *client.Stack) (*ty
 	}
 
 	for _, cnt := range cntColl.Data {
+		hostID, err := orc.getHostID(&cnt)
+		if err != nil {
+			return nil, err
+		}
 		return &types.ControllerInfo{
 			InstanceInfo: types.InstanceInfo{
 				ID:      cnt.Id,
 				Running: cnt.State == "running",
+				HostID:  hostID,
 				Address: util.ControllerAddress(volumeName),
 			},
 		}, nil
