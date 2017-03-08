@@ -31,6 +31,7 @@ type VolumeManager interface {
 	Create(volume *VolumeInfo) (*VolumeInfo, error)
 	Delete(name string) error
 	Get(name string) (*VolumeInfo, error)
+	List() ([]*VolumeInfo, error)
 	Attach(name string) error
 	Detach(name string) error
 
@@ -64,6 +65,11 @@ type Orchestrator interface {
 	RemoveInstance(instanceID string) error
 
 	GetThisHostID() string
+}
+
+type ServiceLocator interface {
+	GetAddress(q string) (string, error)
+	IsLocal(q string) bool
 }
 
 type VolumeInfo struct {

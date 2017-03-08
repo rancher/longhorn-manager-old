@@ -6,10 +6,13 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 
+	"fmt"
+	"github.com/rancher/longhorn-orc/api"
 	"github.com/rancher/longhorn-orc/controller"
 	"github.com/rancher/longhorn-orc/manager"
 	"github.com/rancher/longhorn-orc/orch"
 	"github.com/rancher/longhorn-orc/orch/cattle"
+	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util/daemon"
 	"github.com/rancher/longhorn-orc/util/server"
 )
@@ -77,9 +80,17 @@ func RunManager(c *cli.Context) error {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	man := manager.New(cattle.New(c), manager.Monitor(controller.New))
+	orc := cattle.New(c)
+	man := manager.New(orc, manager.Monitor(controller.New))
 
-	go server.NewUnixServer(sockFile).Serve(manager.Handler(man))
+	go server.NewUnixServer(sockFile).Serve(api.HandlerLocal(man))
+
+	//man := api.DummyVolumeManager()
+	//sl := api.DummyServiceLocator("localhost-ID")
+	sl := orc.(types.ServiceLocator)
+	proxy := api.Proxy()
+
+	go server.NewTCPServer(fmt.Sprintf(":%v", api.Port)).Serve(api.Handler(man, sl, proxy))
 
 	return daemon.WaitForExit()
 }

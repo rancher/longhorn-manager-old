@@ -32,3 +32,16 @@ func (s *UnixServer) Serve(handler http.Handler) {
 	err = server.Serve(listener)
 	logrus.Fatalf("server.Serve returned error: %+v", errors.Wrap(err, "http server error"))
 }
+
+type TCPServer struct {
+	addr string
+}
+
+func NewTCPServer(addrPort string) *TCPServer {
+	return &TCPServer{addrPort}
+}
+
+func (s *TCPServer) Serve(handler http.Handler) {
+	err := http.ListenAndServe(s.addr, handler)
+	logrus.Fatalf("http.ListenAndServe returned error: %+v", errors.Wrap(err, "http server error"))
+}

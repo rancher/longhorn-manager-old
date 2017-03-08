@@ -75,6 +75,11 @@ func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
 	return vol, nil
 }
 
+func (man *volumeManager) List() ([]*types.VolumeInfo, error) {
+	// TODO impl volume list
+	return []*types.VolumeInfo{}, nil
+}
+
 func (man *volumeManager) startMonitoring(volume *types.VolumeInfo) {
 	man.Lock()
 	defer man.Unlock()

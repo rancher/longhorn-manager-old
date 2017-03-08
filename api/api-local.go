@@ -1,4 +1,4 @@
-package manager
+package api
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ var (
 	})
 )
 
-func Handler(man types.VolumeManager) http.Handler {
+func HandlerLocal(man types.VolumeManager) http.Handler {
 	r := mux.NewRouter()
 	s := r.PathPrefix("/v1/volumes").Subrouter()
 
