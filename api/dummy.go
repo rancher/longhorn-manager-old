@@ -83,6 +83,10 @@ func (d *dummyVolumeManager) Cleanup(volume *types.VolumeInfo) error {
 	return nil
 }
 
+func (d *dummyVolumeManager) VolumeSnapshots(name string) (types.VolumeSnapshots, error) {
+	return &dummySnapshots{}, nil
+}
+
 type dummyLocator struct {
 	thisHostID string
 }
@@ -100,4 +104,26 @@ func (l *dummyLocator) GetAddress(q string) (string, error) {
 func (l *dummyLocator) IsLocal(q string) bool {
 	logrus.Infof("Dummy SL: hostID='%s' is local?: %v", q, q == l.thisHostID)
 	return q == l.thisHostID
+}
+
+type dummySnapshots struct{}
+
+func (d *dummySnapshots) Create(name string) (string, error) {
+	return "dummy", nil
+}
+
+func (d *dummySnapshots) List() ([]*types.SnapshotInfo, error) {
+	return []*types.SnapshotInfo{}, nil
+}
+
+func (d *dummySnapshots) Get(name string) (*types.SnapshotInfo, error) {
+	return &types.SnapshotInfo{Name: name}, nil
+}
+
+func (d *dummySnapshots) Delete(name string) error {
+	return nil
+}
+
+func (d *dummySnapshots) Revert(name string) error {
+	return nil
 }

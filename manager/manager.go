@@ -21,15 +21,19 @@ type volumeManager struct {
 
 	orc     types.Orchestrator
 	monitor types.Monitor
+
+	getController types.GetController
 }
 
-func New(orc types.Orchestrator, monitor types.Monitor) types.VolumeManager {
+func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetController) types.VolumeManager {
 	return &volumeManager{
 		monitors:       map[string]io.Closer{},
 		addingReplicas: map[string]int{},
 
 		orc:     orc,
 		monitor: monitor,
+
+		getController: getController,
 	}
 }
 
@@ -372,4 +376,16 @@ func (man *volumeManager) Cleanup(v *types.VolumeInfo) error {
 		return errs
 	}
 	return nil
+}
+
+func (man *volumeManager) VolumeSnapshots(name string) (types.VolumeSnapshots, error) {
+	volume, err := man.Get(name)
+	if err != nil {
+		return nil, err
+	}
+	controller := man.getController(volume)
+	if controller == nil {
+		return nil, nil
+	}
+	return controller.Snapshots(), nil
 }

@@ -15,6 +15,9 @@ type controller struct {
 }
 
 func New(volume *types.VolumeInfo) types.Controller {
+	if volume == nil || volume.Controller == nil || !volume.Controller.Running {
+		return nil
+	}
 	url := volume.Controller.Address
 	return &controller{
 		name: volume.Name,

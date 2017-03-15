@@ -19,6 +19,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("attachInput", AttachInput{})
 
 	volumeSchema(schemas.AddType("volume", Volume{}))
+	snapshotSchema(schemas.AddType("snapshot", Snapshot{}))
 
 	return schemas
 }
@@ -60,6 +61,19 @@ func volumeSchema(volume *client.Schema) {
 	volume.ResourceFields["staleReplicaTimeout"] = volumeStaleReplicaTimeout
 }
 
+func snapshotSchema(snapshot *client.Schema) {
+	snapshot.CollectionMethods = []string{"GET", "POST"}
+	snapshot.ResourceMethods = []string{"GET", "DELETE"}
+	snapshot.ResourceActions = map[string]client.Action{
+		"revert": {},
+	}
+
+	snapshotName := snapshot.ResourceFields["name"]
+	snapshotName.Create = true
+	snapshotName.Unique = true
+	snapshot.ResourceFields["name"] = snapshotName
+}
+
 type Volume struct {
 	client.Resource
 
@@ -72,6 +86,18 @@ type Volume struct {
 
 	Replicas   []Replica   `json:"replicas,omitempty"`
 	Controller *Controller `json:"controller,omitempty"`
+}
+
+type Snapshot struct {
+	client.Resource
+
+	Name        string   `json:"name,omitempty"`
+	Parent      string   `json:"parent,omitempty"`
+	Children    []string `json:"children,omitempty"`
+	Removed     bool     `json:"removed,omitempty"`
+	UserCreated bool     `json:"usercreated,omitempty"`
+	Created     string   `json:"created,omitempty"`
+	Size        string   `json:"size,omitempty"`
 }
 
 type Instance struct {
@@ -162,7 +188,8 @@ func toVolumeResource(v *types.VolumeInfo) *Volume {
 				"detach": v.Name + "/detach",
 			},
 			Links: map[string]string{
-				"self": v.Name,
+				"self":      v.Name,
+				"snapshots": v.Name + "/snapshots/",
 			},
 		},
 		Name:                v.Name,
@@ -198,5 +225,48 @@ func fromVolumeResMap(m map[string]interface{}) (*types.VolumeInfo, error) {
 		Size:                util.RoundUpSize(size),
 		NumberOfReplicas:    v.NumberOfReplicas,
 		StaleReplicaTimeout: time.Duration(v.StaleReplicaTimeout) * time.Minute,
+	}, nil
+}
+
+func toSnapshotResource(s *types.SnapshotInfo) *Snapshot {
+	if s == nil {
+		logrus.Debugf("weird: nil snapshot")
+		return nil
+	}
+	return &Snapshot{
+		Resource: client.Resource{
+			Type: "snapshot",
+			Actions: map[string]string{
+				"revert": s.Name + "/revert",
+			},
+			Links: map[string]string{
+				"self": s.Name,
+			},
+		},
+		Name:        s.Name,
+		Parent:      s.Parent,
+		Children:    s.Children,
+		Removed:     s.Removed,
+		UserCreated: s.UserCreated,
+		Created:     s.Created,
+		Size:        s.Size,
+	}
+}
+
+func toSnapshotCollection(ss []*types.SnapshotInfo) *client.GenericCollection {
+	data := []interface{}{}
+	for _, v := range ss {
+		data = append(data, toSnapshotResource(v))
+	}
+	return &client.GenericCollection{Data: data}
+}
+
+func fromSnapshotResMap(m map[string]interface{}) (*types.SnapshotInfo, error) {
+	s := new(Snapshot)
+	if err := mapstructure.Decode(m, s); err != nil {
+		return nil, errors.Wrapf(err, "error converting snapshot info '%+v'", m)
+	}
+	return &types.SnapshotInfo{
+		Name: s.Name,
 	}, nil
 }

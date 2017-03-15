@@ -128,12 +128,26 @@ func HostIDFromAttachReq(req *http.Request) (string, error) {
 	return attachInput.HostID, nil
 }
 
+func HostIDFromVolume(man types.VolumeManager) func(req *http.Request) (string, error) {
+	return func(req *http.Request) (string, error) {
+		name := mux.Vars(req)["name"]
+		volume, err := man.Get(name)
+		if err != nil {
+			return "", errors.Wrapf(err, "error getting volume '%s'", name)
+		}
+		if volume == nil || volume.Controller == nil || !volume.Controller.Running {
+			return "", nil
+		}
+		return volume.Controller.HostID, nil
+	}
+}
+
 type Fwd struct {
 	sl    types.ServiceLocator
 	proxy http.Handler
 }
 
-func (f *Fwd) Handler(getHostID HostIDFunc, h http.Handler) http.HandlerFunc {
+func (f *Fwd) Handler(getHostID HostIDFunc, h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		hostID, err := getHostID(util.CopyReq(req))
 		if err != nil {
@@ -167,4 +181,137 @@ func (f *Fwd) Handler(getHostID HostIDFunc, h http.Handler) http.HandlerFunc {
 
 func Proxy() http.Handler {
 	return &httputil.ReverseProxy{Director: func(r *http.Request) {}}
+}
+
+type SnapshotHandlers struct {
+	man types.VolumeManager
+}
+
+func (sh *SnapshotHandlers) Create(w http.ResponseWriter, req *http.Request) {
+	volName := mux.Vars(req)["name"]
+
+	snapshots, err := sh.man.VolumeSnapshots(volName)
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error getting VolumeSnapshots for volume '%s'", volName))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	data, err := dataFromReq(req.Body)
+	if err != nil {
+		logrus.Errorf("%+v", err)
+		r.JSON(w, http.StatusBadRequest, err)
+		return
+	}
+	s0, err := fromSnapshotResMap(data)
+	if err != nil {
+		logrus.Errorf("%+v", err)
+		r.JSON(w, http.StatusBadRequest, err)
+		return
+	}
+	snapName, err := snapshots.Create(s0.Name)
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error creating snapshot '%+v', for volume '%+v'", s0.Name, volName))
+		w.WriteHeader(http.StatusBadGateway)
+		return
+	}
+	snap, err := snapshots.Get(snapName)
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error getting snapshot '%+v', for volume '%+v'", snapName, volName))
+		w.WriteHeader(http.StatusBadGateway)
+		return
+	}
+	if snap == nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "not found just created snapshot '%+v', for volume '%+v'", snapName, volName))
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	logrus.Debugf("success: created snapshot '%s' for volume '%s'", snapName, volName)
+	api.GetApiContext(req).Write(toSnapshotResource(snap))
+}
+
+func (sh *SnapshotHandlers) List(w http.ResponseWriter, req *http.Request) {
+	volName := mux.Vars(req)["name"]
+
+	snapshots, err := sh.man.VolumeSnapshots(volName)
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error getting VolumeSnapshots for volume '%s'", volName))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	snapList, err := snapshots.List()
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error listing snapshots, for volume '%+v'", volName))
+		w.WriteHeader(http.StatusBadGateway)
+		return
+	}
+	logrus.Debugf("success: listed snapshots for volume '%s'", volName)
+	api.GetApiContext(req).Write(toSnapshotCollection(snapList))
+}
+
+func (sh *SnapshotHandlers) Get(w http.ResponseWriter, req *http.Request) {
+	volName := mux.Vars(req)["name"]
+	snapName := mux.Vars(req)["snapName"]
+
+	snapshots, err := sh.man.VolumeSnapshots(volName)
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error getting VolumeSnapshots for volume '%s'", volName))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	snap, err := snapshots.Get(snapName)
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error getting snapshot '%+v', for volume '%+v'", snapName, volName))
+		w.WriteHeader(http.StatusBadGateway)
+		return
+	}
+	if snap == nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "not found snapshot '%+v', for volume '%+v'", snapName, volName))
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	logrus.Debugf("success: got snapshot '%s' for volume '%s'", snap.Name, volName)
+	api.GetApiContext(req).Write(toSnapshotResource(snap))
+}
+
+func (sh *SnapshotHandlers) Delete(w http.ResponseWriter, req *http.Request) {
+	volName := mux.Vars(req)["name"]
+	snapName := mux.Vars(req)["snapName"]
+
+	snapshots, err := sh.man.VolumeSnapshots(volName)
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error getting VolumeSnapshots for volume '%s'", volName))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if err := snapshots.Delete(snapName); err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error deleting snapshot '%+v', for volume '%+v'", snapName, volName))
+		w.WriteHeader(http.StatusBadGateway)
+		return
+	}
+	logrus.Debugf("success: deleted snapshot '%s' for volume '%s'", snapName, volName)
+	api.GetApiContext(req).Write(&Empty{})
+}
+
+func (sh *SnapshotHandlers) Revert(w http.ResponseWriter, req *http.Request) {
+	volName := mux.Vars(req)["name"]
+	snapName := mux.Vars(req)["snapName"]
+
+	snapshots, err := sh.man.VolumeSnapshots(volName)
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error getting VolumeSnapshots for volume '%s'", volName))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if err := snapshots.Revert(snapName); err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error reverting to snapshot '%+v', for volume '%+v'", snapName, volName))
+		w.WriteHeader(http.StatusBadGateway)
+		return
+	}
+	logrus.Debugf("success: reverted to snapshot '%s' for volume '%s'", snapName, volName)
+	api.GetApiContext(req).Write(&Empty{})
 }

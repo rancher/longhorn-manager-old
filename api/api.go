@@ -14,6 +14,7 @@ func Handler(man types.VolumeManager, sl types.ServiceLocator, proxy http.Handle
 	schemas := NewSchema()
 	f := api.ApiHandler
 	fwd := &Fwd{sl, proxy}
+	snapshots := SnapshotHandlers{man}
 
 	versionsHandler := api.VersionsHandler(schemas, "v1")
 	versionHandler := api.VersionHandler(schemas, "v1")
@@ -32,7 +33,18 @@ func Handler(man types.VolumeManager, sl types.ServiceLocator, proxy http.Handle
 	r.Methods("POST").Path("/v1/volumes/{name}/attach").
 		Handler(f(schemas, fwd.Handler(HostIDFromAttachReq, NameFunc(man.Attach))))
 	r.Methods("POST").Path("/v1/volumes/{name}/detach").
-		Handler(f(schemas, NameFunc(man.Detach)))
+		Handler(f(schemas, fwd.Handler(HostIDFromVolume(man), NameFunc(man.Detach))))
+
+	r.Methods("POST").Path("/v1/volumes/{name}/snapshots/").
+		Handler(f(schemas, fwd.Handler(HostIDFromVolume(man), snapshots.Create)))
+	r.Methods("GET").Path("/v1/volumes/{name}/snapshots/").
+		Handler(f(schemas, fwd.Handler(HostIDFromVolume(man), snapshots.List)))
+	r.Methods("GET").Path("/v1/volumes/{name}/snapshots/{snapName}").
+		Handler(f(schemas, fwd.Handler(HostIDFromVolume(man), snapshots.Get)))
+	r.Methods("DELETE").Path("/v1/volumes/{name}/snapshots/{snapName}").
+		Handler(f(schemas, fwd.Handler(HostIDFromVolume(man), snapshots.Delete)))
+	r.Methods("POST").Path("/v1/volumes/{name}/snapshots/{snapName}/revert").
+		Handler(f(schemas, fwd.Handler(HostIDFromVolume(man), snapshots.Revert)))
 
 	return r
 }

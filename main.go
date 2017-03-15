@@ -81,7 +81,7 @@ func RunManager(c *cli.Context) error {
 	}
 
 	orc := cattle.New(c)
-	man := manager.New(orc, manager.Monitor(controller.New))
+	man := manager.New(orc, manager.Monitor(controller.New), controller.New)
 
 	go server.NewUnixServer(sockFile).Serve(api.HandlerLocal(man))
 

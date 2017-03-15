@@ -37,6 +37,16 @@ type VolumeManager interface {
 
 	CheckController(ctrl Controller, volume *VolumeInfo) error
 	Cleanup(volume *VolumeInfo) error
+
+	VolumeSnapshots(name string) (VolumeSnapshots, error)
+}
+
+type VolumeSnapshots interface {
+	Create(name string) (string, error)
+	List() ([]*SnapshotInfo, error)
+	Get(name string) (*SnapshotInfo, error)
+	Delete(name string) error
+	Revert(name string) error
 }
 
 type Monitor func(volume *VolumeInfo, man VolumeManager) io.Closer
@@ -48,6 +58,8 @@ type Controller interface {
 	GetReplicaStates() ([]*ReplicaInfo, error)
 	AddReplica(replica *ReplicaInfo) error
 	RemoveReplica(replica *ReplicaInfo) error
+
+	Snapshots() VolumeSnapshots
 }
 
 type Orchestrator interface {
@@ -99,4 +111,14 @@ type ReplicaInfo struct {
 	Name         string
 	Mode         ReplicaMode
 	BadTimestamp *time.Time
+}
+
+type SnapshotInfo struct {
+	Name        string   `json:"name,omitempty"`
+	Parent      string   `json:"parent,omitempty"`
+	Children    []string `json:"children,omitempty"`
+	Removed     bool     `json:"removed,omitempty"`
+	UserCreated bool     `json:"usercreated,omitempty"`
+	Created     string   `json:"created,omitempty"`
+	Size        string   `json:"size,omitempty"`
 }
