@@ -18,7 +18,12 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("schema", client.Schema{})
 	schemas.AddType("attachInput", AttachInput{})
 
-	volume := schemas.AddType("volume", Volume{})
+	volumeSchema(schemas.AddType("volume", Volume{}))
+
+	return schemas
+}
+
+func volumeSchema(volume *client.Schema) {
 	volume.CollectionMethods = []string{"GET", "POST"}
 	volume.ResourceMethods = []string{"GET", "DELETE"}
 	volume.ResourceActions = map[string]client.Action{
@@ -53,8 +58,6 @@ func NewSchema() *client.Schemas {
 	volumeStaleReplicaTimeout.Create = true
 	volumeStaleReplicaTimeout.Default = 20
 	volume.ResourceFields["staleReplicaTimeout"] = volumeStaleReplicaTimeout
-
-	return schemas
 }
 
 type Volume struct {
