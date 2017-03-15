@@ -29,8 +29,10 @@ func Handler(man types.VolumeManager, sl types.ServiceLocator, proxy http.Handle
 	r.Methods("DELETE").Path("/v1/volumes/{name}").Handler(f(schemas, NameFunc(man.Delete)))
 	r.Methods("POST").Path("/v1/volumes/").Handler(f(schemas, Volume2VolumeFunc(man.Create)))
 
-	r.Methods("POST").Path("/v1/volumes/{name}/attach").Handler(f(schemas, fwd.Handler(HostIDFromAttachReq, NameFunc(man.Attach))))
-	r.Methods("POST").Path("/v1/volumes/{name}/detach").Handler(f(schemas, NameFunc(man.Detach)))
+	r.Methods("POST").Path("/v1/volumes/{name}/attach").
+		Handler(f(schemas, fwd.Handler(HostIDFromAttachReq, NameFunc(man.Attach))))
+	r.Methods("POST").Path("/v1/volumes/{name}/detach").
+		Handler(f(schemas, NameFunc(man.Detach)))
 
 	return r
 }

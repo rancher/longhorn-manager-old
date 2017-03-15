@@ -158,6 +158,9 @@ func toVolumeResource(v *types.VolumeInfo) *Volume {
 				"attach": v.Name + "/attach",
 				"detach": v.Name + "/detach",
 			},
+			Links: map[string]string{
+				"self": v.Name,
+			},
 		},
 		Name:                v.Name,
 		Size:                strconv.FormatInt(v.Size, 10),
