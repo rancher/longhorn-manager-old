@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rancher/longhorn-orc/types"
 	"os/exec"
+	"strings"
 )
 
 const VolumeHeadName = "volume-head"
@@ -20,7 +21,7 @@ func (c *controller) Create(name string) (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "error creating snapshot '%s'", name)
 	}
-	return string(bytes), nil
+	return strings.TrimSpace(string(bytes)), nil
 }
 
 func (c *controller) list() (map[string]*types.SnapshotInfo, error) {

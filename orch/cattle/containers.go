@@ -24,7 +24,7 @@ func (orc *cattleOrc) replicaContainer(volume *types.VolumeInfo, replica *types.
 		},
 		DataVolumes: []string{
 			dataDir(volume),
-			"/var/lib/rancher/longhorn/backups:/var/lib/rancher/longhorn/backups",
+			"/var/lib/longhorn/backups:/var/lib/longhorn/backups:shared",
 		},
 		Labels: map[string]interface{}{
 			"io.rancher.scheduler.affinity:container_label_soft_ne": "io.rancher.longhorn.replica.volume=" + volume.Name,
@@ -43,7 +43,7 @@ func (orc *cattleOrc) controllerContainer(volume *types.VolumeInfo) *client.Cont
 	}
 	command = append(command, volume.Name)
 	return &client.Container{
-		Name:       "controller",
+		Name:       "controller-" + randStr(),
 		ImageUuid:  fmt.Sprintf("docker:%s", orc.LonghornImage),
 		Command:    command,
 		Privileged: true,

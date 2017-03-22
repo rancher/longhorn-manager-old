@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rancher/longhorn-orc/types"
 	"io"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -23,9 +24,12 @@ type volumeManager struct {
 	monitor types.Monitor
 
 	getController types.GetController
+	getBackups    types.GetBackups
+
+	settings types.Settings
 }
 
-func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetController) types.VolumeManager {
+func New(settings types.Settings, orc types.Orchestrator, monitor types.Monitor, getController types.GetController, getBackups types.GetBackups) types.VolumeManager {
 	return &volumeManager{
 		monitors:       map[string]io.Closer{},
 		addingReplicas: map[string]int{},
@@ -34,15 +38,62 @@ func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetC
 		monitor: monitor,
 
 		getController: getController,
+		getBackups:    getBackups,
+
+		settings: settings,
 	}
 }
 
-func (man *volumeManager) Create(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
+func (man *volumeManager) doCreate(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
 	vol, err := man.orc.CreateVolume(volume)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create volume '%s'", volume.Name)
 	}
 	return vol, nil
+}
+
+func (man *volumeManager) cleanupFailedCreate(vol *types.VolumeInfo) {
+	if err := man.Delete(vol.Name); err != nil {
+		logrus.Warnf("%+v", errors.Wrapf(err, "error deleting volume (failed create) '%s'", vol.Name))
+	} else {
+		logrus.Debugf("cleaned up after failing to create volume '%s'", vol.Name)
+	}
+}
+
+func (man *volumeManager) createFromBackup(volume *types.VolumeInfo, backup *types.BackupInfo) (*types.VolumeInfo, error) {
+	size, err := strconv.ParseInt(backup.VolumeSize, 10, 64)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error parsing backup.VolumeSize, backup: %+v", backup)
+	}
+	volume.Size = size
+	vol, err := man.doCreate(volume)
+	if err != nil {
+		return nil, err
+	}
+	if err := man.doAttach(vol); err != nil {
+		defer man.cleanupFailedCreate(vol)
+		return nil, errors.Wrapf(err, "failed to attach to restore the backup, volume '%s', backup '%+v'", vol.Name, backup)
+	}
+	if err := man.getController(vol).Backups().Restore(backup.URL); err != nil {
+		defer man.cleanupFailedCreate(vol)
+		return nil, errors.Wrapf(err, "failed to restore the backup, volume '%s', backup '%+v'", vol.Name, backup)
+	}
+	if err := man.doDetach(vol); err != nil {
+		defer man.cleanupFailedCreate(vol)
+		return nil, errors.Wrapf(err, "failed to detach after restoring the backup, volume '%s', backup '%+v'", vol.Name, backup)
+	}
+	return vol, nil
+}
+
+func (man *volumeManager) Create(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
+	if volume.FromBackup != "" {
+		backup, err := man.getBackups(man.settings.Get().BackupTarget).Get(volume.FromBackup)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error getting backup (to create volume) '%s'", volume.FromBackup)
+		}
+		return man.createFromBackup(volume, backup)
+	}
+	return man.doCreate(volume)
 }
 
 func (man *volumeManager) Delete(name string) error {
@@ -109,13 +160,17 @@ func (man *volumeManager) Attach(name string) error {
 	if err != nil {
 		return err
 	}
+	return man.doAttach(volume)
+}
+
+func (man *volumeManager) doAttach(volume *types.VolumeInfo) error {
 	if volume.Controller != nil {
 		if volume.Controller.Running && volume.Controller.HostID == man.orc.GetThisHostID() {
 			man.startMonitoring(volume)
 			return nil
 		}
-		if err := man.Detach(name); err != nil {
-			return errors.Wrapf(err, "failed to detach before reattaching volume '%s'", name)
+		if err := man.Detach(volume.Name); err != nil {
+			return errors.Wrapf(err, "failed to detach before reattaching volume '%s'", volume.Name)
 		}
 	}
 	replicas := map[string]*types.ReplicaInfo{}
@@ -197,6 +252,10 @@ func (man *volumeManager) Detach(name string) error {
 	if err != nil {
 		return err
 	}
+	return man.doDetach(volume)
+}
+
+func (man *volumeManager) doDetach(volume *types.VolumeInfo) error {
 	man.stopMonitoring(volume)
 	errCh := make(chan error)
 	wg := &sync.WaitGroup{}
@@ -381,14 +440,34 @@ func (man *volumeManager) Cleanup(v *types.VolumeInfo) error {
 	return nil
 }
 
-func (man *volumeManager) VolumeSnapshots(name string) (types.VolumeSnapshots, error) {
+func (man *volumeManager) Controller(name string) (types.Controller, error) {
 	volume, err := man.Get(name)
 	if err != nil {
 		return nil, err
 	}
-	controller := man.getController(volume)
-	if controller == nil {
-		return nil, nil
+	return man.getController(volume), nil
+}
+
+func (man *volumeManager) VolumeSnapshots(name string) (types.VolumeSnapshots, error) {
+	controller, err := man.Controller(name)
+	if err != nil {
+		return nil, err
 	}
 	return controller.Snapshots(), nil
+}
+
+func (man *volumeManager) VolumeBackups(name string) (types.VolumeBackups, error) {
+	controller, err := man.Controller(name)
+	if err != nil {
+		return nil, err
+	}
+	return controller.Backups(), nil
+}
+
+func (man *volumeManager) Settings() types.Settings {
+	return man.settings
+}
+
+func (man *volumeManager) Backups(backupTarget string) types.Backups {
+	return man.getBackups(backupTarget)
 }

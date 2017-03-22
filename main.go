@@ -1,13 +1,10 @@
 package main
 
 import (
-	"os"
-
-	"github.com/Sirupsen/logrus"
-	"github.com/urfave/cli"
-
 	"fmt"
+	"github.com/Sirupsen/logrus"
 	"github.com/rancher/longhorn-orc/api"
+	"github.com/rancher/longhorn-orc/backups"
 	"github.com/rancher/longhorn-orc/controller"
 	"github.com/rancher/longhorn-orc/manager"
 	"github.com/rancher/longhorn-orc/orch"
@@ -15,6 +12,8 @@ import (
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util/daemon"
 	"github.com/rancher/longhorn-orc/util/server"
+	"github.com/urfave/cli"
+	"os"
 )
 
 const (
@@ -81,7 +80,7 @@ func RunManager(c *cli.Context) error {
 	}
 
 	orc := cattle.New(c)
-	man := manager.New(orc, manager.Monitor(controller.New), controller.New)
+	man := manager.New(orc.(types.Settings), orc, manager.Monitor(controller.New), controller.New, backups.New)
 
 	go server.NewUnixServer(sockFile).Serve(api.HandlerLocal(man))
 
