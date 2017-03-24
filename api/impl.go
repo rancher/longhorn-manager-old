@@ -111,15 +111,6 @@ func NameFunc(f func(name string) error) http.HandlerFunc {
 	}
 }
 
-func DoThenGetVol(f func(name string) error, getVolume func(name string) (*types.VolumeInfo, error)) func(name string) (*types.VolumeInfo, error) {
-	return func(name string) (*types.VolumeInfo, error) {
-		if err := f(name); err != nil {
-			return nil, err
-		}
-		return getVolume(name)
-	}
-}
-
 func HostIDFromAttachReq(req *http.Request) (string, error) {
 	attachInput := AttachInput{}
 	if err := json.NewDecoder(req.Body).Decode(&attachInput); err != nil {
