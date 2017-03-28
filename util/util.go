@@ -3,10 +3,12 @@ package util
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/docker/go-units"
-	"github.com/pkg/errors"
 	"strings"
 	"time"
+
+	"github.com/docker/go-units"
+	"github.com/pkg/errors"
+	"github.com/satori/go.uuid"
 )
 
 const (
@@ -100,4 +102,8 @@ func Backoff(maxDuration time.Duration, timeoutMessage string, f func() (bool, e
 			waitTime = maxWaitTime
 		}
 	}
+}
+
+func UUID() string {
+	return uuid.NewV4().String()
 }
