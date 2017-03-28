@@ -39,6 +39,9 @@ type VolumeManager interface {
 	Cleanup(volume *VolumeInfo) error
 
 	VolumeSnapshots(name string) (VolumeSnapshots, error)
+
+	ListHosts() (map[string]*HostInfo, error)
+	GetHost(id string) (*HostInfo, error)
 }
 
 type VolumeSnapshots interface {
@@ -77,6 +80,9 @@ type Orchestrator interface {
 	RemoveInstance(instanceID string) error
 
 	GetThisHostID() string
+
+	ListHosts() (map[string]*HostInfo, error)
+	GetHost(id string) (*HostInfo, error)
 
 	ServiceLocator
 }
@@ -123,4 +129,10 @@ type SnapshotInfo struct {
 	UserCreated bool     `json:"usercreated,omitempty"`
 	Created     string   `json:"created,omitempty"`
 	Size        string   `json:"size,omitempty"`
+}
+
+type HostInfo struct {
+	UUID    string `json:"uuid"`
+	Name    string `json:"name"`
+	Address string `json:"address"`
 }

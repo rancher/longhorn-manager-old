@@ -392,3 +392,11 @@ func (man *volumeManager) VolumeSnapshots(name string) (types.VolumeSnapshots, e
 	}
 	return controller.Snapshots(), nil
 }
+
+func (man *volumeManager) ListHosts() (map[string]*types.HostInfo, error) {
+	return man.orc.ListHosts()
+}
+
+func (man *volumeManager) GetHost(id string) (*types.HostInfo, error) {
+	return man.orc.GetHost(id)
+}
