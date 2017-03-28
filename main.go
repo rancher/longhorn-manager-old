@@ -56,11 +56,6 @@ func main() {
 			Name:   orch.LonghornImageParam,
 			EnvVar: "LONGHORN_IMAGE",
 		},
-		cli.IntFlag{
-			Name:  "healthcheck-interval",
-			Value: 5000,
-			Usage: "set the frequency of performing healthchecks",
-		},
 		cli.StringFlag{
 			Name:  "metadata-url",
 			Usage: "set the metadata url",
@@ -79,7 +74,11 @@ func RunManager(c *cli.Context) error {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	orc := cattle.New(c)
+	orc, err := cattle.New(c)
+	if err != nil {
+		return err
+	}
+
 	man := manager.New(orc, manager.Monitor(controller.New), controller.New)
 
 	go server.NewUnixServer(sockFile).Serve(api.HandlerLocal(man))
