@@ -12,7 +12,6 @@ import (
 	"github.com/rancher/longhorn-orc/manager"
 	"github.com/rancher/longhorn-orc/orch"
 	"github.com/rancher/longhorn-orc/orch/cattle"
-	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util/daemon"
 	"github.com/rancher/longhorn-orc/util/server"
 )
@@ -87,10 +86,9 @@ func RunManager(c *cli.Context) error {
 
 	//man := api.DummyVolumeManager()
 	//sl := api.DummyServiceLocator("localhost-ID")
-	sl := orc.(types.ServiceLocator)
 	proxy := api.Proxy()
 
-	go server.NewTCPServer(fmt.Sprintf(":%v", api.Port)).Serve(api.Handler(man, sl, proxy))
+	go server.NewTCPServer(fmt.Sprintf(":%v", api.Port)).Serve(api.Handler(man, orc, proxy))
 
 	return daemon.WaitForExit()
 }
