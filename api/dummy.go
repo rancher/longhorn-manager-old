@@ -101,9 +101,9 @@ func (l *dummyLocator) GetAddress(q string) (string, error) {
 	return "localhost", nil
 }
 
-func (l *dummyLocator) IsLocal(q string) bool {
-	logrus.Infof("Dummy SL: hostID='%s' is local?: %v", q, q == l.thisHostID)
-	return q == l.thisHostID
+func (l *dummyLocator) GetCurrentHostID() string {
+	logrus.Infof("Dummy SL: get current hostID: '%s' : %v", l.thisHostID)
+	return l.thisHostID
 }
 
 type dummySnapshots struct{}

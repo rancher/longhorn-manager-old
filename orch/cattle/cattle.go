@@ -595,7 +595,7 @@ func (orc *cattleOrc) RemoveInstance(instanceID string) error {
 	return errors.Wrapf(err, "error deleting service '%s'", cnt.Name)
 }
 
-func (orc *cattleOrc) GetThisHostID() string {
+func (orc *cattleOrc) GetCurrentHostID() string {
 	return orc.hostUUID
 }
 

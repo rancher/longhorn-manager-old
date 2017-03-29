@@ -159,7 +159,7 @@ func (f *Fwd) Handler(getHostID HostIDFunc, h http.HandlerFunc) http.HandlerFunc
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		if !f.sl.IsLocal(hostID) {
+		if hostID != f.sl.GetCurrentHostID() {
 			targetHost, err := f.sl.GetAddress(hostID)
 			targetHost = targetHost + fmt.Sprintf(":%v", Port)
 			if targetHost != req.Host {

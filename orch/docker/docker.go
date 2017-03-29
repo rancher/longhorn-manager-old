@@ -200,14 +200,10 @@ func (d *dockerOrc) RemoveInstance(instanceID string) error {
 	return nil
 }
 
-func (d *dockerOrc) GetThisHostID() string {
+func (d *dockerOrc) GetCurrentHostID() string {
 	return ""
 }
 
-func (d *dockerOrc) GetAddress(q string) (string, error) {
+func (d *dockerOrc) GetAddress(hostID string) (string, error) {
 	return "", nil
-}
-
-func (d *dockerOrc) IsLocal(q string) bool {
-	return true
 }
