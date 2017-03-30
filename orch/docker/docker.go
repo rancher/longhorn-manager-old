@@ -14,6 +14,8 @@ import (
 	"golang.org/x/net/context"
 
 	eCli "github.com/coreos/etcd/client"
+	dTypes "github.com/docker/docker/api/types"
+	dCli "github.com/docker/docker/client"
 
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
@@ -34,6 +36,7 @@ type dockerOrc struct {
 	currentHost *types.HostInfo
 
 	kapi eCli.KeysAPI
+	cli  *dCli.Client
 }
 
 func New(c *cli.Context) (types.Orchestrator, error) {
@@ -60,9 +63,21 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 		kapi:    eCli.NewKeysAPI(etcdc),
 	}
 
+	//Set Docker API to compatible with 1.12
+	os.Setenv("DOCKER_API_VERSION", "1.24")
+	docker.cli, err = dCli.NewEnvClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot connect to docker")
+	}
+
+	if _, err := docker.cli.ContainerList(context.Background(), dTypes.ContainerListOptions{}); err != nil {
+		return nil, errors.Wrap(err, "cannot pass test to get container list")
+	}
+
 	if err := docker.Register(address); err != nil {
 		return nil, err
 	}
+	logrus.Info("Docker orchestrator is ready")
 	return docker, nil
 }
 
