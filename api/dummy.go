@@ -106,11 +106,11 @@ func (d *dummyVolumeManager) Backups(backupTarget string) types.Backups {
 type dummySettings struct {
 }
 
-func (d *dummySettings) Get() *types.SettingsInfo {
+func (d *dummySettings) GetSettings() *types.SettingsInfo {
 	return &types.SettingsInfo{}
 }
 
-func (d *dummySettings) Set(s *types.SettingsInfo) {
+func (d *dummySettings) SetSettings(s *types.SettingsInfo) {
 }
 
 type dummyLocator struct {

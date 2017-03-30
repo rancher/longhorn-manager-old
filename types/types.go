@@ -50,8 +50,8 @@ type VolumeManager interface {
 }
 
 type Settings interface {
-	Get() *SettingsInfo
-	Set(*SettingsInfo)
+	GetSettings() *SettingsInfo
+	SetSettings(*SettingsInfo)
 }
 
 type VolumeSnapshots interface {
@@ -106,6 +106,7 @@ type Orchestrator interface {
 	GetHost(id string) (*HostInfo, error)
 
 	ServiceLocator
+	Settings
 }
 
 type ServiceLocator interface {

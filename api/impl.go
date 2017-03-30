@@ -117,7 +117,7 @@ type SettingsHandlers struct {
 
 func (s *SettingsHandlers) Get(w http.ResponseWriter, req *http.Request) {
 	context := api.GetApiContext(req)
-	si := s.settings.Get()
+	si := s.settings.GetSettings()
 	if si == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -139,7 +139,7 @@ func (s *SettingsHandlers) Set(w http.ResponseWriter, req *http.Request) {
 		r.JSON(w, http.StatusBadRequest, err)
 		return
 	}
-	s.settings.Set(s0)
+	s.settings.SetSettings(s0)
 	logrus.Debug("success: updated settings")
 	api.GetApiContext(req).Write(&Empty{})
 }
@@ -378,7 +378,7 @@ func (sh *SnapshotHandlers) Backup(w http.ResponseWriter, req *http.Request) {
 	volName := mux.Vars(req)["name"]
 	snapName := mux.Vars(req)["snapName"]
 
-	backupTarget := sh.man.Settings().Get().BackupTarget
+	backupTarget := sh.man.Settings().GetSettings().BackupTarget
 	if backupTarget == "" {
 		logrus.Errorf("%+v", errors.New("cannot backup: backupTarget not set"))
 		w.WriteHeader(http.StatusBadRequest)
@@ -408,7 +408,7 @@ type BackupsHandlers struct {
 func (bh *BackupsHandlers) List(w http.ResponseWriter, req *http.Request) {
 	volName := mux.Vars(req)["volName"]
 
-	backupTarget := bh.man.Settings().Get().BackupTarget
+	backupTarget := bh.man.Settings().GetSettings().BackupTarget
 	backups := bh.man.Backups(backupTarget)
 
 	bs, err := backups.List(volName)
@@ -429,7 +429,7 @@ func (bh *BackupsHandlers) Get(w http.ResponseWriter, req *http.Request) {
 	volName := mux.Vars(req)["volName"]
 	backupName := mux.Vars(req)["backupName"]
 
-	backupTarget := bh.man.Settings().Get().BackupTarget
+	backupTarget := bh.man.Settings().GetSettings().BackupTarget
 	backups := bh.man.Backups(backupTarget)
 
 	url := backupURL(backupTarget, backupName, volName)
@@ -452,7 +452,7 @@ func (bh *BackupsHandlers) Delete(w http.ResponseWriter, req *http.Request) {
 	volName := mux.Vars(req)["volName"]
 	backupName := mux.Vars(req)["backupName"]
 
-	backupTarget := bh.man.Settings().Get().BackupTarget
+	backupTarget := bh.man.Settings().GetSettings().BackupTarget
 	backups := bh.man.Backups(backupTarget)
 
 	url := backupURL(backupTarget, backupName, volName)

@@ -8,7 +8,7 @@ import (
 	"github.com/rancher/longhorn-orc/types"
 )
 
-func (orc *cattleOrc) Get() *types.SettingsInfo {
+func (orc *cattleOrc) GetSettings() *types.SettingsInfo {
 	svc, err := orc.metadata.GetSelfService()
 	if err != nil {
 		logrus.Fatalf("%+v", errors.Wrap(err, "error getting settings"))
@@ -26,7 +26,7 @@ func (orc *cattleOrc) Get() *types.SettingsInfo {
 	return settings
 }
 
-func (orc *cattleOrc) Set(s *types.SettingsInfo) {
+func (orc *cattleOrc) SetSettings(s *types.SettingsInfo) {
 	svcMd, err := orc.metadata.GetSelfService()
 	if err != nil {
 		logrus.Fatalf("%+v", errors.Wrap(err, "error getting settings"))

@@ -29,7 +29,7 @@ type volumeManager struct {
 	settings types.Settings
 }
 
-func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetController, settings types.Settings, getBackups types.GetBackups) types.VolumeManager {
+func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetController, getBackups types.GetBackups) types.VolumeManager {
 	return &volumeManager{
 		monitors:       map[string]io.Closer{},
 		addingReplicas: map[string]int{},
@@ -40,7 +40,7 @@ func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetC
 		getController: getController,
 		getBackups:    getBackups,
 
-		settings: settings,
+		settings: orc,
 	}
 }
 
@@ -87,7 +87,7 @@ func (man *volumeManager) createFromBackup(volume *types.VolumeInfo, backup *typ
 
 func (man *volumeManager) Create(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
 	if volume.FromBackup != "" {
-		backup, err := man.getBackups(man.settings.Get().BackupTarget).Get(volume.FromBackup)
+		backup, err := man.getBackups(man.settings.GetSettings().BackupTarget).Get(volume.FromBackup)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error getting backup (to create volume) '%s'", volume.FromBackup)
 		}

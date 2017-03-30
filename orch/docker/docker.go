@@ -258,3 +258,10 @@ func (d *dockerOrc) StopInstance(instanceID string) error {
 func (d *dockerOrc) RemoveInstance(instanceID string) error {
 	return d.cli.ContainerRemove(context.Background(), instanceID, dTypes.ContainerRemoveOptions{RemoveVolumes: true})
 }
+
+func (d *dockerOrc) GetSettings() *types.SettingsInfo {
+	return nil
+}
+
+func (d *dockerOrc) SetSettings(*types.SettingsInfo) {
+}

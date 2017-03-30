@@ -119,7 +119,7 @@ func RunManager(c *cli.Context) error {
 		return err
 	}
 
-	man := manager.New(orc, manager.Monitor(controller.New), controller.New, orc.(types.Settings), backups.New)
+	man := manager.New(orc, manager.Monitor(controller.New), controller.New, backups.New)
 
 	go server.NewUnixServer(sockFile).Serve(api.HandlerLocal(man))
 
