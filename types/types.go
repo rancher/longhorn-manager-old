@@ -13,7 +13,8 @@ const (
 type VolumeState int
 
 const (
-	Detached VolumeState = iota
+	Created VolumeState = iota
+	Detached
 	Faulted
 	Healthy
 	Degraded
@@ -91,7 +92,7 @@ type VolumeInfo struct {
 	StaleReplicaTimeout time.Duration
 	Controller          *ControllerInfo
 	Replicas            map[string]*ReplicaInfo
-	State               *VolumeState
+	State               VolumeState
 }
 
 type InstanceInfo struct {

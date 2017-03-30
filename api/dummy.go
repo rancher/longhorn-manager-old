@@ -46,7 +46,7 @@ func (d *dummyVolumeManager) Get(name string) (*types.VolumeInfo, error) {
 		Size:             107374182400,
 		NumberOfReplicas: numberOfReplicas,
 		Replicas:         replicas,
-		State:            &state,
+		State:            state,
 		Controller: &types.ControllerInfo{
 			InstanceInfo: types.InstanceInfo{
 				ID:      "instidctrl",

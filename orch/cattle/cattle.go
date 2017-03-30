@@ -120,7 +120,7 @@ func copyVolumeProperties(volume0 *types.VolumeInfo) *types.VolumeInfo {
 	*volume = *volume0
 	volume.Controller = nil
 	volume.Replicas = nil
-	volume.State = nil
+	volume.State = 0
 	return volume
 }
 

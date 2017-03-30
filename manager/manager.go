@@ -77,7 +77,7 @@ func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
 	}
 
 	state := volumeState(vol)
-	vol.State = &state
+	vol.State = state
 
 	return vol, nil
 }
