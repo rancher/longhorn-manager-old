@@ -86,6 +86,9 @@ func (man *volumeManager) createFromBackup(volume *types.VolumeInfo, backup *typ
 }
 
 func (man *volumeManager) Create(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
+	if volume.LonghornImage == "" {
+		volume.LonghornImage = man.settings.GetSettings().LonghornImage
+	}
 	if volume.FromBackup != "" {
 		backup, err := man.getBackups(man.settings.GetSettings().BackupTarget).Get(volume.FromBackup)
 		if err != nil {

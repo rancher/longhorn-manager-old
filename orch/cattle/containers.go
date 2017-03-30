@@ -14,7 +14,7 @@ func dataDir(volume *types.VolumeInfo) string {
 func (orc *cattleOrc) replicaContainer(volume *types.VolumeInfo, replica *types.ReplicaInfo) *client.Container {
 	return &client.Container{
 		Name:       replica.Name,
-		ImageUuid:  fmt.Sprintf("docker:%s", orc.LonghornImage),
+		ImageUuid:  fmt.Sprintf("docker:%s", volume.LonghornImage),
 		EntryPoint: []string{"longhorn"},
 		Command: []string{
 			"replica",
@@ -44,7 +44,7 @@ func (orc *cattleOrc) controllerContainer(volume *types.VolumeInfo) *client.Cont
 	command = append(command, volume.Name)
 	return &client.Container{
 		Name:       "controller-" + randStr(),
-		ImageUuid:  fmt.Sprintf("docker:%s", orc.LonghornImage),
+		ImageUuid:  fmt.Sprintf("docker:%s", volume.LonghornImage),
 		Command:    command,
 		Privileged: true,
 		DataVolumes: []string{

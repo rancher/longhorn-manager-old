@@ -25,5 +25,6 @@ services:
         size: {{$.Size}}
         numberOfReplicas: {{$.NumberOfReplicas}}
         staleReplicaTimeout: {{$.StaleReplicaTimeout.Hours}}
+        longhornImage: {{$.LonghornImage}}
 `
 )

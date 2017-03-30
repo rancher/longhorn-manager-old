@@ -17,11 +17,15 @@ func (orc *cattleOrc) GetSettings() *types.SettingsInfo {
 	if data == nil {
 		return &types.SettingsInfo{
 			BackupTarget: "vfs:///var/lib/longhorn/backups/default",
+			LonghornImage: orc.LonghornImage,
 		}
 	}
 	settings := new(types.SettingsInfo)
 	if err := mapstructure.Decode(data, settings); err != nil {
 		logrus.Fatalf("%+v", errors.Wrap(err, "error parsing settings"))
+	}
+	if settings.LonghornImage == "" {
+		settings.LonghornImage = orc.LonghornImage
 	}
 	return settings
 }

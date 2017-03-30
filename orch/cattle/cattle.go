@@ -56,7 +56,7 @@ type cattleOrc struct {
 
 	hostUUID, containerUUID string
 
-	LonghornImage string
+	LonghornImage string // TODO should be replaced by volume.LonghornImage
 }
 
 func New(c *cli.Context) (types.Orchestrator, error) {

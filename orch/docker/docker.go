@@ -218,7 +218,7 @@ func (d *dockerOrc) createReplica(replicaName string, volume *types.VolumeInfo) 
 		ExposedPorts: dNat.PortSet{
 			"9502-9504": struct{}{},
 		},
-		Image: d.LonghornImage,
+		Image: volume.LonghornImage,
 		Volumes: map[string]struct{}{
 			"/volume": {},
 		},
@@ -260,7 +260,10 @@ func (d *dockerOrc) RemoveInstance(instanceID string) error {
 }
 
 func (d *dockerOrc) GetSettings() *types.SettingsInfo {
-	return nil
+	return &types.SettingsInfo{
+		BackupTarget: "vfs:///var/lib/longhorn/backups/default",
+		LonghornImage: d.LonghornImage,
+	}
 }
 
 func (d *dockerOrc) SetSettings(*types.SettingsInfo) {

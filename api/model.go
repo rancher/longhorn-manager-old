@@ -21,6 +21,7 @@ type Volume struct {
 	NumberOfReplicas    int    `json:"numberOfReplicas,omitempty"`
 	StaleReplicaTimeout int    `json:"staleReplicaTimeout,omitempty"`
 	State               string `json:"state,omitempty"`
+	LonghornImage       string `json:"longhornImage,omitempty"`
 
 	Replicas   []Replica   `json:"replicas,omitempty"`
 	Controller *Controller `json:"controller,omitempty"`
@@ -108,6 +109,7 @@ func NewSchema() *client.Schemas {
 	volumeSchema(schemas.AddType("volume", Volume{}))
 	snapshotSchema(schemas.AddType("snapshot", Snapshot{}))
 	backupSchema(schemas.AddType("backup", Backup{}))
+	settingsSchema(schemas.AddType("settings", SettingsResource{}))
 
 	return schemas
 }
@@ -120,6 +122,11 @@ func settingsSchema(settings *client.Schema) {
 	backupTarget.Update = true
 	backupTarget.Required = true
 	settings.ResourceFields["backupTarget"] = backupTarget
+
+	longhornImage := settings.ResourceFields["longhornImage"]
+	longhornImage.Update = true
+	longhornImage.Required = true
+	settings.ResourceFields["longhornImage"] = longhornImage
 }
 
 func hostSchema(host *client.Schema) {
@@ -251,6 +258,7 @@ func toVolumeResource(v *types.VolumeInfo) *Volume {
 		FromBackup:          v.FromBackup,
 		NumberOfReplicas:    v.NumberOfReplicas,
 		State:               state,
+		LonghornImage:       v.LonghornImage,
 		StaleReplicaTimeout: int(v.StaleReplicaTimeout / time.Minute),
 		Replicas:            replicas,
 		Controller:          controller,
