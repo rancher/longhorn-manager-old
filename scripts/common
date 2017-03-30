@@ -1,0 +1,59 @@
+#!/bin/bash
+
+ETCD_SERVER=longhorn-orc-etcd-test-server
+ETCD_IMAGE=quay.io/coreos/etcd:v3.1.5
+
+function start_etcd {
+    echo Start etcd server
+    docker run -d --net container:$(hostname) \
+                --name $ETCD_SERVER \
+                --volume /etcd-data \
+                $ETCD_IMAGE \
+                /usr/local/bin/etcd \
+                --name longhorn-test-etcd-1 \
+                --data-dir /etcd-data \
+                --listen-client-urls http://0.0.0.0:2379 \
+                --advertise-client-urls http://0.0.0.0:2379 \
+                --listen-peer-urls http://0.0.0.0:2380 \
+                --initial-advertise-peer-urls http://0.0.0.0:2380 \
+                --initial-cluster longhorn-test-etcd-1=http://0.0.0.0:2380 \
+                --initial-cluster-token my-etcd-token \
+                --initial-cluster-state new \
+                --auto-compaction-retention 1
+    trap cleanup_etcd EXIT
+
+    wait_for http://127.0.0.1:2379/v2/stats/leader
+
+    echo etcd server ready
+}
+
+function cleanup_etcd {
+    echo clean up etcd server
+    docker rm -vf $ETCD_SERVER
+}
+
+function wait_for {
+    url=$1
+
+    ready=false
+
+    set +e
+    for i in `seq 1 5`
+    do
+            sleep 1
+            curl -sL --max-time 1 --fail --output /dev/null --silent $url
+            if [ $? -eq 0 ]
+            then
+                    ready=true
+                    break
+            fi
+    done
+    set -e
+
+    if [ "$ready" != true ]
+    then
+            echo Fail to wait for $url
+            return -1
+    fi
+    return 0
+}
