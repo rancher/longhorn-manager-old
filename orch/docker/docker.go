@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/coreos/etcd/client"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
+
+	eCli "github.com/coreos/etcd/client"
 
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
@@ -32,7 +33,7 @@ type dockerOrc struct {
 
 	currentHost *types.HostInfo
 
-	kapi client.KeysAPI
+	kapi eCli.KeysAPI
 }
 
 func New(c *cli.Context) (types.Orchestrator, error) {
@@ -42,13 +43,13 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 	}
 	address := c.String("host-address")
 
-	cfg := client.Config{
+	cfg := eCli.Config{
 		Endpoints:               servers,
-		Transport:               client.DefaultTransport,
+		Transport:               eCli.DefaultTransport,
 		HeaderTimeoutPerRequest: time.Second,
 	}
 
-	etcdc, err := client.New(cfg)
+	etcdc, err := eCli.New(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 	docker := &dockerOrc{
 		Servers: servers,
 		Prefix:  c.String("etcd-prefix"),
-		kapi:    client.NewKeysAPI(etcdc),
+		kapi:    eCli.NewKeysAPI(etcdc),
 	}
 
 	if err := docker.Register(address); err != nil {
@@ -158,7 +159,7 @@ func (d *dockerOrc) GetHost(id string) (*types.HostInfo, error) {
 	return node2Host(resp.Node)
 }
 
-func node2Host(node *client.Node) (*types.HostInfo, error) {
+func node2Host(node *eCli.Node) (*types.HostInfo, error) {
 	host := &types.HostInfo{}
 	if node.Dir {
 		return nil, errors.Errorf("Invalid node %v is a directory",
