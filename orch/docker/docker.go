@@ -68,8 +68,8 @@ func (d *dockerOrc) key(key string) string {
 	return filepath.Join(d.Prefix, key)
 }
 
-func (d *dockerOrc) hostKey(host *types.HostInfo) string {
-	return filepath.Join(d.key(keyHosts), host.UUID)
+func (d *dockerOrc) hostKey(id string) string {
+	return filepath.Join(d.key(keyHosts), id)
 }
 
 func getCurrentHost(address string) (*types.HostInfo, error) {
@@ -114,7 +114,7 @@ func (d *dockerOrc) setHost(host *types.HostInfo) error {
 	if err != nil {
 		return err
 	}
-	if _, err := d.kapi.Set(context.Background(), d.hostKey(host), string(value), nil); err != nil {
+	if _, err := d.kapi.Set(context.Background(), d.hostKey(host.UUID), string(value), nil); err != nil {
 		return err
 	}
 	logrus.Infof("Add host %v name %v longhorn-orc address %v", host.UUID, host.Name, host.Address)
@@ -145,7 +145,7 @@ func (d *dockerOrc) ListHosts() (map[string]*types.HostInfo, error) {
 }
 
 func (d *dockerOrc) GetHost(id string) (*types.HostInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), keyHosts, nil)
+	resp, err := d.kapi.Get(context.Background(), d.hostKey(id), nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get host")
 	}
