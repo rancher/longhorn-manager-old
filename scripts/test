@@ -3,6 +3,10 @@ set -e
 
 cd $(dirname $0)/..
 
+source ./scripts/common
+
+start_etcd
+
 echo Running tests
 
 PACKAGES="$(find . -name '*.go' | xargs -I{} dirname {} | sort -u | grep -Ev '(.git|.trash-cache|vendor|bin)')"

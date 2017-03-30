@@ -67,8 +67,8 @@ type Controller interface {
 }
 
 type Orchestrator interface {
-	CreateVolume(volume *VolumeInfo) (*VolumeInfo, error) // creates replicas and volume metadata
-	DeleteVolume(volumeName string) error                 // removes all the volume components
+	CreateVolume(volume *VolumeInfo) (*VolumeInfo, error) // creates volume metadata
+	DeleteVolume(volumeName string) error                 // removes volume metadata
 	GetVolume(volumeName string) (*VolumeInfo, error)
 	MarkBadReplica(volumeName string, replica *ReplicaInfo) error // find replica by Address
 
@@ -77,7 +77,6 @@ type Orchestrator interface {
 
 	StartInstance(instanceID string) error
 	StopInstance(instanceID string) error
-
 	RemoveInstance(instanceID string) error
 
 	ListHosts() (map[string]*HostInfo, error)

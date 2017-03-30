@@ -1,11 +1,10 @@
 package docker
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -14,9 +13,13 @@ import (
 	"golang.org/x/net/context"
 
 	eCli "github.com/coreos/etcd/client"
-	dTypes "github.com/docker/docker/api/types"
-	dCli "github.com/docker/docker/client"
 
+	dTypes "github.com/docker/docker/api/types"
+	dContainer "github.com/docker/docker/api/types/container"
+	dCli "github.com/docker/docker/client"
+	dNat "github.com/docker/go-connections/nat"
+
+	"github.com/rancher/longhorn-orc/orch"
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
 )
@@ -29,14 +32,26 @@ const (
 	hostUUIDFile = cfgDirectory + ".physical_host_uuid"
 )
 
+var (
+	ContainerStopTimeout = 1 * time.Minute
+)
+
 type dockerOrc struct {
-	Servers []string //etcd servers
-	Prefix  string   //prefix in k/v store
+	Servers       []string //etcd servers
+	Prefix        string   //prefix in k/v store
+	LonghornImage string
 
 	currentHost *types.HostInfo
 
 	kapi eCli.KeysAPI
 	cli  *dCli.Client
+}
+
+type dockerOrcConfig struct {
+	servers []string
+	address string
+	prefix  string
+	image   string
 }
 
 func New(c *cli.Context) (types.Orchestrator, error) {
@@ -45,22 +60,34 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 		return nil, fmt.Errorf("Unspecified etcd servers")
 	}
 	address := c.String("host-address")
+	prefix := c.String("etcd-prefix")
+	image := c.String(orch.LonghornImageParam)
+	return newDocker(&dockerOrcConfig{
+		servers: servers,
+		address: address,
+		prefix:  prefix,
+		image:   image,
+	})
+}
 
-	cfg := eCli.Config{
-		Endpoints:               servers,
+func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
+	eCfg := eCli.Config{
+		Endpoints:               cfg.servers,
 		Transport:               eCli.DefaultTransport,
 		HeaderTimeoutPerRequest: time.Second,
 	}
 
-	etcdc, err := eCli.New(cfg)
+	etcdc, err := eCli.New(eCfg)
 	if err != nil {
 		return nil, err
 	}
 
 	docker := &dockerOrc{
-		Servers: servers,
-		Prefix:  c.String("etcd-prefix"),
-		kapi:    eCli.NewKeysAPI(etcdc),
+		Servers:       cfg.servers,
+		Prefix:        cfg.prefix,
+		LonghornImage: cfg.image,
+
+		kapi: eCli.NewKeysAPI(etcdc),
 	}
 
 	//Set Docker API to compatible with 1.12
@@ -74,20 +101,11 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 		return nil, errors.Wrap(err, "cannot pass test to get container list")
 	}
 
-	if err := docker.Register(address); err != nil {
+	if err := docker.Register(cfg.address); err != nil {
 		return nil, err
 	}
 	logrus.Info("Docker orchestrator is ready")
 	return docker, nil
-}
-
-func (d *dockerOrc) key(key string) string {
-	// It's not file path, but we use it to deal with '/'
-	return filepath.Join(d.Prefix, key)
-}
-
-func (d *dockerOrc) hostKey(id string) string {
-	return filepath.Join(d.key(keyHosts), id)
 }
 
 func getCurrentHost(address string) (*types.HostInfo, error) {
@@ -131,59 +149,12 @@ func (d *dockerOrc) Register(address string) error {
 	return nil
 }
 
-func (d *dockerOrc) setHost(host *types.HostInfo) error {
-	value, err := json.Marshal(host)
-	if err != nil {
-		return err
-	}
-	if _, err := d.kapi.Set(context.Background(), d.hostKey(host.UUID), string(value), nil); err != nil {
-		return err
-	}
-	logrus.Infof("Add host %v name %v longhorn-orc address %v", host.UUID, host.Name, host.Address)
-	return nil
+func (d *dockerOrc) GetHost(id string) (*types.HostInfo, error) {
+	return d.getHost(id)
 }
 
 func (d *dockerOrc) ListHosts() (map[string]*types.HostInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.key(keyHosts), nil)
-	if err != nil {
-		return nil, err
-	}
-	hosts := make(map[string]*types.HostInfo)
-
-	if !resp.Node.Dir {
-		return nil, errors.Errorf("Invalid node %v is not a directory",
-			resp.Node.Key)
-	}
-
-	for _, node := range resp.Node.Nodes {
-		host, err := node2Host(node)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Invalid node %v:%v, %v",
-				node.Key, node.Value, err)
-		}
-		hosts[host.UUID] = host
-	}
-	return hosts, nil
-}
-
-func (d *dockerOrc) GetHost(id string) (*types.HostInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.hostKey(id), nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get host")
-	}
-	return node2Host(resp.Node)
-}
-
-func node2Host(node *eCli.Node) (*types.HostInfo, error) {
-	host := &types.HostInfo{}
-	if node.Dir {
-		return nil, errors.Errorf("Invalid node %v is a directory",
-			node.Key)
-	}
-	if err := json.Unmarshal([]byte(node.Value), host); err != nil {
-		return nil, errors.Wrap(err, "fail to unmarshall json for host")
-	}
-	return host, nil
+	return d.listHosts()
 }
 
 func (d *dockerOrc) GetCurrentHostID() string {
@@ -202,15 +173,22 @@ func (d *dockerOrc) GetAddress(hostID string) (string, error) {
 }
 
 func (d *dockerOrc) CreateVolume(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
-	return nil, nil
+	_, err := d.getVolume(volume.Name)
+	if err == nil {
+		return nil, errors.Errorf("volume %v already exists", volume.Name)
+	}
+	if err := d.setVolume(volume); err != nil {
+		return nil, errors.Wrap(err, "fail to create new volume metadata")
+	}
+	return volume, nil
 }
 
 func (d *dockerOrc) DeleteVolume(volumeName string) error {
-	return nil
+	return d.rmVolume(volumeName)
 }
 
 func (d *dockerOrc) GetVolume(volumeName string) (*types.VolumeInfo, error) {
-	return nil, nil
+	return d.getVolume(volumeName)
 }
 
 func (d *dockerOrc) MarkBadReplica(volumeName string, replica *types.ReplicaInfo) error {
@@ -222,17 +200,61 @@ func (d *dockerOrc) CreateController(volumeName string, replicas map[string]*typ
 }
 
 func (d *dockerOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, error) {
-	return nil, nil
+	volume, err := d.getVolume(volumeName)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create replica")
+	}
+	return d.createReplica("replica-"+util.UUID()[:8], volume)
+}
+
+func (d *dockerOrc) createReplica(replicaName string, volume *types.VolumeInfo) (*types.ReplicaInfo, error) {
+	cmd := []string{
+		"launch", "replica",
+		"--listen", "0.0.0.0:9502",
+		"--size", strconv.FormatInt(volume.Size, 10),
+		"/volume",
+	}
+	createBody, err := d.cli.ContainerCreate(context.Background(), &dContainer.Config{
+		ExposedPorts: dNat.PortSet{
+			"9502-9504": struct{}{},
+		},
+		Image: d.LonghornImage,
+		Volumes: map[string]struct{}{
+			"/volume": {},
+		},
+		Cmd: cmd,
+	}, nil, nil, replicaName)
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to create replica container")
+	}
+	if err := d.StartInstance(createBody.ID); err != nil {
+		return nil, errors.Wrap(err, "fail to start replica container")
+	}
+	replicaJSON, err := d.cli.ContainerInspect(context.Background(), createBody.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to inspect replica container")
+	}
+	return &types.ReplicaInfo{
+		InstanceInfo: types.InstanceInfo{
+			ID:      replicaJSON.ID,
+			HostID:  d.GetCurrentHostID(),
+			Address: replicaJSON.NetworkSettings.IPAddress,
+			Running: replicaJSON.State.Running,
+		},
+
+		Name: replicaJSON.Name,
+		//TODO: Mode
+	}, nil
 }
 
 func (d *dockerOrc) StartInstance(instanceID string) error {
-	return nil
+	return d.cli.ContainerStart(context.Background(), instanceID, dTypes.ContainerStartOptions{})
 }
 
 func (d *dockerOrc) StopInstance(instanceID string) error {
-	return nil
+	return d.cli.ContainerStop(context.Background(), instanceID, &ContainerStopTimeout)
 }
 
 func (d *dockerOrc) RemoveInstance(instanceID string) error {
-	return nil
+	return d.cli.ContainerRemove(context.Background(), instanceID, dTypes.ContainerRemoveOptions{RemoveVolumes: true})
 }
