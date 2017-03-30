@@ -78,6 +78,8 @@ type Orchestrator interface {
 	RemoveInstance(instanceID string) error
 
 	GetThisHostID() string
+
+	ServiceLocator
 }
 
 type ServiceLocator interface {
