@@ -30,6 +30,8 @@ type dockerOrc struct {
 	Servers []string //etcd servers
 	Prefix  string   //prefix in k/v store
 
+	currentHost *types.HostInfo
+
 	kapi client.KeysAPI
 }
 
@@ -106,7 +108,11 @@ func (d *dockerOrc) Register(address string) error {
 		return err
 	}
 
-	return d.setHost(currentHost)
+	if err := d.setHost(currentHost); err != nil {
+		return err
+	}
+	d.currentHost = currentHost
+	return nil
 }
 
 func (d *dockerOrc) setHost(host *types.HostInfo) error {
@@ -164,6 +170,21 @@ func node2Host(node *client.Node) (*types.HostInfo, error) {
 	return host, nil
 }
 
+func (d *dockerOrc) GetCurrentHostID() string {
+	return d.currentHost.UUID
+}
+
+func (d *dockerOrc) GetAddress(hostID string) (string, error) {
+	if hostID == d.currentHost.UUID {
+		return d.currentHost.Address, nil
+	}
+	host, err := d.GetHost(hostID)
+	if err != nil {
+		return "", err
+	}
+	return host.Address, nil
+}
+
 func (d *dockerOrc) CreateVolume(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
 	return nil, nil
 }
@@ -198,12 +219,4 @@ func (d *dockerOrc) StopInstance(instanceID string) error {
 
 func (d *dockerOrc) RemoveInstance(instanceID string) error {
 	return nil
-}
-
-func (d *dockerOrc) GetCurrentHostID() string {
-	return ""
-}
-
-func (d *dockerOrc) GetAddress(hostID string) (string, error) {
-	return "", nil
 }
