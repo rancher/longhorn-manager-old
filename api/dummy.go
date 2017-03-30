@@ -127,3 +127,11 @@ func (d *dummySnapshots) Delete(name string) error {
 func (d *dummySnapshots) Revert(name string) error {
 	return nil
 }
+
+func (d *dummyVolumeManager) ListHosts() (map[string]*types.HostInfo, error) {
+	return nil, nil
+}
+
+func (d *dummyVolumeManager) GetHost(id string) (*types.HostInfo, error) {
+	return nil, nil
+}

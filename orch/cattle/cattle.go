@@ -598,3 +598,11 @@ func (orc *cattleOrc) RemoveInstance(instanceID string) error {
 func (orc *cattleOrc) GetThisHostID() string {
 	return orc.hostUUID
 }
+
+func (orc *cattleOrc) ListHosts() (map[string]*types.HostInfo, error) {
+	return nil, errors.Errorf("Haven't implemented ListHosts yet")
+}
+
+func (orc *cattleOrc) GetHost(id string) (*types.HostInfo, error) {
+	return nil, errors.Errorf("Haven't implemented GetHost yet")
+}
