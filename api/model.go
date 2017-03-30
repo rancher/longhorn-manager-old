@@ -11,6 +11,81 @@ import (
 	"time"
 )
 
+type Volume struct {
+	client.Resource
+
+	Name                string `json:"name,omitempty"`
+	Size                string `json:"size,omitempty"`
+	BaseImage           string `json:"baseImage,omitempty"`
+	NumberOfReplicas    int    `json:"numberOfReplicas,omitempty"`
+	StaleReplicaTimeout int    `json:"staleReplicaTimeout,omitempty"`
+	State               string `json:"state,omitempty"`
+
+	Replicas   []Replica   `json:"replicas,omitempty"`
+	Controller *Controller `json:"controller,omitempty"`
+}
+
+type Snapshot struct {
+	client.Resource
+
+	Name        string   `json:"name,omitempty"`
+	Parent      string   `json:"parent,omitempty"`
+	Children    []string `json:"children,omitempty"`
+	Removed     bool     `json:"removed,omitempty"`
+	UserCreated bool     `json:"usercreated,omitempty"`
+	Created     string   `json:"created,omitempty"`
+	Size        string   `json:"size,omitempty"`
+}
+
+type Host struct {
+	client.Resource
+
+	UUID    string `json:"uuid,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Address string `json:"address,omitempty"`
+}
+
+type Instance struct {
+	HostID  string `json:"hostId,omitempty"`
+	Address string `json:"address,omitempty"`
+	Running bool   `json:"running,omitempty"`
+}
+
+type Controller struct {
+	Instance
+}
+
+type Replica struct {
+	Instance
+
+	Name         string `json:"name,omitempty"`
+	Mode         string `json:"mode,omitempty"`
+	BadTimestamp string `json:"badTimestamp,omitempty"`
+}
+
+type AttachInput struct {
+	client.Resource
+
+	HostID string `json:"hostId,omitempty"`
+}
+
+type Empty struct {
+	client.Resource
+}
+
+var volumeState = map[types.VolumeState]string{
+	types.Detached: "detached",
+	types.Faulted:  "faulted",
+	types.Healthy:  "healthy",
+	types.Degraded: "degraded",
+}
+
+var replicaModes = map[types.ReplicaMode]string{
+	types.RW:  "RW",
+	types.WO:  "WO",
+	types.ERR: "ERR",
+}
+
 func NewSchema() *client.Schemas {
 	schemas := &client.Schemas{}
 
@@ -18,10 +93,16 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("schema", client.Schema{})
 	schemas.AddType("attachInput", AttachInput{})
 
+	hostSchema(schemas.AddType("host", Host{}))
 	volumeSchema(schemas.AddType("volume", Volume{}))
 	snapshotSchema(schemas.AddType("snapshot", Snapshot{}))
 
 	return schemas
+}
+
+func hostSchema(host *client.Schema) {
+	host.CollectionMethods = []string{"GET"}
+	host.ResourceMethods = []string{"GET"}
 }
 
 func volumeSchema(volume *client.Schema) {
@@ -72,73 +153,6 @@ func snapshotSchema(snapshot *client.Schema) {
 	snapshotName.Create = true
 	snapshotName.Unique = true
 	snapshot.ResourceFields["name"] = snapshotName
-}
-
-type Volume struct {
-	client.Resource
-
-	Name                string `json:"name,omitempty"`
-	Size                string `json:"size,omitempty"`
-	BaseImage           string `json:"baseImage,omitempty"`
-	NumberOfReplicas    int    `json:"numberOfReplicas,omitempty"`
-	StaleReplicaTimeout int    `json:"staleReplicaTimeout,omitempty"`
-	State               string `json:"state,omitempty"`
-
-	Replicas   []Replica   `json:"replicas,omitempty"`
-	Controller *Controller `json:"controller,omitempty"`
-}
-
-type Snapshot struct {
-	client.Resource
-
-	Name        string   `json:"name,omitempty"`
-	Parent      string   `json:"parent,omitempty"`
-	Children    []string `json:"children,omitempty"`
-	Removed     bool     `json:"removed,omitempty"`
-	UserCreated bool     `json:"usercreated,omitempty"`
-	Created     string   `json:"created,omitempty"`
-	Size        string   `json:"size,omitempty"`
-}
-
-type Instance struct {
-	HostID  string `json:"hostId,omitempty"`
-	Address string `json:"address,omitempty"`
-	Running bool   `json:"running,omitempty"`
-}
-
-type Controller struct {
-	Instance
-}
-
-type Replica struct {
-	Instance
-
-	Name         string `json:"name,omitempty"`
-	Mode         string `json:"mode,omitempty"`
-	BadTimestamp string `json:"badTimestamp,omitempty"`
-}
-
-type AttachInput struct {
-	client.Resource
-
-	HostID string `json:"hostId,omitempty"`
-}
-
-type Empty struct {
-	client.Resource
-}
-
-var volumeState = map[types.VolumeState]string{
-	types.Detached: "detached",
-	types.Faulted:  "faulted",
-	types.Healthy:  "healthy",
-	types.Degraded: "degraded",
-}
-
-var replicaModes = map[types.ReplicaMode]string{
-	types.RW:  "RW",
-	types.WO:  "WO",
-	types.ERR: "ERR",
 }
 
 func toVolumeResource(v *types.VolumeInfo) *Volume {
@@ -266,4 +280,25 @@ func fromSnapshotResMap(m map[string]interface{}) (*types.SnapshotInfo, error) {
 	return &types.SnapshotInfo{
 		Name: s.Name,
 	}, nil
+}
+
+func toHostCollection(hosts map[string]*types.HostInfo) *client.GenericCollection {
+	data := []interface{}{}
+	for _, v := range hosts {
+		data = append(data, toHostResource(v))
+	}
+	return &client.GenericCollection{Data: data}
+}
+
+func toHostResource(h *types.HostInfo) *Host {
+	return &Host{
+		Resource: client.Resource{
+			Id:      h.UUID,
+			Type:    "host",
+			Actions: map[string]string{},
+		},
+		UUID:    h.UUID,
+		Name:    h.Name,
+		Address: h.Address,
+	}
 }

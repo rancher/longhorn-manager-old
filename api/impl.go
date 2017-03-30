@@ -159,7 +159,7 @@ func (f *Fwd) Handler(getHostID HostIDFunc, h http.HandlerFunc) http.HandlerFunc
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		if !f.sl.IsLocal(hostID) {
+		if hostID != f.sl.GetCurrentHostID() {
 			targetHost, err := f.sl.GetAddress(hostID)
 			targetHost = targetHost + fmt.Sprintf(":%v", Port)
 			if targetHost != req.Host {
@@ -314,4 +314,37 @@ func (sh *SnapshotHandlers) Revert(w http.ResponseWriter, req *http.Request) {
 	}
 	logrus.Debugf("success: reverted to snapshot '%s' for volume '%s'", snapName, volName)
 	api.GetApiContext(req).Write(&Empty{})
+}
+
+func HostListFunc(f func() (map[string]*types.HostInfo, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		apiContext := api.GetApiContext(req)
+
+		hosts, err := f()
+		if err != nil {
+			logrus.Errorf("%v", errors.Wrapf(err, "error running '%+v'", f))
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		if hosts == nil {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		apiContext.Write(toHostCollection(hosts))
+	}
+}
+
+func HostGetFunc(f func(id string) (*types.HostInfo, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		apiContext := api.GetApiContext(req)
+		id := mux.Vars(req)["id"]
+
+		host, err := f(id)
+		if err != nil {
+			logrus.Errorf("%v", errors.Wrapf(err, "error running '%+v', for id '%s'", f, id))
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		apiContext.Write(toHostResource(host))
+	}
 }

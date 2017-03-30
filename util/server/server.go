@@ -29,6 +29,7 @@ func (s *UnixServer) Serve(handler http.Handler) {
 	if err != nil {
 		logrus.Fatalf("Failed opening unix socket '%s'", s.sockFile)
 	}
+	logrus.Infof("Unix socket server listening at %v", s.sockFile)
 	err = server.Serve(listener)
 	logrus.Fatalf("server.Serve returned error: %+v", errors.Wrap(err, "http server error"))
 }
@@ -42,6 +43,7 @@ func NewTCPServer(addrPort string) *TCPServer {
 }
 
 func (s *TCPServer) Serve(handler http.Handler) {
+	logrus.Infof("TCP server listening at %v", s.addr)
 	err := http.ListenAndServe(s.addr, handler)
 	logrus.Fatalf("http.ListenAndServe returned error: %+v", errors.Wrap(err, "http server error"))
 }

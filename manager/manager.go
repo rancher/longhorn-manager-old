@@ -110,7 +110,7 @@ func (man *volumeManager) Attach(name string) error {
 		return err
 	}
 	if volume.Controller != nil {
-		if volume.Controller.Running && volume.Controller.HostID == man.orc.GetThisHostID() {
+		if volume.Controller.Running && volume.Controller.HostID == man.orc.GetCurrentHostID() {
 			man.startMonitoring(volume)
 			return nil
 		}
@@ -391,4 +391,12 @@ func (man *volumeManager) VolumeSnapshots(name string) (types.VolumeSnapshots, e
 		return nil, nil
 	}
 	return controller.Snapshots(), nil
+}
+
+func (man *volumeManager) ListHosts() (map[string]*types.HostInfo, error) {
+	return man.orc.ListHosts()
+}
+
+func (man *volumeManager) GetHost(id string) (*types.HostInfo, error) {
+	return man.orc.GetHost(id)
 }

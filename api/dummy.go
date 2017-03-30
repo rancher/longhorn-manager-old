@@ -101,9 +101,9 @@ func (l *dummyLocator) GetAddress(q string) (string, error) {
 	return "localhost", nil
 }
 
-func (l *dummyLocator) IsLocal(q string) bool {
-	logrus.Infof("Dummy SL: hostID='%s' is local?: %v", q, q == l.thisHostID)
-	return q == l.thisHostID
+func (l *dummyLocator) GetCurrentHostID() string {
+	logrus.Infof("Dummy SL: get current hostID: '%s' : %v", l.thisHostID)
+	return l.thisHostID
 }
 
 type dummySnapshots struct{}
@@ -126,4 +126,12 @@ func (d *dummySnapshots) Delete(name string) error {
 
 func (d *dummySnapshots) Revert(name string) error {
 	return nil
+}
+
+func (d *dummyVolumeManager) ListHosts() (map[string]*types.HostInfo, error) {
+	return nil, nil
+}
+
+func (d *dummyVolumeManager) GetHost(id string) (*types.HostInfo, error) {
+	return nil, nil
 }

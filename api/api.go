@@ -46,5 +46,8 @@ func Handler(man types.VolumeManager, sl types.ServiceLocator, proxy http.Handle
 	r.Methods("POST").Path("/v1/volumes/{name}/snapshots/{snapName}/revert").
 		Handler(f(schemas, fwd.Handler(HostIDFromVolume(man), snapshots.Revert)))
 
+	r.Methods("GET").Path("/v1/hosts/").Handler(f(schemas, HostListFunc(man.ListHosts)))
+	r.Methods("GET").Path("/v1/hosts/{id}").Handler(f(schemas, HostGetFunc(man.GetHost)))
+
 	return r
 }
