@@ -86,8 +86,13 @@ func TestParseBackupsList(t *testing.T) {
 	bs, err := parseBackupsList(stdout, "qq")
 	assert.Nil(err)
 	assert.Equal(2, len(bs))
-	assert.Equal("volume-snap-snap4.img", bs[0].SnapshotName)
-	assert.Equal("volume-snap-snap1.img", bs[1].SnapshotName)
+
+	snapshots := map[string]struct{}{}
+	for _, b := range bs {
+		snapshots[b.SnapshotName] = struct{}{}
+	}
+	assert.NotNil(snapshots["volume-snap-snap1.img"])
+	assert.NotNil(snapshots["volume-snap-snap4.img"])
 }
 
 func TestParseBackupsList2(t *testing.T) {
