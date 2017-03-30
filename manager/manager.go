@@ -110,7 +110,7 @@ func (man *volumeManager) Attach(name string) error {
 		return err
 	}
 	if volume.Controller != nil {
-		if volume.Controller.Running && volume.Controller.HostID == man.orc.GetThisHostID() {
+		if volume.Controller.Running && volume.Controller.HostID == man.orc.GetCurrentHostID() {
 			man.startMonitoring(volume)
 			return nil
 		}

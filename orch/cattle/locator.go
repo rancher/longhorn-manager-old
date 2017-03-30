@@ -16,7 +16,3 @@ func (orc *cattleOrc) GetAddress(hostID string) (string, error) {
 	}
 	return "", nil
 }
-
-func (orc *cattleOrc) IsLocal(q string) bool {
-	return q == "" || q == orc.hostUUID
-}

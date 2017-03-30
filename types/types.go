@@ -80,8 +80,6 @@ type Orchestrator interface {
 
 	RemoveInstance(instanceID string) error
 
-	GetThisHostID() string
-
 	ListHosts() (map[string]*HostInfo, error)
 	GetHost(id string) (*HostInfo, error)
 
@@ -89,8 +87,8 @@ type Orchestrator interface {
 }
 
 type ServiceLocator interface {
-	GetAddress(q string) (string, error)
-	IsLocal(q string) bool
+	GetCurrentHostID() string
+	GetAddress(hostID string) (string, error)
 }
 
 type VolumeInfo struct {
