@@ -87,6 +87,32 @@ func (d *dummyVolumeManager) VolumeSnapshots(name string) (types.VolumeSnapshots
 	return &dummySnapshots{}, nil
 }
 
+func (d *dummyVolumeManager) VolumeBackups(name string) (types.VolumeBackups, error) {
+	return nil, nil
+}
+
+func (d *dummyVolumeManager) Controller(name string) (types.Controller, error) {
+	return nil, nil
+}
+
+func (d *dummyVolumeManager) Settings() types.Settings {
+	return &dummySettings{}
+}
+
+func (d *dummyVolumeManager) Backups(backupTarget string) types.Backups {
+	panic("implement me")
+}
+
+type dummySettings struct {
+}
+
+func (d *dummySettings) Get() *types.SettingsInfo {
+	return &types.SettingsInfo{}
+}
+
+func (d *dummySettings) Set(s *types.SettingsInfo) {
+}
+
 type dummyLocator struct {
 	thisHostID string
 }
@@ -125,6 +151,10 @@ func (d *dummySnapshots) Delete(name string) error {
 }
 
 func (d *dummySnapshots) Revert(name string) error {
+	return nil
+}
+
+func (d *dummySnapshots) Backup(name, backupTarget string) error {
 	return nil
 }
 

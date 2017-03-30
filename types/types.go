@@ -36,13 +36,22 @@ type VolumeManager interface {
 	Attach(name string) error
 	Detach(name string) error
 
+	ListHosts() (map[string]*HostInfo, error)
+	GetHost(id string) (*HostInfo, error)
+
 	CheckController(ctrl Controller, volume *VolumeInfo) error
 	Cleanup(volume *VolumeInfo) error
 
+	Controller(name string) (Controller, error)
 	VolumeSnapshots(name string) (VolumeSnapshots, error)
+	VolumeBackups(name string) (VolumeBackups, error)
+	Settings() Settings
+	Backups(backupTarget string) Backups
+}
 
-	ListHosts() (map[string]*HostInfo, error)
-	GetHost(id string) (*HostInfo, error)
+type Settings interface {
+	Get() *SettingsInfo
+	Set(*SettingsInfo)
 }
 
 type VolumeSnapshots interface {
@@ -51,6 +60,19 @@ type VolumeSnapshots interface {
 	Get(name string) (*SnapshotInfo, error)
 	Delete(name string) error
 	Revert(name string) error
+}
+
+type VolumeBackups interface {
+	Backup(snapName, backupTarget string) error
+	Restore(backup string) error
+}
+
+type GetBackups func(backupTarget string) Backups
+
+type Backups interface {
+	List(volumeName string) ([]*BackupInfo, error)
+	Get(url string) (*BackupInfo, error)
+	Delete(url string) error
 }
 
 type Monitor func(volume *VolumeInfo, man VolumeManager) io.Closer
@@ -64,6 +86,7 @@ type Controller interface {
 	RemoveReplica(replica *ReplicaInfo) error
 
 	Snapshots() VolumeSnapshots
+	Backups() VolumeBackups
 }
 
 type Orchestrator interface {
@@ -90,9 +113,15 @@ type ServiceLocator interface {
 	GetAddress(hostID string) (string, error)
 }
 
+type SettingsInfo struct {
+	BackupTarget string `json:"backupTarget" mapstructure:"backupTarget"`
+}
+
 type VolumeInfo struct {
 	Name                string
 	Size                int64
+	BaseImage           string
+	FromBackup          string
 	NumberOfReplicas    int
 	StaleReplicaTimeout time.Duration
 	Controller          *ControllerInfo
@@ -133,4 +162,16 @@ type HostInfo struct {
 	UUID    string `json:"uuid"`
 	Name    string `json:"name"`
 	Address string `json:"address"`
+}
+
+type BackupInfo struct {
+	Name            string `json:"name,omitempty"`
+	URL             string `json:"url,omitempty"`
+	SnapshotName    string `json:"snapshotName,omitempty"`
+	SnapshotCreated string `json:"snapshotCreated,omitempty"`
+	Created         string `json:"created,omitempty"`
+	Size            string `json:"size,omitempty"`
+	VolumeName      string `json:"volumeName,omitempty"`
+	VolumeSize      string `json:"volumeSize,omitempty"`
+	VolumeCreated   string `json:"volumeCreated,omitempty"`
 }

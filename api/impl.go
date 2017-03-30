@@ -111,13 +111,37 @@ func NameFunc(f func(name string) error) http.HandlerFunc {
 	}
 }
 
-func DoThenGetVol(f func(name string) error, getVolume func(name string) (*types.VolumeInfo, error)) func(name string) (*types.VolumeInfo, error) {
-	return func(name string) (*types.VolumeInfo, error) {
-		if err := f(name); err != nil {
-			return nil, err
-		}
-		return getVolume(name)
+type SettingsHandlers struct {
+	settings types.Settings
+}
+
+func (s *SettingsHandlers) Get(w http.ResponseWriter, req *http.Request) {
+	context := api.GetApiContext(req)
+	si := s.settings.Get()
+	if si == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
+	logrus.Debug("success: got settings")
+	context.Write(toSettingsResource(si))
+}
+
+func (s *SettingsHandlers) Set(w http.ResponseWriter, req *http.Request) {
+	data, err := dataFromReq(req.Body)
+	if err != nil {
+		logrus.Errorf("%+v", err)
+		r.JSON(w, http.StatusBadRequest, err)
+		return
+	}
+	s0, err := fromSettingsResMap(data)
+	if err != nil {
+		logrus.Errorf("%+v", err)
+		r.JSON(w, http.StatusBadRequest, err)
+		return
+	}
+	s.settings.Set(s0)
+	logrus.Debug("success: updated settings")
+	api.GetApiContext(req).Write(&Empty{})
 }
 
 func HostIDFromAttachReq(req *http.Request) (string, error) {
@@ -210,19 +234,20 @@ func (sh *SnapshotHandlers) Create(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	snapName, err := snapshots.Create(s0.Name)
+	logrus.Debugf("created snapshot '%s'", snapName)
 	if err != nil {
-		logrus.Errorf("%+v", errors.Wrapf(err, "error creating snapshot '%+v', for volume '%+v'", s0.Name, volName))
+		logrus.Errorf("%+v", errors.Wrapf(err, "error creating snapshot '%s', for volume '%s'", s0.Name, volName))
 		w.WriteHeader(http.StatusBadGateway)
 		return
 	}
 	snap, err := snapshots.Get(snapName)
 	if err != nil {
-		logrus.Errorf("%+v", errors.Wrapf(err, "error getting snapshot '%+v', for volume '%+v'", snapName, volName))
+		logrus.Errorf("%+v", errors.Wrapf(err, "error getting snapshot '%s', for volume '%s'", snapName, volName))
 		w.WriteHeader(http.StatusBadGateway)
 		return
 	}
 	if snap == nil {
-		logrus.Errorf("%+v", errors.Wrapf(err, "not found just created snapshot '%+v', for volume '%+v'", snapName, volName))
+		logrus.Errorf("%+v", errors.Errorf("not found just created snapshot '%s', for volume '%s'", snapName, volName))
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -263,12 +288,12 @@ func (sh *SnapshotHandlers) Get(w http.ResponseWriter, req *http.Request) {
 
 	snap, err := snapshots.Get(snapName)
 	if err != nil {
-		logrus.Errorf("%+v", errors.Wrapf(err, "error getting snapshot '%+v', for volume '%+v'", snapName, volName))
+		logrus.Errorf("%+v", errors.Wrapf(err, "error getting snapshot '%s', for volume '%s'", snapName, volName))
 		w.WriteHeader(http.StatusBadGateway)
 		return
 	}
 	if snap == nil {
-		logrus.Errorf("%+v", errors.Wrapf(err, "not found snapshot '%+v', for volume '%+v'", snapName, volName))
+		logrus.Warnf("%+v", errors.Errorf("not found snapshot '%s', for volume '%s'", snapName, volName))
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -347,4 +372,95 @@ func HostGetFunc(f func(id string) (*types.HostInfo, error)) http.HandlerFunc {
 		}
 		apiContext.Write(toHostResource(host))
 	}
+}
+
+func (sh *SnapshotHandlers) Backup(w http.ResponseWriter, req *http.Request) {
+	volName := mux.Vars(req)["name"]
+	snapName := mux.Vars(req)["snapName"]
+
+	backupTarget := sh.man.Settings().Get().BackupTarget
+	if backupTarget == "" {
+		logrus.Errorf("%+v", errors.New("cannot backup: backupTarget not set"))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	backups, err := sh.man.VolumeBackups(volName)
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error getting VolumeBackups for volume '%s'", volName))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if err := backups.Backup(snapName, backupTarget); err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error creating backup: snapshot '%s', volume '%s', dest '%s'", snapName, volName, backupTarget))
+		w.WriteHeader(http.StatusBadGateway)
+		return
+	}
+	logrus.Debugf("success: started backup: snapshot '%s', volume '%s', dest '%s'", snapName, volName, backupTarget)
+	api.GetApiContext(req).Write(&Empty{})
+}
+
+type BackupsHandlers struct {
+	man types.VolumeManager
+}
+
+func (bh *BackupsHandlers) List(w http.ResponseWriter, req *http.Request) {
+	volName := mux.Vars(req)["volName"]
+
+	backupTarget := bh.man.Settings().Get().BackupTarget
+	backups := bh.man.Backups(backupTarget)
+
+	bs, err := backups.List(volName)
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error listing backups, backupTarget '%s', volume '%s'", backupTarget, volName))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	logrus.Debugf("success: list backups, volume '%s', backupTarget '%s'", volName, backupTarget)
+	api.GetApiContext(req).Write(toBackupCollection(bs))
+}
+
+func backupURL(backupTarget, backupName, volName string) string {
+	return fmt.Sprintf("%s?backup=%s&volume=%s", backupTarget, backupName, volName)
+}
+
+func (bh *BackupsHandlers) Get(w http.ResponseWriter, req *http.Request) {
+	volName := mux.Vars(req)["volName"]
+	backupName := mux.Vars(req)["backupName"]
+
+	backupTarget := bh.man.Settings().Get().BackupTarget
+	backups := bh.man.Backups(backupTarget)
+
+	url := backupURL(backupTarget, backupName, volName)
+	backup, err := backups.Get(url)
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error getting backup '%s'", url))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if backup == nil {
+		logrus.Warnf("not found: backup '%s'", url)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	logrus.Debugf("success: got backup '%s'", url)
+	api.GetApiContext(req).Write(toBackupResource(backup))
+}
+
+func (bh *BackupsHandlers) Delete(w http.ResponseWriter, req *http.Request) {
+	volName := mux.Vars(req)["volName"]
+	backupName := mux.Vars(req)["backupName"]
+
+	backupTarget := bh.man.Settings().Get().BackupTarget
+	backups := bh.man.Backups(backupTarget)
+
+	url := backupURL(backupTarget, backupName, volName)
+	if err := backups.Delete(url); err != nil {
+		logrus.Errorf("%+v", errors.Wrapf(err, "error deleting backup '%s'", url))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	logrus.Debugf("success: removed backup '%s'", url)
+	api.GetApiContext(req).Write(&Empty{})
 }

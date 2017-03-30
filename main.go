@@ -8,6 +8,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/rancher/longhorn-orc/api"
+	"github.com/rancher/longhorn-orc/backups"
 	"github.com/rancher/longhorn-orc/controller"
 	"github.com/rancher/longhorn-orc/manager"
 	"github.com/rancher/longhorn-orc/orch"
@@ -118,7 +119,7 @@ func RunManager(c *cli.Context) error {
 		return err
 	}
 
-	man := manager.New(orc, manager.Monitor(controller.New), controller.New)
+	man := manager.New(orc, manager.Monitor(controller.New), controller.New, orc.(types.Settings), backups.New)
 
 	go server.NewUnixServer(sockFile).Serve(api.HandlerLocal(man))
 
