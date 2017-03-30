@@ -59,7 +59,7 @@ type cattleOrc struct {
 	LonghornImage string
 }
 
-func New(c *cli.Context) types.Orchestrator {
+func New(c *cli.Context) (types.Orchestrator, error) {
 	clientOpts := &client.ClientOpts{
 		Url:       c.GlobalString("cattle-url"),
 		AccessKey: c.GlobalString("cattle-access-key"),
@@ -67,20 +67,20 @@ func New(c *cli.Context) types.Orchestrator {
 	}
 	rancherClient, err := client.NewRancherClient(clientOpts)
 	if err != nil {
-		logrus.Fatalf("%+v", errors.Wrap(err, "failed to get rancher client"))
+		return nil, errors.Wrap(err, "failed to get rancher client")
 	}
 	logrus.Debugf("rancher clientOpts: %+v", *clientOpts)
 
 	md := metadata.NewClient(c.GlobalString("metadata-url"))
 	host, err := md.GetSelfHost()
 	if err != nil {
-		logrus.Fatalf("%+v", errors.Wrap(err, "failed to get self host from rancher metadata"))
+		return nil, errors.Wrap(err, "failed to get self host from rancher metadata")
 	}
 	logrus.Infof("cattle orc: this host UUID: '%s'", host.UUID)
 
 	container, err := md.GetSelfContainer()
 	if err != nil {
-		logrus.Fatalf("%+v", errors.Wrap(err, "failed to get self container from rancher metadata"))
+		return nil, errors.Wrap(err, "failed to get self container from rancher metadata")
 	}
 	logrus.Infof("cattle orc: this container UUID: '%s'", container.UUID)
 
@@ -91,7 +91,7 @@ func New(c *cli.Context) types.Orchestrator {
 		hostUUID:      host.UUID,
 		containerUUID: container.UUID,
 		LonghornImage: c.GlobalString(orch.LonghornImageParam),
-	}
+	}, nil
 }
 
 func volumeStackExternalID(name string) string {
