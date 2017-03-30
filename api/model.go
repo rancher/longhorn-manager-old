@@ -142,10 +142,7 @@ var replicaModes = map[types.ReplicaMode]string{
 }
 
 func toVolumeResource(v *types.VolumeInfo) *Volume {
-	state := ""
-	if v.State != nil {
-		state = volumeState[*v.State]
-	}
+	state := volumeState[v.State]
 
 	replicas := []Replica{}
 	for _, r := range v.Replicas {
