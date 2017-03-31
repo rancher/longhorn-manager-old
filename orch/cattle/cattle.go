@@ -131,10 +131,24 @@ func (orc *cattleOrc) createVolume(volume *types.VolumeInfo) (*types.VolumeInfo,
 		RancherCompose: stackBuffer(rancherComposeTemplate, volume).String(),
 		StartOnCreate:  true,
 	}
-	_, err := orc.rancher.Stack.Create(stack0)
+	stack, err := orc.rancher.Stack.Create(stack0)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create stack '%s'", stack0.Name)
 	}
+
+	if err := util.Backoff(30*time.Second, "timed out", func() (bool, error) {
+		s, err := orc.rancher.Stack.ById(stack.Id)
+		if err != nil {
+			return false, errors.Wrapf(err, "error getting stack info, volume '%s'", volume.Name)
+		}
+		if s.State == "active" {
+			return true, nil
+		}
+		return false, nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "error waiting for volume stack")
+	}
+
 	return orc.GetVolume(volume.Name)
 }
 
