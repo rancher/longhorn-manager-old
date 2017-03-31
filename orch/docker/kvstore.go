@@ -95,6 +95,9 @@ func (d *dockerOrc) setVolume(volume *types.VolumeInfo) error {
 func (d *dockerOrc) getVolume(id string) (*types.VolumeInfo, error) {
 	resp, err := d.kapi.Get(context.Background(), d.volumeKey(id), nil)
 	if err != nil {
+		if eCli.IsKeyNotFound(err) {
+			return nil, nil
+		}
 		return nil, errors.Wrap(err, "unable to get volume")
 	}
 	return node2Volume(resp.Node)
@@ -111,6 +114,9 @@ func (d *dockerOrc) rmVolume(id string) error {
 func (d *dockerOrc) listVolumes() ([]*types.VolumeInfo, error) {
 	resp, err := d.kapi.Get(context.Background(), d.key(keyVolumes), nil)
 	if err != nil {
+		if eCli.IsKeyNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 

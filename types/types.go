@@ -90,9 +90,9 @@ type Controller interface {
 }
 
 type Orchestrator interface {
-	CreateVolume(volume *VolumeInfo) (*VolumeInfo, error) // creates volume metadata
+	CreateVolume(volume *VolumeInfo) (*VolumeInfo, error) // creates volume metadata and prepare for volume
 	DeleteVolume(volumeName string) error                 // removes volume metadata
-	GetVolume(volumeName string) (*VolumeInfo, error)
+	GetVolume(volumeName string) (*VolumeInfo, error)     // For non-existing volume, return (nil, nil)
 	ListVolumes() ([]*VolumeInfo, error)
 	MarkBadReplica(volumeName string, replica *ReplicaInfo) error // find replica by Address
 

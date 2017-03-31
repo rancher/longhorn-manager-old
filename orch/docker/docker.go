@@ -176,9 +176,9 @@ func (d *dockerOrc) GetAddress(hostID string) (string, error) {
 }
 
 func (d *dockerOrc) CreateVolume(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
-	_, err := d.getVolume(volume.Name)
-	if err == nil {
-		return nil, errors.Errorf("volume %v already exists", volume.Name)
+	v, err := d.getVolume(volume.Name)
+	if err == nil && v != nil {
+		return nil, errors.Errorf("volume %v already exists %+v", volume.Name, v)
 	}
 	if err := d.setVolume(volume); err != nil {
 		return nil, errors.Wrap(err, "fail to create new volume metadata")
@@ -192,6 +192,10 @@ func (d *dockerOrc) DeleteVolume(volumeName string) error {
 
 func (d *dockerOrc) GetVolume(volumeName string) (*types.VolumeInfo, error) {
 	return d.getVolume(volumeName)
+}
+
+func (d *dockerOrc) ListVolumes() ([]*types.VolumeInfo, error) {
+	return d.listVolumes()
 }
 
 func (d *dockerOrc) MarkBadReplica(volumeName string, replica *types.ReplicaInfo) error {
@@ -333,8 +337,4 @@ func (d *dockerOrc) GetSettings() *types.SettingsInfo {
 }
 
 func (d *dockerOrc) SetSettings(*types.SettingsInfo) {
-}
-
-func (d *dockerOrc) ListVolumes() ([]*types.VolumeInfo, error) {
-	return d.listVolumes()
 }
