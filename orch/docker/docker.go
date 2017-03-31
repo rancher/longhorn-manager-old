@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -34,6 +36,7 @@ const (
 
 var (
 	ContainerStopTimeout = 1 * time.Minute
+	WaitDeviceTimeout    = 30 //seconds
 )
 
 type dockerOrc struct {
@@ -196,7 +199,65 @@ func (d *dockerOrc) MarkBadReplica(volumeName string, replica *types.ReplicaInfo
 }
 
 func (d *dockerOrc) CreateController(volumeName string, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
-	return nil, nil
+	volume, err := d.getVolume(volumeName)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create replica")
+	}
+	return d.createController(volume, replicas)
+}
+
+func (d *dockerOrc) createController(volume *types.VolumeInfo, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
+	controllerName := volume.Name + "-controller"
+	cmd := []string{
+		"launch", "controller",
+		"--frontend", "tgt",
+	}
+	for _, replica := range replicas {
+		cmd = append(cmd, "--replica", "tcp://"+replica.Address+":9502")
+	}
+	cmd = append(cmd, volume.Name)
+
+	createBody, err := d.cli.ContainerCreate(context.Background(),
+		&dContainer.Config{
+			Image: volume.LonghornImage,
+			Cmd:   cmd,
+		},
+		&dContainer.HostConfig{
+			Binds: []string{
+				"/dev:/host/dev",
+				"/proc:/host/proc",
+			},
+			Privileged: true,
+		}, nil, controllerName)
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to create controller container")
+	}
+	if err := d.StartInstance(createBody.ID); err != nil {
+		logrus.Errorf("fail to start %v, cleaning up", controllerName)
+		d.RemoveInstance(createBody.ID)
+		return nil, errors.Wrap(err, "fail to start controller container")
+	}
+	inspectJSON, err := d.cli.ContainerInspect(context.Background(), createBody.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to inspect controller container")
+	}
+
+	if err := util.WaitForDevice(d.getDeviceName(volume.Name), WaitDeviceTimeout); err != nil {
+		return nil, errors.Wrap(err, "fail to wait for device")
+	}
+
+	return &types.ControllerInfo{
+		InstanceInfo: types.InstanceInfo{
+			ID:      inspectJSON.ID,
+			HostID:  d.GetCurrentHostID(),
+			Address: inspectJSON.NetworkSettings.IPAddress,
+			Running: inspectJSON.State.Running,
+		},
+	}, nil
+}
+
+func (d *dockerOrc) getDeviceName(volumeName string) string {
+	return filepath.Join("/dev/longhorn/", volumeName)
 }
 
 func (d *dockerOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, error) {
@@ -204,7 +265,7 @@ func (d *dockerOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create replica")
 	}
-	return d.createReplica("replica-"+util.UUID()[:8], volume)
+	return d.createReplica(volumeName+"-replica-"+util.UUID()[:8], volume)
 }
 
 func (d *dockerOrc) createReplica(replicaName string, volume *types.VolumeInfo) (*types.ReplicaInfo, error) {
@@ -214,35 +275,40 @@ func (d *dockerOrc) createReplica(replicaName string, volume *types.VolumeInfo) 
 		"--size", strconv.FormatInt(volume.Size, 10),
 		"/volume",
 	}
-	createBody, err := d.cli.ContainerCreate(context.Background(), &dContainer.Config{
-		ExposedPorts: dNat.PortSet{
-			"9502-9504": struct{}{},
-		},
-		Image: volume.LonghornImage,
-		Volumes: map[string]struct{}{
-			"/volume": {},
-		},
-		Cmd: cmd,
-	}, nil, nil, replicaName)
+	createBody, err := d.cli.ContainerCreate(context.Background(),
+		&dContainer.Config{
+			ExposedPorts: dNat.PortSet{
+				"9502-9504": struct{}{},
+			},
+			Image: volume.LonghornImage,
+			Volumes: map[string]struct{}{
+				"/volume": {},
+			},
+			Cmd: cmd,
+		}, nil, nil, replicaName)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create replica container")
 	}
 	if err := d.StartInstance(createBody.ID); err != nil {
+		logrus.Errorf("fail to start %v, cleaning up", replicaName)
+		d.RemoveInstance(createBody.ID)
 		return nil, errors.Wrap(err, "fail to start replica container")
 	}
-	replicaJSON, err := d.cli.ContainerInspect(context.Background(), createBody.ID)
+	inspectJSON, err := d.cli.ContainerInspect(context.Background(), createBody.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to inspect replica container")
 	}
 	return &types.ReplicaInfo{
 		InstanceInfo: types.InstanceInfo{
-			ID:      replicaJSON.ID,
+			ID:      inspectJSON.ID,
 			HostID:  d.GetCurrentHostID(),
-			Address: replicaJSON.NetworkSettings.IPAddress,
-			Running: replicaJSON.State.Running,
+			Address: inspectJSON.NetworkSettings.IPAddress,
+			Running: inspectJSON.State.Running,
 		},
 
-		Name: replicaJSON.Name,
+		// It's weird that Docker put a forward slash to the container name
+		// So it become "/replica-test-1"
+		Name: strings.TrimPrefix(inspectJSON.Name, "/"),
 		//TODO: Mode
 	}, nil
 }

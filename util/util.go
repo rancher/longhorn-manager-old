@@ -3,6 +3,7 @@ package util
 import (
 	"crypto/md5"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -106,4 +107,19 @@ func Backoff(maxDuration time.Duration, timeoutMessage string, f func() (bool, e
 
 func UUID() string {
 	return uuid.NewV4().String()
+}
+
+// WaitForDevice timeout in second
+func WaitForDevice(dev string, timeout int) error {
+	for i := 0; i < timeout; i++ {
+		st, err := os.Stat(dev)
+		if err == nil {
+			if st.Mode()&os.ModeDevice == 0 {
+				return fmt.Errorf("Invalid mode for %v: 0x%x", dev, st.Mode())
+			}
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return fmt.Errorf("timeout waiting for %v", dev)
 }
