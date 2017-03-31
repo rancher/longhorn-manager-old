@@ -43,7 +43,7 @@ func (orc *cattleOrc) controllerContainer(volume *types.VolumeInfo) *client.Cont
 	}
 	command = append(command, volume.Name)
 	return &client.Container{
-		Name:       "controller-" + randStr(),
+		Name:       "controller-" + util.RandomID(),
 		ImageUuid:  fmt.Sprintf("docker:%s", volume.LonghornImage),
 		Command:    command,
 		Privileged: true,

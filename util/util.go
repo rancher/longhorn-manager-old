@@ -123,3 +123,7 @@ func WaitForDevice(dev string, timeout int) error {
 	}
 	return fmt.Errorf("timeout waiting for %v", dev)
 }
+
+func RandomID() string {
+	return UUID()[:18]
+}

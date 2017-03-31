@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/distribution/uuid"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/rancher/go-rancher-metadata/metadata"
@@ -124,15 +123,11 @@ func copyVolumeProperties(volume0 *types.VolumeInfo) *types.VolumeInfo {
 	return volume
 }
 
-func randStr() string {
-	return uuid.Generate().String()[:18]
-}
-
 func genReplicas(numberOfReplicas int) map[string]*types.ReplicaInfo {
 	replicas := map[string]*types.ReplicaInfo{}
 	replicaNames := make([]string, numberOfReplicas)
 	for i := 0; i < numberOfReplicas; i++ {
-		index := randStr()
+		index := util.RandomID()
 		name := replicaName(index)
 		replicas[index] = &types.ReplicaInfo{Name: name}
 		replicaNames[i] = name
@@ -503,7 +498,7 @@ func (orc *cattleOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, erro
 	if err != nil {
 		return nil, err
 	}
-	index := randStr()
+	index := util.RandomID()
 	cnt, err := orc.rancher.Container.Create(
 		withStartOnCreate(orc.replicaContainer(volume, &types.ReplicaInfo{Name: replicaName(index)})),
 	)

@@ -265,7 +265,7 @@ func (d *dockerOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create replica")
 	}
-	return d.createReplica(volumeName+"-replica-"+util.UUID()[:8], volume)
+	return d.createReplica(volumeName+"-replica-"+util.RandomID(), volume)
 }
 
 func (d *dockerOrc) createReplica(replicaName string, volume *types.VolumeInfo) (*types.ReplicaInfo, error) {
