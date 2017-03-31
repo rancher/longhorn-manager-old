@@ -49,6 +49,16 @@ func (man *volumeManager) doCreate(volume *types.VolumeInfo) (*types.VolumeInfo,
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create volume '%s'", volume.Name)
 	}
+
+	replicas := map[string]*types.ReplicaInfo{}
+	for i := 0; i < vol.NumberOfReplicas; i++ {
+		replica, err := man.orc.CreateReplica(vol.Name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error creating replica '%s', volume '%s'", replica.Name, vol.Name)
+		}
+		replicas[replica.Name] = replica
+	}
+	vol.Replicas = replicas
 	return vol, nil
 }
 
@@ -86,6 +96,13 @@ func (man *volumeManager) createFromBackup(volume *types.VolumeInfo, backup *typ
 }
 
 func (man *volumeManager) Create(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
+	vol, err := man.Get(volume.Name)
+	if err != nil {
+		return nil, err
+	}
+	if vol != nil {
+		return vol, nil
+	}
 	if volume.LonghornImage == "" {
 		volume.LonghornImage = man.settings.GetSettings().LonghornImage
 	}
@@ -100,6 +117,21 @@ func (man *volumeManager) Create(volume *types.VolumeInfo) (*types.VolumeInfo, e
 }
 
 func (man *volumeManager) Delete(name string) error {
+	volume, err := man.Get(name)
+	if err != nil {
+		return err
+	}
+
+	if err := man.doDetach(volume); err != nil {
+		return errors.Wrapf(err, "error detaching for delete, volume '%s'", volume.Name)
+	}
+
+	for _, replica := range volume.Replicas {
+		if err := man.orc.RemoveInstance(replica.ID); err != nil {
+			return errors.Wrapf(err, "error removing replica container %s(%s), volume '%s'", replica.Name, replica.ID, volume.Name)
+		}
+	}
+
 	return errors.Wrapf(man.orc.DeleteVolume(name), "failed to delete volume '%s'", name)
 }
 
