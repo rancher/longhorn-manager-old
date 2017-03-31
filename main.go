@@ -127,7 +127,9 @@ func RunManager(c *cli.Context) error {
 	//sl := api.DummyServiceLocator("localhost-ID")
 	proxy := api.Proxy()
 
-	go server.NewTCPServer(fmt.Sprintf(":%v", api.Port)).Serve(api.Handler(man, orc, proxy))
+	s := api.NewServer(man, orc, proxy)
+
+	go server.NewTCPServer(fmt.Sprintf(":%v", api.Port)).Serve(api.Handler(s))
 
 	return daemon.WaitForExit()
 }

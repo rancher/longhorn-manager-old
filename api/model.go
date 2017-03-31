@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/go-rancher/client"
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
+	"net/http"
 	"strconv"
 	"time"
 )
@@ -103,6 +104,7 @@ func NewSchema() *client.Schemas {
 
 	schemas.AddType("apiVersion", client.Resource{})
 	schemas.AddType("schema", client.Schema{})
+	schemas.AddType("error", client.ServerApiError{})
 	schemas.AddType("attachInput", AttachInput{})
 
 	hostSchema(schemas.AddType("host", Host{}))
@@ -242,13 +244,13 @@ func toVolumeResource(v *types.VolumeInfo) *Volume {
 
 	return &Volume{
 		Resource: client.Resource{
+			Id:   v.Name,
 			Type: "volume",
 			Actions: map[string]string{
 				"attach": v.Name + "/attach",
 				"detach": v.Name + "/detach",
 			},
 			Links: map[string]string{
-				"self":      v.Name,
 				"snapshots": v.Name + "/snapshots/",
 			},
 		},
@@ -271,25 +273,6 @@ func toVolumeCollection(vs []*types.VolumeInfo) *client.GenericCollection {
 		data = append(data, toVolumeResource(v))
 	}
 	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "volume"}}
-}
-
-func fromVolumeResMap(m map[string]interface{}) (*types.VolumeInfo, error) {
-	v := new(Volume)
-	if err := mapstructure.Decode(m, v); err != nil {
-		return nil, errors.Wrapf(err, "error converting volume info '%+v'", m)
-	}
-	size, err := util.ConvertSize(v.Size)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error converting size '%s'", v.Size)
-	}
-	return &types.VolumeInfo{
-		Name:                v.Name,
-		Size:                util.RoundUpSize(size),
-		BaseImage:           v.BaseImage,
-		FromBackup:          v.FromBackup,
-		NumberOfReplicas:    v.NumberOfReplicas,
-		StaleReplicaTimeout: time.Duration(v.StaleReplicaTimeout) * time.Minute,
-	}, nil
 }
 
 func toSnapshotResource(s *types.SnapshotInfo) *Snapshot {
@@ -387,4 +370,32 @@ func fromSettingsResMap(m map[string]interface{}) (*types.SettingsInfo, error) {
 		return nil, errors.Wrapf(err, "error converting settings info '%+v'", m)
 	}
 	return s, nil
+}
+
+type Server struct {
+	man       types.VolumeManager
+	sl        types.ServiceLocator
+	proxy     http.Handler
+	fwd       *Fwd
+	snapshots *SnapshotHandlers
+	settings  *SettingsHandlers
+	backups   *BackupsHandlers
+}
+
+func NewServer(m types.VolumeManager, sl types.ServiceLocator, proxy http.Handler) *Server {
+	return &Server{
+		man:   m,
+		sl:    sl,
+		proxy: proxy,
+		fwd:   &Fwd{sl, proxy},
+		snapshots: &SnapshotHandlers{
+			m,
+		},
+		settings: &SettingsHandlers{
+			m.Settings(),
+		},
+		backups: &BackupsHandlers{
+			m,
+		},
+	}
 }

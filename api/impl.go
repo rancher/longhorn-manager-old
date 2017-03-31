@@ -16,83 +16,12 @@ import (
 
 type HostIDFunc func(req *http.Request) (string, error)
 
-func Name2VolumeFunc(f func(name string) (*types.VolumeInfo, error)) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		apiContext := api.GetApiContext(req)
-		name := mux.Vars(req)["name"]
-
-		volume, err := f(name)
-		if err != nil {
-			logrus.Errorf("%+v", errors.Wrapf(err, "error running '%+v', for name '%s'", f, name))
-			w.WriteHeader(http.StatusBadGateway)
-			return
-		}
-		if volume == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		logrus.Debugf("success: got volume '%+v' for name '%s'", volume, name)
-		apiContext.Write(toVolumeResource(volume))
-	}
-}
-
-func VolumeListFunc(f func() ([]*types.VolumeInfo, error)) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		apiContext := api.GetApiContext(req)
-
-		volumes, err := f()
-		if err != nil {
-			logrus.Errorf("%+v", errors.Wrapf(err, "error running '%+v'", f))
-			w.WriteHeader(http.StatusBadGateway)
-			return
-		}
-		if volumes == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		logrus.Debugf("success: got volumes '%+v'", volumes)
-		apiContext.Write(toVolumeCollection(volumes))
-	}
-}
-
 func dataFromReq(body io.ReadCloser) (map[string]interface{}, error) {
 	data := map[string]interface{}{}
 	if err := json.NewDecoder(body).Decode(&data); err != nil {
 		return nil, errors.Wrap(err, "could not parse req body")
 	}
 	return data, nil
-}
-
-func Volume2VolumeFunc(f func(volume *types.VolumeInfo) (*types.VolumeInfo, error)) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		apiContext := api.GetApiContext(req)
-
-		data, err := dataFromReq(req.Body)
-		if err != nil {
-			logrus.Errorf("%+v", err)
-			r.JSON(w, http.StatusBadRequest, err)
-			return
-		}
-		volume0, err := fromVolumeResMap(data)
-		if err != nil {
-			logrus.Errorf("%+v", err)
-			r.JSON(w, http.StatusBadRequest, err)
-			return
-		}
-		volume, err := f(volume0)
-
-		if err != nil {
-			logrus.Errorf("%+v", errors.Wrapf(err, "error running '%+v', for volume '%+v'", f, volume0))
-			w.WriteHeader(http.StatusBadGateway)
-			return
-		}
-		if volume == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		logrus.Debugf("success: got volume '%+v' for volume '%+v'", volume, volume0)
-		apiContext.Write(toVolumeResource(volume))
-	}
 }
 
 func NameFunc(f func(name string) error) http.HandlerFunc {
@@ -109,39 +38,6 @@ func NameFunc(f func(name string) error) http.HandlerFunc {
 		logrus.Debugf("success: done for name '%s'", name)
 		apiContext.Write(&Empty{})
 	}
-}
-
-type SettingsHandlers struct {
-	settings types.Settings
-}
-
-func (s *SettingsHandlers) Get(w http.ResponseWriter, req *http.Request) {
-	context := api.GetApiContext(req)
-	si := s.settings.GetSettings()
-	if si == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	logrus.Debug("success: got settings")
-	context.Write(toSettingsResource(si))
-}
-
-func (s *SettingsHandlers) Set(w http.ResponseWriter, req *http.Request) {
-	data, err := dataFromReq(req.Body)
-	if err != nil {
-		logrus.Errorf("%+v", err)
-		r.JSON(w, http.StatusBadRequest, err)
-		return
-	}
-	s0, err := fromSettingsResMap(data)
-	if err != nil {
-		logrus.Errorf("%+v", err)
-		r.JSON(w, http.StatusBadRequest, err)
-		return
-	}
-	s.settings.SetSettings(s0)
-	logrus.Debug("success: updated settings")
-	api.GetApiContext(req).Write(&Empty{})
 }
 
 func HostIDFromAttachReq(req *http.Request) (string, error) {
@@ -339,39 +235,6 @@ func (sh *SnapshotHandlers) Revert(w http.ResponseWriter, req *http.Request) {
 	}
 	logrus.Debugf("success: reverted to snapshot '%s' for volume '%s'", snapName, volName)
 	api.GetApiContext(req).Write(&Empty{})
-}
-
-func HostListFunc(f func() (map[string]*types.HostInfo, error)) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		apiContext := api.GetApiContext(req)
-
-		hosts, err := f()
-		if err != nil {
-			logrus.Errorf("%v", errors.Wrapf(err, "error running '%+v'", f))
-			w.WriteHeader(http.StatusBadGateway)
-			return
-		}
-		if hosts == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		apiContext.Write(toHostCollection(hosts))
-	}
-}
-
-func HostGetFunc(f func(id string) (*types.HostInfo, error)) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		apiContext := api.GetApiContext(req)
-		id := mux.Vars(req)["id"]
-
-		host, err := f(id)
-		if err != nil {
-			logrus.Errorf("%v", errors.Wrapf(err, "error running '%+v', for id '%s'", f, id))
-			w.WriteHeader(http.StatusBadGateway)
-			return
-		}
-		apiContext.Write(toHostResource(host))
-	}
 }
 
 func (sh *SnapshotHandlers) Backup(w http.ResponseWriter, req *http.Request) {
