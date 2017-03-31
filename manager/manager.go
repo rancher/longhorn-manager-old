@@ -50,13 +50,15 @@ func (man *volumeManager) doCreate(volume *types.VolumeInfo) (*types.VolumeInfo,
 		return nil, errors.Wrapf(err, "failed to create volume '%s'", volume.Name)
 	}
 
+	replicas := map[string]*types.ReplicaInfo{}
 	for i := 0; i < vol.NumberOfReplicas; i++ {
 		replica, err := man.orc.CreateReplica(vol.Name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error creating replica '%s', volume '%s'", replica.Name, vol.Name)
 		}
-		vol.Replicas[replica.Name] = replica
+		replicas[replica.Name] = replica
 	}
+	vol.Replicas = replicas
 	return vol, nil
 }
 

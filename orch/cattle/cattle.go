@@ -279,7 +279,7 @@ func (orc *cattleOrc) getController(volumeName string, stack *client.Stack) (*ty
 func (orc *cattleOrc) getVolume(volumeName string, stack *client.Stack) (*types.VolumeInfo, error) {
 	md, err := orc.getService(volumeName, util.ControllerServiceName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error metadata service, volume '%s'", volumeName)
+		return nil, errors.Wrapf(err, "error getting metadata service, volume '%s'", volumeName)
 	}
 	volume := new(types.VolumeInfo)
 	if err := mapstructure.Decode(md.Metadata[volumeProperty], volume); err != nil {
