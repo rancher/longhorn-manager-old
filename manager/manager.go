@@ -50,15 +50,15 @@ func (man *volumeManager) doCreate(volume *types.VolumeInfo) (*types.VolumeInfo,
 		return nil, errors.Wrapf(err, "failed to create volume '%s'", volume.Name)
 	}
 
-	if len(vol.Replicas) == 0 {
-		for i := 0; i < vol.NumberOfReplicas; i++ {
-			replica, err := man.orc.CreateReplica(vol.Name)
-			if err != nil {
-				return nil, errors.Wrapf(err, "error creating replica '%s', volume '%s'", replica.Name, vol.Name)
-			}
-			vol.Replicas[replica.Name] = replica
+	replicas := map[string]*types.ReplicaInfo{}
+	for i := 0; i < vol.NumberOfReplicas; i++ {
+		replica, err := man.orc.CreateReplica(vol.Name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error creating replica '%s', volume '%s'", replica.Name, vol.Name)
 		}
+		replicas[replica.Name] = replica
 	}
+	vol.Replicas = replicas
 	return vol, nil
 }
 
@@ -96,6 +96,13 @@ func (man *volumeManager) createFromBackup(volume *types.VolumeInfo, backup *typ
 }
 
 func (man *volumeManager) Create(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
+	vol, err := man.Get(volume.Name)
+	if err != nil {
+		return nil, err
+	}
+	if vol != nil {
+		return vol, nil
+	}
 	if volume.LonghornImage == "" {
 		volume.LonghornImage = man.settings.GetSettings().LonghornImage
 	}
@@ -115,24 +122,11 @@ func (man *volumeManager) Delete(name string) error {
 		return err
 	}
 
-	controller := volume.Controller
-	if controller != nil {
-		if controller.Running {
-			if err := man.orc.StopInstance(controller.ID); err != nil {
-				return errors.Wrapf(err, "error stopping controller container %s, volume '%s'", controller.ID, volume.Name)
-			}
-		}
-		if err := man.orc.RemoveInstance(controller.ID); err != nil {
-			return errors.Wrapf(err, "error removing controller container %s, volume '%s'", controller.ID, volume.Name)
-		}
+	if err := man.doDetach(volume); err != nil {
+		return errors.Wrapf(err, "error detaching for delete, volume '%s'", volume.Name)
 	}
 
 	for _, replica := range volume.Replicas {
-		if replica.Running {
-			if err := man.orc.StopInstance(replica.ID); err != nil {
-				return errors.Wrapf(err, "error stopping replica container %s(%s), volume '%s'", replica.Name, replica.ID, volume.Name)
-			}
-		}
 		if err := man.orc.RemoveInstance(replica.ID); err != nil {
 			return errors.Wrapf(err, "error removing replica container %s(%s), volume '%s'", replica.Name, replica.ID, volume.Name)
 		}
