@@ -52,7 +52,7 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 		LonghornImage: "rancher/longhorn:latest",
 	}
 	replica1Name := "replica-test-1"
-	replica1, err := s.d.createReplica(replica1Name, volume)
+	replica1, err := s.d.createReplica(volume, replica1Name)
 	c.Assert(err, IsNil)
 	c.Assert(replica1.ID, NotNil)
 	s.containerBin[replica1.ID] = struct{}{}
@@ -68,7 +68,7 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	c.Assert(err, IsNil)
 
 	replica2Name := "replica-test-2"
-	replica2, err := s.d.createReplica(replica2Name, volume)
+	replica2, err := s.d.createReplica(volume, replica2Name)
 	c.Assert(err, IsNil)
 	c.Assert(replica2.ID, NotNil)
 	s.containerBin[replica2.ID] = struct{}{}

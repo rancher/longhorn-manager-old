@@ -265,10 +265,10 @@ func (d *dockerOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create replica")
 	}
-	return d.createReplica(volumeName+"-replica-"+util.RandomID(), volume)
+	return d.createReplica(volume, volumeName+"-replica-"+util.RandomID())
 }
 
-func (d *dockerOrc) createReplica(replicaName string, volume *types.VolumeInfo) (*types.ReplicaInfo, error) {
+func (d *dockerOrc) createReplica(volume *types.VolumeInfo, replicaName string) (*types.ReplicaInfo, error) {
 	cmd := []string{
 		"launch", "replica",
 		"--listen", "0.0.0.0:9502",
