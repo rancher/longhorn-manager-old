@@ -123,18 +123,6 @@ func copyVolumeProperties(volume0 *types.VolumeInfo) *types.VolumeInfo {
 	return volume
 }
 
-func genReplicas(numberOfReplicas int) map[string]*types.ReplicaInfo {
-	replicas := map[string]*types.ReplicaInfo{}
-	replicaNames := make([]string, numberOfReplicas)
-	for i := 0; i < numberOfReplicas; i++ {
-		index := util.RandomID()
-		name := replicaName(index)
-		replicas[index] = &types.ReplicaInfo{Name: name}
-		replicaNames[i] = name
-	}
-	return replicas
-}
-
 func (orc *cattleOrc) createVolume(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
 	stack0 := &client.Stack{
 		Name:           util.VolumeStackName(volume.Name),
@@ -143,32 +131,10 @@ func (orc *cattleOrc) createVolume(volume *types.VolumeInfo) (*types.VolumeInfo,
 		RancherCompose: stackBuffer(rancherComposeTemplate, volume).String(),
 		StartOnCreate:  true,
 	}
-	stack, err := orc.rancher.Stack.Create(stack0)
+	_, err := orc.rancher.Stack.Create(stack0)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create stack '%s'", stack0.Name)
 	}
-	volume.Replicas = genReplicas(volume.NumberOfReplicas)
-
-	for _, replica := range volume.Replicas {
-		_, err := orc.rancher.Container.Create(orc.replicaContainer(volume, replica))
-		if err != nil {
-			return nil, errors.Wrapf(err, "error creating replica '%s', volume '%s'", replica.Name, volume.Name)
-		}
-	}
-
-	if err := util.Backoff(30*time.Second, "timed out", func() (bool, error) {
-		s, err := orc.rancher.Stack.ById(stack.Id)
-		if err != nil {
-			return false, errors.Wrapf(err, "error getting stack info, volume '%s'", volume.Name)
-		}
-		if s.State == "active" {
-			return true, nil
-		}
-		return false, nil
-	}); err != nil {
-		return nil, errors.Wrap(err, "error waiting for volume stack")
-	}
-
 	return orc.GetVolume(volume.Name)
 }
 
@@ -188,28 +154,6 @@ func (orc *cattleOrc) DeleteVolume(volumeName string) error {
 	}
 	if stack == nil {
 		return nil
-	}
-	volume, err := orc.getVolume(volumeName, stack)
-	if err != nil {
-		return err
-	}
-	if volume.Controller != nil {
-		cnt, err := orc.rancher.Container.ById(volume.Controller.ID)
-		if err != nil {
-			return errors.Wrapf(err, "error getting controller container (for delete), volume '%s'", volumeName)
-		}
-		if err := orc.rancher.Container.Delete(cnt); err != nil {
-			return errors.Wrapf(err, "error deleting controller container, volume '%s'", volumeName)
-		}
-	}
-	for _, replica := range volume.Replicas {
-		cnt, err := orc.rancher.Container.ById(replica.ID)
-		if err != nil {
-			return errors.Wrapf(err, "error getting replica container (for delete) '%s', volume '%s'", replica.Name, volumeName)
-		}
-		if err := orc.rancher.Container.Delete(cnt); err != nil {
-			return errors.Wrapf(err, "error deleting controller container '%s', volume '%s'", replica.Name, volumeName)
-		}
 	}
 	_, err = orc.rancher.Stack.ActionRemove(stack)
 	return errors.Wrapf(err, "error removing stack for volume '%s'", volumeName)

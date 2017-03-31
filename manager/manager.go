@@ -49,6 +49,16 @@ func (man *volumeManager) doCreate(volume *types.VolumeInfo) (*types.VolumeInfo,
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create volume '%s'", volume.Name)
 	}
+
+	if len(vol.Replicas) == 0 {
+		for i := 0; i < vol.NumberOfReplicas; i++ {
+			replica, err := man.orc.CreateReplica(vol.Name)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error creating replica '%s', volume '%s'", replica.Name, vol.Name)
+			}
+			vol.Replicas[replica.Name] = replica
+		}
+	}
 	return vol, nil
 }
 
@@ -100,6 +110,34 @@ func (man *volumeManager) Create(volume *types.VolumeInfo) (*types.VolumeInfo, e
 }
 
 func (man *volumeManager) Delete(name string) error {
+	volume, err := man.Get(name)
+	if err != nil {
+		return err
+	}
+
+	controller := volume.Controller
+	if controller != nil {
+		if controller.Running {
+			if err := man.orc.StopInstance(controller.ID); err != nil {
+				return errors.Wrapf(err, "error stopping controller container %s, volume '%s'", controller.ID, volume.Name)
+			}
+		}
+		if err := man.orc.RemoveInstance(controller.ID); err != nil {
+			return errors.Wrapf(err, "error removing controller container %s, volume '%s'", controller.ID, volume.Name)
+		}
+	}
+
+	for _, replica := range volume.Replicas {
+		if replica.Running {
+			if err := man.orc.StopInstance(replica.ID); err != nil {
+				return errors.Wrapf(err, "error stopping replica container %s(%s), volume '%s'", replica.Name, replica.ID, volume.Name)
+			}
+		}
+		if err := man.orc.RemoveInstance(replica.ID); err != nil {
+			return errors.Wrapf(err, "error removing replica container %s(%s), volume '%s'", replica.Name, replica.ID, volume.Name)
+		}
+	}
+
 	return errors.Wrapf(man.orc.DeleteVolume(name), "failed to delete volume '%s'", name)
 }
 
