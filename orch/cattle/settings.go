@@ -16,7 +16,7 @@ func (orc *cattleOrc) GetSettings() *types.SettingsInfo {
 	data := svc.Metadata["settings"]
 	if data == nil {
 		return &types.SettingsInfo{
-			BackupTarget: "vfs:///var/lib/longhorn/backups/default",
+			BackupTarget:  "vfs:///var/lib/longhorn/backups/default",
 			LonghornImage: orc.LonghornImage,
 		}
 	}

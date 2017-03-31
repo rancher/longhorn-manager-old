@@ -261,7 +261,7 @@ func (d *dockerOrc) RemoveInstance(instanceID string) error {
 
 func (d *dockerOrc) GetSettings() *types.SettingsInfo {
 	return &types.SettingsInfo{
-		BackupTarget: "vfs:///var/lib/longhorn/backups/default",
+		BackupTarget:  "vfs:///var/lib/longhorn/backups/default",
 		LonghornImage: d.LonghornImage,
 	}
 }
