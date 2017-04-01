@@ -27,6 +27,8 @@ type Volume struct {
 	Endpoint            string `json:"endpoint,omitemtpy"`
 	Created             string `json:"created,omitemtpy"`
 
+	RecurringJobs []*types.RecurringJob `json:"recurringJobs,omitempty"`
+
 	Replicas   []Replica   `json:"replicas,omitempty"`
 	Controller *Controller `json:"controller,omitempty"`
 }
@@ -103,6 +105,10 @@ type BackupInput struct {
 	Name string `json:"name,omitempty"`
 }
 
+type ScheduleInput struct {
+	Jobs []types.RecurringJob `json:"jobs,omitempty"`
+}
+
 func NewSchema() *client.Schemas {
 	schemas := &client.Schemas{}
 
@@ -114,13 +120,21 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("snapshotInput", SnapshotInput{})
 	schemas.AddType("backup", Backup{})
 	schemas.AddType("backupInput", BackupInput{})
+	schemas.AddType("recurringJob", types.RecurringJob{})
 
 	hostSchema(schemas.AddType("host", Host{}))
 	volumeSchema(schemas.AddType("volume", Volume{}))
 	backupVolumeSchema(schemas.AddType("backupVolume", BackupVolume{}))
 	settingSchema(schemas.AddType("setting", Setting{}))
+	scheduleSchema(schemas.AddType("scheduleInput", ScheduleInput{}))
 
 	return schemas
+}
+
+func scheduleSchema(schedule *client.Schema) {
+	jobs := schedule.ResourceFields["jobs"]
+	jobs.Type = "array[recurringJob]"
+	schedule.ResourceFields["jobs"] = jobs
 }
 
 func settingSchema(setting *client.Schema) {
@@ -173,6 +187,9 @@ func volumeSchema(volume *client.Schema) {
 		},
 		"snapshotBackup": {
 			Input: "snapshotInput",
+		},
+		"scheduleUpdate": {
+			Input: "scheduleInput",
 		},
 	}
 	volume.ResourceFields["controller"] = client.Field{
@@ -290,6 +307,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		NumberOfReplicas:    v.NumberOfReplicas,
 		State:               string(v.State),
 		LonghornImage:       v.LonghornImage,
+		RecurringJobs:       v.RecurringJobs,
 		StaleReplicaTimeout: int(v.StaleReplicaTimeout / time.Minute),
 		Endpoint:            v.Endpoint,
 		Created:             v.Created,
@@ -303,6 +321,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 	switch v.State {
 	case types.VolumeStateDetached:
 		actions["attach"] = struct{}{}
+		actions["scheduleUpdate"] = struct{}{}
 	case types.VolumeStateHealthy:
 		actions["detach"] = struct{}{}
 		actions["snapshotCreate"] = struct{}{}
@@ -311,6 +330,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["snapshotDelete"] = struct{}{}
 		actions["snapshotRevert"] = struct{}{}
 		actions["snapshotBackup"] = struct{}{}
+		actions["scheduleUpdate"] = struct{}{}
 	case types.VolumeStateDegraded:
 		actions["detach"] = struct{}{}
 		actions["snapshotCreate"] = struct{}{}
@@ -320,6 +340,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["snapshotRevert"] = struct{}{}
 		actions["snapshotBackup"] = struct{}{}
 	case types.VolumeStateCreated:
+		actions["scheduleUpdate"] = struct{}{}
 	case types.VolumeStateFaulted:
 	}
 

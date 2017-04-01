@@ -55,6 +55,7 @@ func Handler(s *Server) http.Handler {
 		"snapshotDelete": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Delete),
 		"snapshotRevert": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Revert),
 		"snapshotBackup": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Backup),
+		"scheduleUpdate": s.fwd.Handler(HostIDFromVolume(s.man), s.UpdateSchedule),
 	}
 	for name, action := range volumeActions {
 		r.Methods("POST").Path("/v1/volumes/{name}").Queries("action", name).Handler(f(schemas, action))

@@ -49,10 +49,7 @@ func (f *Fwd) Handler(getHostID HostIDFunc, h HandleFuncWithError) HandleFuncWit
 		if err != nil {
 			return errors.Wrap(err, "fail to get host ID")
 		}
-		if hostID == "" {
-			return errors.Wrap(err, "host ID is none")
-		}
-		if hostID != f.sl.GetCurrentHostID() {
+		if hostID != "" && hostID != f.sl.GetCurrentHostID() {
 			targetHost, err := f.sl.GetAddress(hostID)
 			if err != nil {
 				return errors.Wrapf(err, "cannot find host %v", hostID)

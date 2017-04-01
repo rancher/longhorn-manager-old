@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"github.com/rancher/longhorn-orc/types"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -8,7 +9,7 @@ import (
 func TestSend(t *testing.T) {
 	assert := require.New(t)
 
-	ch := make(chan Event)
+	ch := make(chan types.Event)
 	go func() {
 		<-ch
 	}()

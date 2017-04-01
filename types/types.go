@@ -13,6 +13,7 @@ const (
 type VolumeState string
 
 const (
+	VolumeStateNone     = VolumeState("")
 	VolumeStateCreated  = VolumeState("created")
 	VolumeStateDetached = VolumeState("detached")
 	VolumeStateFaulted  = VolumeState("faulted")
@@ -36,6 +37,7 @@ type VolumeManager interface {
 	List() ([]*VolumeInfo, error)
 	Attach(name string) error
 	Detach(name string) error
+	UpdateSchedule(name string, jobs []*RecurringJob) error
 
 	ListHosts() (map[string]*HostInfo, error)
 	GetHost(id string) (*HostInfo, error)
@@ -79,7 +81,14 @@ type ManagerBackupOps interface {
 	GetVolume(volumeName string) (*BackupVolumeInfo, error)
 }
 
-type Monitor func(volume *VolumeInfo, man VolumeManager) io.Closer
+type Event interface{}
+
+type Monitor interface {
+	io.Closer
+	CronCh() chan<- Event
+}
+
+type BeginMonitoring func(volume *VolumeInfo, man VolumeManager) Monitor
 
 type GetController func(volume *VolumeInfo) Controller
 
@@ -139,6 +148,7 @@ type VolumeInfo struct {
 	LonghornImage       string
 	Endpoint            string
 	Created             string
+	RecurringJobs       []*RecurringJob
 }
 
 type InstanceInfo struct {
@@ -192,4 +202,15 @@ type BackupVolumeInfo struct {
 	Name    string `json:"name"`
 	Size    string `json:"size"`
 	Created string `json:"created"`
+}
+
+const (
+	SnapshotTask = "snapshot"
+	BackupTask   = "backup"
+)
+
+type RecurringJob struct {
+	Name string `json:"name,omitempty"`
+	Cron string `json:"cron,omitempty"`
+	Task string `json:"task,omitempty"`
 }

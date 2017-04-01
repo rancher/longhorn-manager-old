@@ -114,15 +114,6 @@ func stackBuffer(t *template.Template, volume *types.VolumeInfo) *bytes.Buffer {
 	return buffer
 }
 
-func copyVolumeProperties(volume0 *types.VolumeInfo) *types.VolumeInfo {
-	volume := new(types.VolumeInfo)
-	*volume = *volume0
-	volume.Controller = nil
-	volume.Replicas = nil
-	volume.State = types.VolumeStateCreated
-	return volume
-}
-
 func (orc *cattleOrc) createVolume(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
 	stack0 := &client.Stack{
 		Name:           util.VolumeStackName(volume.Name),
@@ -158,7 +149,7 @@ func (orc *cattleOrc) CreateVolume(volume *types.VolumeInfo) (*types.VolumeInfo,
 	} else if v != nil {
 		return v, nil
 	}
-	return orc.createVolume(copyVolumeProperties(volume))
+	return orc.createVolume(util.CopyVolumeProperties(volume))
 }
 
 func (orc *cattleOrc) DeleteVolume(volumeName string) error {
@@ -238,6 +229,9 @@ func (orc *cattleOrc) getReplicas(volumeName string, stack *client.Stack) (map[s
 	}
 
 	for _, cnt := range cntColl.Data {
+		if cnt.State == "purged" || cnt.State == "removed" {
+			continue
+		}
 		ts, err := orc.getReplicaBadTS(cnt.Name, volumeName, svc)
 		if err != nil {
 			return nil, err
@@ -281,11 +275,11 @@ func (orc *cattleOrc) getController(volumeName string, stack *client.Stack) (*ty
 	if err := orc.rancher.GetLink(svc.Resource, "instances", cntColl); err != nil {
 		return nil, errors.Wrapf(err, "error getting controller container, volume '%s'", volumeName)
 	}
-	if len(cntColl.Data) > 1 {
-		return nil, errors.Errorf("More than 1 controller for volume '%s'", volumeName)
-	}
 
 	for _, cnt := range cntColl.Data {
+		if cnt.State == "purged" || cnt.State == "removed" {
+			continue
+		}
 		hostID, err := orc.getHostID(&cnt)
 		if err != nil {
 			return nil, err
@@ -311,7 +305,6 @@ func (orc *cattleOrc) getVolume(stack *client.Stack) (*types.VolumeInfo, error) 
 	if err := mapstructure.Decode(md.Metadata[volumeProperty], volume); err != nil {
 		return nil, errors.Wrapf(err, "Failed to decode volume metadata, stack '%s'", stack.Name)
 	}
-	volume.StaleReplicaTimeout = volume.StaleReplicaTimeout * time.Hour
 
 	replicas, err := orc.getReplicas(volume.Name, stack)
 	if err != nil {
@@ -590,5 +583,24 @@ func (orc *cattleOrc) ListVolumes() ([]*types.VolumeInfo, error) {
 }
 
 func (orc *cattleOrc) UpdateVolume(volume *types.VolumeInfo) error {
-	return nil
+	volume = util.CopyVolumeProperties(volume)
+
+	stack, err := orc.getStack(volume.Name)
+	if err != nil {
+		return err
+	}
+	if stack == nil {
+		return errors.Errorf("no such stack, volume '%s'", volume.Name)
+	}
+
+	svc, err := orc.getService(stack, util.ControllerServiceName)
+	if err != nil {
+		return errors.Wrapf(err, "error getting controller service, stack '%s'", stack.Name)
+	}
+	svc.Metadata[volumeProperty] = volume
+	_, err = orc.rancher.Service.Update(svc, map[string]interface{}{
+		"metadata": svc.Metadata,
+	})
+
+	return errors.Wrapf(err, "error updating metadata for volume '%s'", volume.Name)
 }

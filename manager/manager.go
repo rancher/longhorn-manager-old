@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"io"
 	"strconv"
 	"sync"
 	"time"
@@ -20,11 +19,11 @@ var (
 type volumeManager struct {
 	sync.Mutex
 
-	monitors       map[string]io.Closer
+	monitors       map[string]types.Monitor
 	addingReplicas map[string]int
 
 	orc     types.Orchestrator
-	monitor types.Monitor
+	monitor types.BeginMonitoring
 
 	getController types.GetController
 	getBackups    types.GetManagerBackupOps
@@ -32,9 +31,9 @@ type volumeManager struct {
 	settings types.Settings
 }
 
-func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetController, getBackups types.GetManagerBackupOps) types.VolumeManager {
+func New(orc types.Orchestrator, monitor types.BeginMonitoring, getController types.GetController, getBackups types.GetManagerBackupOps) types.VolumeManager {
 	return &volumeManager{
-		monitors:       map[string]io.Closer{},
+		monitors:       map[string]types.Monitor{},
 		addingReplicas: map[string]int{},
 
 		orc:     orc,
@@ -236,6 +235,19 @@ func (man *volumeManager) startMonitoring(volume *types.VolumeInfo) {
 	}
 }
 
+func (man *volumeManager) updateCron(volume *types.VolumeInfo, jobs []*types.RecurringJob) {
+	man.Lock()
+	defer man.Unlock()
+	monitor := man.monitors[volume.Name]
+	if monitor == nil {
+		return
+	}
+	if cronCh := monitor.CronCh(); cronCh != nil {
+		cronCh <- CronUpdate(jobs)
+		logrus.Infof("updated recurring jobs schedule, volume '%s'", volume.Name)
+	}
+}
+
 func (man *volumeManager) stopMonitoring(volume *types.VolumeInfo) {
 	man.Lock()
 	defer man.Unlock()
@@ -417,6 +429,25 @@ func (man *volumeManager) addingReplicasCount(name string, add int) int {
 	count := man.addingReplicas[name] + add
 	man.addingReplicas[name] = count
 	return count
+}
+
+func (man *volumeManager) UpdateSchedule(name string, jobs []*types.RecurringJob) error {
+	volume, err := man.orc.GetVolume(name)
+	if err != nil {
+		return errors.Wrapf(err, "unable to get volume '%s'", name)
+	}
+	volume.RecurringJobs = jobs
+	if err := man.orc.UpdateVolume(volume); err != nil {
+		return errors.Wrapf(err, "unable to update volume '%s'", name)
+	}
+
+	if err := ValidateJobs(jobs); err != nil {
+		return err
+	}
+
+	man.updateCron(volume, jobs)
+
+	return nil
 }
 
 func (man *volumeManager) CheckController(ctrl types.Controller, volume *types.VolumeInfo) error {

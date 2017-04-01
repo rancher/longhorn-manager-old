@@ -53,6 +53,27 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
+func (s *Server) UpdateSchedule(rw http.ResponseWriter, req *http.Request) error {
+	apiContext := api.GetApiContext(req)
+	id := mux.Vars(req)["name"]
+
+	var schedule ScheduleInput
+	if err := apiContext.Read(&schedule); err != nil {
+		return errors.Wrapf(err, "unable to parse schedule for update")
+	}
+
+	jobs := make([]*types.RecurringJob, len(schedule.Jobs))
+	for i, job := range schedule.Jobs {
+		jobs[i] = &job
+	}
+
+	if err := s.man.UpdateSchedule(id, jobs); err != nil {
+		return errors.Wrapf(err, "unable to update volume schedule")
+	}
+
+	return s.GetVolume(rw, req)
+}
+
 func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 	id := mux.Vars(req)["name"]
 

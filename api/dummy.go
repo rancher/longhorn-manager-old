@@ -79,6 +79,10 @@ func (d *dummyVolumeManager) Detach(name string) error {
 	return nil
 }
 
+func (d *dummyVolumeManager) UpdateSchedule(name string, jobs []*types.RecurringJob) error {
+	return nil
+}
+
 func (d *dummyVolumeManager) CheckController(ctrl types.Controller, volume *types.VolumeInfo) error {
 	return nil
 }

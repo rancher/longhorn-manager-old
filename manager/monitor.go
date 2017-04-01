@@ -4,7 +4,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
 	"github.com/rancher/longhorn-orc/types"
-	"io"
 	"time"
 )
 
@@ -15,30 +14,38 @@ var (
 )
 
 type monitorChan struct {
-	monitorCh chan<- Event
-	cleanupCh chan<- Event
+	cronCh    chan<- types.Event
+	monitorCh chan<- types.Event
+	cleanupCh chan<- types.Event
 }
 
 func (mc *monitorChan) Close() error {
 	defer func() {
 		recover()
 	}()
+	defer close(mc.cronCh)
 	defer close(mc.monitorCh)
 	defer close(mc.cleanupCh)
 	return nil
 }
 
-func Monitor(getController types.GetController) types.Monitor {
-	return func(volume *types.VolumeInfo, man types.VolumeManager) io.Closer {
-		monitorCh := make(chan Event)
+func (mc *monitorChan) CronCh() chan<- types.Event {
+	return mc.cronCh
+}
+
+func Monitor(getController types.GetController) types.BeginMonitoring {
+	return func(volume *types.VolumeInfo, man types.VolumeManager) types.Monitor {
+		monitorCh := make(chan types.Event)
 		go monitor(getController(volume), volume, man, monitorCh)
-		cleanupCh := make(chan Event)
+		cleanupCh := make(chan types.Event)
 		go cleanup(volume, man, cleanupCh)
-		return &monitorChan{monitorCh, cleanupCh}
+		cronCh := make(chan types.Event)
+		go doCron(volume, getController(volume), cronCh)
+		return &monitorChan{cronCh: cronCh, monitorCh: monitorCh, cleanupCh: cleanupCh}
 	}
 }
 
-func monitor(ctrl types.Controller, volume *types.VolumeInfo, man types.VolumeManager, ch chan Event) {
+func monitor(ctrl types.Controller, volume *types.VolumeInfo, man types.VolumeManager, ch chan types.Event) {
 	ticker := NewTicker(MonitoringPeriod, ch)
 	defer ticker.Start().Stop()
 	<-ch
@@ -68,7 +75,7 @@ func monitor(ctrl types.Controller, volume *types.VolumeInfo, man types.VolumeMa
 	}
 }
 
-func cleanup(volume *types.VolumeInfo, man types.VolumeManager, ch chan Event) {
+func cleanup(volume *types.VolumeInfo, man types.VolumeManager, ch chan types.Event) {
 	ticker := NewTicker(CleanupPeriod, ch)
 	defer ticker.Start().Stop()
 	<-ch

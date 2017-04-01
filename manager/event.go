@@ -1,30 +1,29 @@
 package manager
 
 import (
+	"github.com/rancher/longhorn-orc/types"
 	"time"
 )
 
-type Event interface{}
-
 type event struct{}
 
-func TimeEvent() Event {
+func TimeEvent() types.Event {
 	return &event{}
 }
 
 type Ticker interface {
 	Start() Ticker
 	Stop() Ticker
-	NewTick() Event
+	NewTick() types.Event
 }
 
 type tickerImpl struct {
-	ch       chan Event
+	ch       chan types.Event
 	interval time.Duration
 	timer    *time.Timer
 }
 
-func NewTicker(interval time.Duration, ch chan Event) Ticker {
+func NewTicker(interval time.Duration, ch chan types.Event) Ticker {
 	return &tickerImpl{interval: interval, ch: ch}
 }
 
@@ -46,7 +45,7 @@ func (t *tickerImpl) tick() {
 	}
 }
 
-func (t *tickerImpl) NewTick() Event {
+func (t *tickerImpl) NewTick() types.Event {
 	return TimeEvent()
 }
 
@@ -57,7 +56,7 @@ func (t *tickerImpl) Stop() Ticker {
 	return t
 }
 
-func Send(c chan<- Event, e Event) bool {
+func Send(c chan<- types.Event, e types.Event) bool {
 	if c == nil {
 		return false
 	}
