@@ -87,7 +87,7 @@ func (d *dummyVolumeManager) SnapshotOps(name string) (types.SnapshotOps, error)
 	return &dummySnapshots{}, nil
 }
 
-func (d *dummyVolumeManager) VolumeBackups(name string) (types.VolumeBackups, error) {
+func (d *dummyVolumeManager) VolumeBackupOps(name string) (types.VolumeBackupOps, error) {
 	return nil, nil
 }
 

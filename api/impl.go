@@ -201,9 +201,9 @@ func (sh *SnapshotHandlers) Backup(w http.ResponseWriter, req *http.Request) err
 		return errors.New("cannot backup: backupTarget not set")
 	}
 
-	backups, err := sh.man.VolumeBackups(volName)
+	backups, err := sh.man.VolumeBackupOps(volName)
 	if err != nil {
-		return errors.Wrapf(err, "error getting VolumeBackups for volume '%s'", volName)
+		return errors.Wrapf(err, "error getting VolumeBackupOps for volume '%s'", volName)
 	}
 
 	if err := backups.Backup(snapName, backupTarget); err != nil {

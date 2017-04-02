@@ -533,7 +533,7 @@ func (man *volumeManager) GetHost(id string) (*types.HostInfo, error) {
 	return man.orc.GetHost(id)
 }
 
-func (man *volumeManager) VolumeBackups(name string) (types.VolumeBackups, error) {
+func (man *volumeManager) VolumeBackupOps(name string) (types.VolumeBackupOps, error) {
 	controller, err := man.Controller(name)
 	if err != nil {
 		return nil, err

@@ -44,7 +44,7 @@ type VolumeManager interface {
 
 	Controller(name string) (Controller, error)
 	SnapshotOps(name string) (SnapshotOps, error)
-	VolumeBackups(name string) (VolumeBackups, error)
+	VolumeBackupOps(name string) (VolumeBackupOps, error)
 	Settings() Settings
 	Backups(backupTarget string) Backups
 }
@@ -62,7 +62,7 @@ type SnapshotOps interface {
 	Revert(name string) error
 }
 
-type VolumeBackups interface {
+type VolumeBackupOps interface {
 	Backup(snapName, backupTarget string) error
 	Restore(backup string) error
 }
@@ -86,7 +86,7 @@ type Controller interface {
 	RemoveReplica(replica *ReplicaInfo) error
 
 	SnapshotOps() SnapshotOps
-	Backups() VolumeBackups
+	Backups() VolumeBackupOps
 }
 
 type Orchestrator interface {

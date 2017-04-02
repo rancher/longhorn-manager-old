@@ -56,7 +56,7 @@ func (c *controller) runBackup(backupTarget, snapName string) func() error {
 	}
 }
 
-func (c *controller) Backups() types.VolumeBackups {
+func (c *controller) Backups() types.VolumeBackupOps {
 	return c
 }
 
