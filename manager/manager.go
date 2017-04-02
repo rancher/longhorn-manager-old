@@ -59,6 +59,22 @@ func (man *volumeManager) doCreate(volume *types.VolumeInfo) (*types.VolumeInfo,
 		replicas[replica.Name] = replica
 	}
 	vol.Replicas = replicas
+	if err := man.orc.UpdateVolume(vol); err != nil {
+		for _, replica := range vol.Replicas {
+			if err := man.orc.StopInstance(replica.ID); err != nil {
+				logrus.Errorf("Fail to stop replica %v as cleanup for creation failure", replica.Name)
+			}
+			if err := man.orc.RemoveInstance(replica.ID); err != nil {
+				logrus.Errorf("Fail to remove replica %v as cleanup for creation failure", replica.Name)
+			}
+		}
+		return nil, err
+	}
+
+	//TODO need to call to Get() and get a consistent return
+	state := volumeState(vol)
+	vol.State = state
+
 	return vol, nil
 }
 
@@ -162,6 +178,7 @@ func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
 		return nil, nil
 	}
 
+	//FIXME this should be included in GET, now it's a side effect of GET
 	state := volumeState(vol)
 	vol.State = state
 
@@ -169,7 +186,15 @@ func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
 }
 
 func (man *volumeManager) List() ([]*types.VolumeInfo, error) {
-	return man.orc.ListVolumes()
+	volumes, err := man.orc.ListVolumes()
+	if err != nil {
+		return nil, err
+	}
+	for i, v := range volumes {
+		v.State = volumeState(v)
+		volumes[i] = v
+	}
+	return volumes, nil
 }
 
 func (man *volumeManager) startMonitoring(volume *types.VolumeInfo) {
@@ -277,6 +302,11 @@ func (man *volumeManager) doAttach(volume *types.VolumeInfo) error {
 	}
 
 	volume.Controller = controller
+
+	if err := man.orc.UpdateVolume(volume); err != nil {
+		//TODO rollback
+		return err
+	}
 	man.startMonitoring(volume)
 	return nil
 }
@@ -323,6 +353,11 @@ func (man *volumeManager) doDetach(volume *types.VolumeInfo) error {
 		if err := man.orc.RemoveInstance(volume.Controller.ID); err != nil {
 			return errors.Wrapf(err, "error removing the controller id='%s', volume '%s'", volume.Controller.ID, volume.Name)
 		}
+		volume.Controller = nil
+	}
+	if err := man.orc.UpdateVolume(volume); err != nil {
+		//TODO rollback
+		return err
 	}
 	return nil
 }

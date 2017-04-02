@@ -24,7 +24,7 @@ func (s *Server) ListVolume(rw http.ResponseWriter, req *http.Request) error {
 	}
 
 	for _, v := range volumes {
-		resp.Data = append(resp.Data, toVolumeResource(v))
+		resp.Data = append(resp.Data, toVolumeResource(v, apiContext))
 	}
 	resp.ResourceType = "volume"
 	resp.CreateTypes = map[string]string{
@@ -49,7 +49,7 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 		return nil
 	}
 
-	apiContext.Write(toVolumeResource(v))
+	apiContext.Write(toVolumeResource(v, apiContext))
 	return nil
 }
 
@@ -80,7 +80,7 @@ func (s *Server) CreateVolume(rw http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to create volume")
 	}
-	apiContext.Write(toVolumeResource(volumeResp))
+	apiContext.Write(toVolumeResource(volumeResp, apiContext))
 	return nil
 }
 

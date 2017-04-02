@@ -37,17 +37,34 @@ def test_volume(client):
     assert volume["name"] == VOLUME_NAME
     assert volume["size"] == SIZE
     assert volume["numberOfReplicas"] == 2
+    assert volume["state"] == "detached"
 
     volumes = client.list_volume()
     assert len(volumes) == 1
     assert volumes[0]["name"] == VOLUME_NAME
     assert volumes[0]["size"] == SIZE
     assert volumes[0]["numberOfReplicas"] == 2
+    assert volumes[0]["state"] == "detached"
 
+    volumeByName = client.by_id_volume(VOLUME_NAME)
+    assert volumeByName["name"] == VOLUME_NAME
+    assert volumeByName["size"] == SIZE
+    assert volumeByName["numberOfReplicas"] == 2
+    assert volumeByName["state"] == "detached"
+
+    hosts = client.list_host()
+    assert len(hosts) == 1
+
+    host = hosts[0]
+    assert host["uuid"] is not None
+    assert host["name"] == socket.gethostname()
+    assert host["address"] is not None
+
+    volume.attach(hostId=host["uuid"])
+
+    # FIXME should able to use volume = client.update(volume)
     volume = client.by_id_volume(VOLUME_NAME)
-    assert volume["name"] == VOLUME_NAME
-    assert volume["size"] == SIZE
-    assert volume["numberOfReplicas"] == 2
+    volume.detach()
 
     client.delete(volume)
 

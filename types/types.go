@@ -95,6 +95,7 @@ type Orchestrator interface {
 	GetVolume(volumeName string) (*VolumeInfo, error)     // For non-existing volume, return (nil, nil)
 	ListVolumes() ([]*VolumeInfo, error)
 	MarkBadReplica(volumeName string, replica *ReplicaInfo) error // find replica by Address
+	UpdateVolume(volume *VolumeInfo) error
 
 	CreateController(volumeName string, replicas map[string]*ReplicaInfo) (*ControllerInfo, error)
 	CreateReplica(volumeName string) (*ReplicaInfo, error)

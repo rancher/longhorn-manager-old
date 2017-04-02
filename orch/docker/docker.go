@@ -194,6 +194,14 @@ func (d *dockerOrc) GetVolume(volumeName string) (*types.VolumeInfo, error) {
 	return d.getVolume(volumeName)
 }
 
+func (d *dockerOrc) UpdateVolume(volume *types.VolumeInfo) error {
+	v, err := d.getVolume(volume.Name)
+	if err != nil {
+		return errors.Errorf("cannot update volume %v because it doesn't exists %+v", volume.Name, v)
+	}
+	return d.setVolume(volume)
+}
+
 func (d *dockerOrc) ListVolumes() ([]*types.VolumeInfo, error) {
 	return d.listVolumes()
 }

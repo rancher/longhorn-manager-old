@@ -4,6 +4,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
@@ -193,7 +194,7 @@ func toSettingsResource(s *types.SettingsInfo) *SettingsResource {
 	}
 }
 
-func toVolumeResource(v *types.VolumeInfo) *Volume {
+func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 	replicas := []Replica{}
 	for _, r := range v.Replicas {
 		mode := ""
@@ -227,14 +228,11 @@ func toVolumeResource(v *types.VolumeInfo) *Volume {
 
 	logrus.Debugf("controller: %+v", controller)
 
-	return &Volume{
+	r := &Volume{
 		Resource: client.Resource{
-			Id:   v.Name,
-			Type: "volume",
-			Actions: map[string]string{
-				"attach": v.Name + "/attach",
-				"detach": v.Name + "/detach",
-			},
+			Id:      v.Name,
+			Type:    "volume",
+			Actions: map[string]string{},
 			Links: map[string]string{
 				"snapshots": v.Name + "/snapshots/",
 			},
@@ -250,12 +248,31 @@ func toVolumeResource(v *types.VolumeInfo) *Volume {
 		Replicas:            replicas,
 		Controller:          controller,
 	}
+
+	actions := map[string]struct{}{}
+
+	switch v.State {
+	case types.VolumeStateDetached:
+		actions["attach"] = struct{}{}
+	case types.VolumeStateHealthy:
+		actions["detach"] = struct{}{}
+	case types.VolumeStateDegraded:
+		actions["detach"] = struct{}{}
+	case types.VolumeStateCreated:
+	case types.VolumeStateFaulted:
+	}
+
+	for action := range actions {
+		r.Actions[action] = apiContext.UrlBuilder.ActionLink(r.Resource, action)
+	}
+
+	return r
 }
 
-func toVolumeCollection(vs []*types.VolumeInfo) *client.GenericCollection {
+func toVolumeCollection(vs []*types.VolumeInfo, apiContext *api.ApiContext) *client.GenericCollection {
 	data := []interface{}{}
 	for _, v := range vs {
-		data = append(data, toVolumeResource(v))
+		data = append(data, toVolumeResource(v, apiContext))
 	}
 	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "volume"}}
 }

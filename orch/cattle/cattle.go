@@ -563,3 +563,7 @@ func (orc *cattleOrc) GetHost(id string) (*types.HostInfo, error) {
 func (orc *cattleOrc) ListVolumes() ([]*types.VolumeInfo, error) {
 	return nil, errors.Errorf("Haven't implemented ListVolumes yet")
 }
+
+func (orc *cattleOrc) UpdateVolume(volume *types.VolumeInfo) error {
+	return nil
+}
