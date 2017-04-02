@@ -57,7 +57,7 @@ func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 	id := mux.Vars(req)["name"]
 
 	if err := s.man.Delete(id); err != nil {
-		return errors.Wrap(err, "unable to get volume")
+		return errors.Wrap(err, "unable to delete volume")
 	}
 
 	return nil
@@ -73,12 +73,12 @@ func (s *Server) CreateVolume(rw http.ResponseWriter, req *http.Request) error {
 
 	volume, err := filterCreateVolumeInput(&v)
 	if err != nil {
-		return errors.Wrap(err, "fail to filter create volume input")
+		return errors.Wrap(err, "unable to filter create volume input")
 	}
 
 	volumeResp, err := s.man.Create(volume)
 	if err != nil {
-		return errors.Wrap(err, "fail to create volume")
+		return errors.Wrap(err, "unable to create volume")
 	}
 	apiContext.Write(toVolumeResource(volumeResp))
 	return nil
@@ -97,4 +97,24 @@ func filterCreateVolumeInput(v *Volume) (*types.VolumeInfo, error) {
 		NumberOfReplicas:    v.NumberOfReplicas,
 		StaleReplicaTimeout: time.Duration(v.StaleReplicaTimeout) * time.Minute,
 	}, nil
+}
+
+func (s *Server) AttachVolume(rw http.ResponseWriter, req *http.Request) error {
+	id := mux.Vars(req)["name"]
+
+	if err := s.man.Attach(id); err != nil {
+		return errors.Wrap(err, "unable to attach volume")
+	}
+
+	return nil
+}
+
+func (s *Server) DetachVolume(rw http.ResponseWriter, req *http.Request) error {
+	id := mux.Vars(req)["name"]
+
+	if err := s.man.Detach(id); err != nil {
+		return errors.Wrap(err, "unable to detach volume")
+	}
+
+	return nil
 }
