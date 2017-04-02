@@ -11,7 +11,7 @@ import (
 
 const VolumeHeadName = "volume-head"
 
-func (c *controller) Snapshots() types.VolumeSnapshots {
+func (c *controller) SnapshotOps() types.SnapshotOps {
 	return c
 }
 

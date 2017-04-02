@@ -517,12 +517,12 @@ func (man *volumeManager) Controller(name string) (types.Controller, error) {
 	return man.getController(volume), nil
 }
 
-func (man *volumeManager) VolumeSnapshots(name string) (types.VolumeSnapshots, error) {
+func (man *volumeManager) SnapshotOps(name string) (types.SnapshotOps, error) {
 	controller, err := man.Controller(name)
 	if err != nil {
 		return nil, err
 	}
-	return controller.Snapshots(), nil
+	return controller.SnapshotOps(), nil
 }
 
 func (man *volumeManager) ListHosts() (map[string]*types.HostInfo, error) {

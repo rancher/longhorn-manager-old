@@ -43,7 +43,7 @@ type VolumeManager interface {
 	Cleanup(volume *VolumeInfo) error
 
 	Controller(name string) (Controller, error)
-	VolumeSnapshots(name string) (VolumeSnapshots, error)
+	SnapshotOps(name string) (SnapshotOps, error)
 	VolumeBackups(name string) (VolumeBackups, error)
 	Settings() Settings
 	Backups(backupTarget string) Backups
@@ -54,7 +54,7 @@ type Settings interface {
 	SetSettings(*SettingsInfo)
 }
 
-type VolumeSnapshots interface {
+type SnapshotOps interface {
 	Create(name string) (string, error)
 	List() ([]*SnapshotInfo, error)
 	Get(name string) (*SnapshotInfo, error)
@@ -85,7 +85,7 @@ type Controller interface {
 	AddReplica(replica *ReplicaInfo) error
 	RemoveReplica(replica *ReplicaInfo) error
 
-	Snapshots() VolumeSnapshots
+	SnapshotOps() SnapshotOps
 	Backups() VolumeBackups
 }
 

@@ -83,7 +83,7 @@ func (d *dummyVolumeManager) Cleanup(volume *types.VolumeInfo) error {
 	return nil
 }
 
-func (d *dummyVolumeManager) VolumeSnapshots(name string) (types.VolumeSnapshots, error) {
+func (d *dummyVolumeManager) SnapshotOps(name string) (types.SnapshotOps, error) {
 	return &dummySnapshots{}, nil
 }
 

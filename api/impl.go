@@ -90,9 +90,9 @@ type SnapshotHandlers struct {
 func (sh *SnapshotHandlers) Create(w http.ResponseWriter, req *http.Request) error {
 	volName := mux.Vars(req)["name"]
 
-	snapshots, err := sh.man.VolumeSnapshots(volName)
+	snapshots, err := sh.man.SnapshotOps(volName)
 	if err != nil {
-		return errors.Wrapf(err, "error getting VolumeSnapshots for volume '%s'", volName)
+		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
 	}
 
 	data, err := dataFromReq(req.Body)
@@ -123,9 +123,9 @@ func (sh *SnapshotHandlers) Create(w http.ResponseWriter, req *http.Request) err
 func (sh *SnapshotHandlers) List(w http.ResponseWriter, req *http.Request) error {
 	volName := mux.Vars(req)["name"]
 
-	snapshots, err := sh.man.VolumeSnapshots(volName)
+	snapshots, err := sh.man.SnapshotOps(volName)
 	if err != nil {
-		return errors.Wrapf(err, "error getting VolumeSnapshots for volume '%s'", volName)
+		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
 	}
 
 	snapList, err := snapshots.List()
@@ -141,9 +141,9 @@ func (sh *SnapshotHandlers) Get(w http.ResponseWriter, req *http.Request) error 
 	volName := mux.Vars(req)["name"]
 	snapName := mux.Vars(req)["snapName"]
 
-	snapshots, err := sh.man.VolumeSnapshots(volName)
+	snapshots, err := sh.man.SnapshotOps(volName)
 	if err != nil {
-		return errors.Wrapf(err, "error getting VolumeSnapshots for volume '%s'", volName)
+		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
 	}
 
 	snap, err := snapshots.Get(snapName)
@@ -162,9 +162,9 @@ func (sh *SnapshotHandlers) Delete(w http.ResponseWriter, req *http.Request) err
 	volName := mux.Vars(req)["name"]
 	snapName := mux.Vars(req)["snapName"]
 
-	snapshots, err := sh.man.VolumeSnapshots(volName)
+	snapshots, err := sh.man.SnapshotOps(volName)
 	if err != nil {
-		return errors.Wrapf(err, "error getting VolumeSnapshots for volume '%s'", volName)
+		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
 	}
 
 	if err := snapshots.Delete(snapName); err != nil {
@@ -179,9 +179,9 @@ func (sh *SnapshotHandlers) Revert(w http.ResponseWriter, req *http.Request) err
 	volName := mux.Vars(req)["name"]
 	snapName := mux.Vars(req)["snapName"]
 
-	snapshots, err := sh.man.VolumeSnapshots(volName)
+	snapshots, err := sh.man.SnapshotOps(volName)
 	if err != nil {
-		return errors.Wrapf(err, "error getting VolumeSnapshots for volume '%s'", volName)
+		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
 	}
 
 	if err := snapshots.Revert(snapName); err != nil {
