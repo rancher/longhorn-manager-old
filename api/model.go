@@ -86,19 +86,6 @@ type Empty struct {
 	client.Resource
 }
 
-var volumeState = map[types.VolumeState]string{
-	types.Detached: "detached",
-	types.Faulted:  "faulted",
-	types.Healthy:  "healthy",
-	types.Degraded: "degraded",
-}
-
-var replicaModes = map[types.ReplicaMode]string{
-	types.RW:  "RW",
-	types.WO:  "WO",
-	types.ERR: "ERR",
-}
-
 func NewSchema() *client.Schemas {
 	schemas := &client.Schemas{}
 
@@ -207,13 +194,11 @@ func toSettingsResource(s *types.SettingsInfo) *SettingsResource {
 }
 
 func toVolumeResource(v *types.VolumeInfo) *Volume {
-	state := volumeState[v.State]
-
 	replicas := []Replica{}
 	for _, r := range v.Replicas {
 		mode := ""
 		if r.Running {
-			mode = replicaModes[r.Mode]
+			mode = string(r.Mode)
 		}
 		badTimestamp := ""
 		if r.BadTimestamp != nil {
@@ -259,7 +244,7 @@ func toVolumeResource(v *types.VolumeInfo) *Volume {
 		BaseImage:           v.BaseImage,
 		FromBackup:          v.FromBackup,
 		NumberOfReplicas:    v.NumberOfReplicas,
-		State:               state,
+		State:               string(v.State),
 		LonghornImage:       v.LonghornImage,
 		StaleReplicaTimeout: int(v.StaleReplicaTimeout / time.Minute),
 		Replicas:            replicas,

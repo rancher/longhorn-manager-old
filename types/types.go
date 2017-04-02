@@ -10,22 +10,22 @@ const (
 	DefaultStaleReplicaTimeout = time.Hour * 16 * 24
 )
 
-type VolumeState int
+type VolumeState string
 
 const (
-	Created VolumeState = iota
-	Detached
-	Faulted
-	Healthy
-	Degraded
+	VolumeStateCreated  = VolumeState("created")
+	VolumeStateDetached = VolumeState("detached")
+	VolumeStateFaulted  = VolumeState("faulted")
+	VolumeStateHealthy  = VolumeState("healthy")
+	VolumeStateDegraded = VolumeState("degraded")
 )
 
-type ReplicaMode int
+type ReplicaMode string
 
 const (
-	RW ReplicaMode = iota
-	WO
-	ERR
+	ReplicaModeRW  = ReplicaMode("RW")
+	ReplicaModeWO  = ReplicaMode("WO")
+	ReplicaModeERR = ReplicaMode("ERR")
 )
 
 type VolumeManager interface {

@@ -35,11 +35,11 @@ func (d *dummyVolumeManager) Get(name string) (*types.VolumeInfo, error) {
 				Running: true,
 			},
 			Name: "replica-" + index,
-			Mode: types.RW,
+			Mode: types.ReplicaModeRW,
 		}
 	}
 
-	state := types.Healthy
+	state := types.VolumeStateHealthy
 
 	return &types.VolumeInfo{
 		Name:             name,

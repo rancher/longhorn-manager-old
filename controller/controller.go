@@ -30,9 +30,9 @@ func (c *controller) Name() string {
 }
 
 var modes = map[string]types.ReplicaMode{
-	"RW":  types.RW,
-	"WO":  types.WO,
-	"ERR": types.ERR,
+	"RW":  types.ReplicaModeRW,
+	"WO":  types.ReplicaModeWO,
+	"ERR": types.ReplicaModeERR,
 }
 
 func parseReplica(s string) (*types.ReplicaInfo, string, error) {
@@ -43,17 +43,17 @@ func parseReplica(s string) (*types.ReplicaInfo, string, error) {
 	}
 	mode, ok := modes[fields[1]]
 	if !ok {
-		mode = types.ERR
+		mode = types.ReplicaModeERR
 	}
-	if mode == types.RW {
+	if mode == types.ReplicaModeRW {
 		s := strings.TrimSpace(s)
 		s = s[len(fields[0]):]
 		s = strings.TrimSpace(s)
 		s = s[len(fields[1]):]
 		rwChain = strings.TrimSpace(s)
 	}
-	if mode == types.RW && rwChain == "" {
-		mode = types.ERR // TODO it's a workaround, remove when fixed in longhorn
+	if mode == types.ReplicaModeRW && rwChain == "" {
+		mode = types.ReplicaModeERR // TODO it's a workaround, remove when fixed in longhorn
 	}
 	return &types.ReplicaInfo{
 		InstanceInfo: types.InstanceInfo{
@@ -97,7 +97,7 @@ func (c *controller) GetReplicaStates() ([]*types.ReplicaInfo, error) {
 				parsingErrCh <- errors.Wrapf(err, "error parsing replica status from `%s`", s)
 				break
 			}
-			if replica.Mode == types.RW {
+			if replica.Mode == types.ReplicaModeRW {
 				if rwChain == "" {
 					rwChain = trimChain(chain)
 				} else if rwChain != trimChain(chain) {

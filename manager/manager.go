@@ -144,13 +144,13 @@ func volumeState(volume *types.VolumeInfo) types.VolumeState {
 	}
 	switch {
 	case goodReplicaCount == 0:
-		return types.Faulted
+		return types.VolumeStateFaulted
 	case volume.Controller == nil:
-		return types.Detached
+		return types.VolumeStateDetached
 	case goodReplicaCount == volume.NumberOfReplicas:
-		return types.Healthy
+		return types.VolumeStateHealthy
 	}
-	return types.Degraded
+	return types.VolumeStateDegraded
 }
 
 func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
@@ -365,11 +365,11 @@ func (man *volumeManager) CheckController(ctrl types.Controller, volume *types.V
 	wg := &sync.WaitGroup{}
 	for _, replica := range replicas {
 		switch replica.Mode {
-		case types.RW:
+		case types.ReplicaModeRW:
 			goodReplicas = append(goodReplicas, replica)
-		case types.WO:
+		case types.ReplicaModeWO:
 			woReplicas = append(woReplicas, replica)
-		case types.ERR:
+		case types.ReplicaModeERR:
 			wg.Add(1)
 			go func(replica *types.ReplicaInfo) {
 				defer wg.Done()
