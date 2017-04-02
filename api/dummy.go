@@ -99,7 +99,7 @@ func (d *dummyVolumeManager) Settings() types.Settings {
 	return &dummySettings{}
 }
 
-func (d *dummyVolumeManager) Backups(backupTarget string) types.Backups {
+func (d *dummyVolumeManager) ManagerBackupOps(backupTarget string) types.ManagerBackupOps {
 	panic("implement me")
 }
 

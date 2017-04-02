@@ -26,7 +26,7 @@ type backupVolume struct {
 	Backups        map[string]interface{}
 }
 
-func New(backupTarget string) types.Backups {
+func New(backupTarget string) types.ManagerBackupOps {
 	return &backups{backupTarget}
 }
 

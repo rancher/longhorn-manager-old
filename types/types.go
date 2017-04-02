@@ -46,7 +46,7 @@ type VolumeManager interface {
 	SnapshotOps(name string) (SnapshotOps, error)
 	VolumeBackupOps(name string) (VolumeBackupOps, error)
 	Settings() Settings
-	Backups(backupTarget string) Backups
+	ManagerBackupOps(backupTarget string) ManagerBackupOps
 }
 
 type Settings interface {
@@ -67,9 +67,9 @@ type VolumeBackupOps interface {
 	Restore(backup string) error
 }
 
-type GetBackups func(backupTarget string) Backups
+type GetManagerBackupOps func(backupTarget string) ManagerBackupOps
 
-type Backups interface {
+type ManagerBackupOps interface {
 	List(volumeName string) ([]*BackupInfo, error)
 	Get(url string) (*BackupInfo, error)
 	Delete(url string) error

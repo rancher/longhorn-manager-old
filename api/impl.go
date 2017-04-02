@@ -222,7 +222,7 @@ func (bh *BackupsHandlers) List(w http.ResponseWriter, req *http.Request) {
 	volName := mux.Vars(req)["volName"]
 
 	backupTarget := bh.man.Settings().GetSettings().BackupTarget
-	backups := bh.man.Backups(backupTarget)
+	backups := bh.man.ManagerBackupOps(backupTarget)
 
 	bs, err := backups.List(volName)
 	if err != nil {
@@ -243,7 +243,7 @@ func (bh *BackupsHandlers) Get(w http.ResponseWriter, req *http.Request) {
 	backupName := mux.Vars(req)["backupName"]
 
 	backupTarget := bh.man.Settings().GetSettings().BackupTarget
-	backups := bh.man.Backups(backupTarget)
+	backups := bh.man.ManagerBackupOps(backupTarget)
 
 	url := backupURL(backupTarget, backupName, volName)
 	backup, err := backups.Get(url)
@@ -266,7 +266,7 @@ func (bh *BackupsHandlers) Delete(w http.ResponseWriter, req *http.Request) {
 	backupName := mux.Vars(req)["backupName"]
 
 	backupTarget := bh.man.Settings().GetSettings().BackupTarget
-	backups := bh.man.Backups(backupTarget)
+	backups := bh.man.ManagerBackupOps(backupTarget)
 
 	url := backupURL(backupTarget, backupName, volName)
 	if err := backups.Delete(url); err != nil {

@@ -24,12 +24,12 @@ type volumeManager struct {
 	monitor types.Monitor
 
 	getController types.GetController
-	getBackups    types.GetBackups
+	getBackups    types.GetManagerBackupOps
 
 	settings types.Settings
 }
 
-func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetController, getBackups types.GetBackups) types.VolumeManager {
+func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetController, getBackups types.GetManagerBackupOps) types.VolumeManager {
 	return &volumeManager{
 		monitors:       map[string]io.Closer{},
 		addingReplicas: map[string]int{},
@@ -545,6 +545,6 @@ func (man *volumeManager) Settings() types.Settings {
 	return man.settings
 }
 
-func (man *volumeManager) Backups(backupTarget string) types.Backups {
+func (man *volumeManager) ManagerBackupOps(backupTarget string) types.ManagerBackupOps {
 	return man.getBackups(backupTarget)
 }
