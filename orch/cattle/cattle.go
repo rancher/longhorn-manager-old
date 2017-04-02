@@ -559,3 +559,7 @@ func (orc *cattleOrc) ListHosts() (map[string]*types.HostInfo, error) {
 func (orc *cattleOrc) GetHost(id string) (*types.HostInfo, error) {
 	return nil, errors.Errorf("Haven't implemented GetHost yet")
 }
+
+func (orc *cattleOrc) ListVolumes() ([]*types.VolumeInfo, error) {
+	return nil, errors.Errorf("Haven't implemented ListVolumes yet")
+}

@@ -334,3 +334,7 @@ func (d *dockerOrc) GetSettings() *types.SettingsInfo {
 
 func (d *dockerOrc) SetSettings(*types.SettingsInfo) {
 }
+
+func (d *dockerOrc) ListVolumes() ([]*types.VolumeInfo, error) {
+	return d.listVolumes()
+}

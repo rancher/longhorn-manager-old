@@ -169,8 +169,7 @@ func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
 }
 
 func (man *volumeManager) List() ([]*types.VolumeInfo, error) {
-	// TODO impl volume list
-	return []*types.VolumeInfo{}, nil
+	return man.orc.ListVolumes()
 }
 
 func (man *volumeManager) startMonitoring(volume *types.VolumeInfo) {

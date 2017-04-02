@@ -93,6 +93,7 @@ type Orchestrator interface {
 	CreateVolume(volume *VolumeInfo) (*VolumeInfo, error) // creates volume metadata
 	DeleteVolume(volumeName string) error                 // removes volume metadata
 	GetVolume(volumeName string) (*VolumeInfo, error)
+	ListVolumes() ([]*VolumeInfo, error)
 	MarkBadReplica(volumeName string, replica *ReplicaInfo) error // find replica by Address
 
 	CreateController(volumeName string, replicas map[string]*ReplicaInfo) (*ControllerInfo, error)
