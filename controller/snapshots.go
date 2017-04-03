@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
@@ -16,12 +17,16 @@ func (c *controller) SnapshotOps() types.SnapshotOps {
 }
 
 func (c *controller) Create(name string) (string, error) {
+	var stdout, stderr bytes.Buffer
+
 	cmd := exec.Command("longhorn", "--url", c.url, "snapshot", "create", name)
-	bytes, err := cmd.Output()
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
-		return "", errors.Wrapf(err, "error creating snapshot '%s'", name)
+		return "", errors.Wrapf(err, "error creating snapshot '%s': %s", name, stderr.String())
 	}
-	return strings.TrimSpace(string(bytes)), nil
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 func (c *controller) list() (map[string]*types.SnapshotInfo, error) {
