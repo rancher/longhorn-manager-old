@@ -9,6 +9,8 @@ fi
 
 source ./scripts/common
 
+mount --bind /host/dev /dev
+
 start_etcd
 
 hostip=`hostname -i`

@@ -3,6 +3,8 @@ set -e
 
 cd $(dirname $0)/..
 
+mount --bind /host/dev /dev
+
 source ./scripts/common
 
 start_etcd
