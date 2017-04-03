@@ -8,7 +8,7 @@ ENV_ORC_IPS = "LONGHORN_ORC_TEST_SERVER_IPS"
 ORC = 'http://localhost:7000'
 
 SIZE = str(16 * 1024 * 1024)
-VOLUME_NAME = "test_vol-1.0"
+VOLUME_NAME = "longhorn-orc-test_vol-1.0"
 
 
 def get_client(ip):
