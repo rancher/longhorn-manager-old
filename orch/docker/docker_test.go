@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"os"
 	"testing"
 
 	"github.com/rancher/longhorn-orc/types"
@@ -10,6 +11,8 @@ import (
 
 const (
 	TestVolumeName = "test-vol"
+
+	EnvEtcdServer = "LONGHORN_ORC_TEST_ETCD_SERVER"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -26,8 +29,11 @@ func (s *TestSuite) SetUpTest(c *C) {
 
 	s.containerBin = make(map[string]struct{})
 
+	etcdIP := os.Getenv(EnvEtcdServer)
+	c.Assert(etcdIP, Not(Equals), "")
+
 	cfg := &dockerOrcConfig{
-		servers: []string{"http://localhost:2379"},
+		servers: []string{"http://" + etcdIP + ":2379"},
 		prefix:  "/longhorn",
 	}
 	orc, err := newDocker(cfg)

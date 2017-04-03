@@ -1,11 +1,13 @@
 #!/bin/bash
 
-ETCD_SERVER=longhorn-orc-etcd-test-server
+ORC_TEST_PREFIX=longhorn-orc-test
+
+ETCD_SERVER=${ORC_TEST_PREFIX}-etcd-server
 ETCD_IMAGE=quay.io/coreos/etcd:v3.1.5
 
 function start_etcd {
     echo Start etcd server
-    docker run -d --net container:$(hostname) \
+    docker run -d \
                 --name $ETCD_SERVER \
                 --volume /etcd-data \
                 $ETCD_IMAGE \
@@ -20,16 +22,14 @@ function start_etcd {
                 --initial-cluster-token my-etcd-token \
                 --initial-cluster-state new \
                 --auto-compaction-retention 1
-    trap cleanup_etcd EXIT
-
-    wait_for http://127.0.0.1:2379/v2/stats/leader
+    trap cleanup_orc_test EXIT
 
     echo etcd server ready
 }
 
-function cleanup_etcd {
-    echo clean up etcd server
-    docker rm -vf $ETCD_SERVER
+function cleanup_orc_test {
+    echo clean up test containers
+    docker rm -vf $(docker ps -f name=$ORC_TEST_PREFIX -a -q)
 }
 
 function wait_for {
@@ -56,4 +56,47 @@ function wait_for {
             return -1
     fi
     return 0
+}
+
+function wait_for_etcd {
+    etcd_ip=$1
+    wait_for http://${etcd_ip}:2379/v2/stats/leader
+}
+
+function get_container_ip {
+    container=$1
+    for i in `seq 1 5`
+    do
+        ip=`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $container`
+        if [ "$ip" != "" ]
+        then
+            break
+        fi
+        sleep 10
+    done
+
+    if [ "$ip" == "" ]
+    then
+        echo cannot find ip for $container
+        exit -1
+    fi
+    echo $ip
+}
+
+function start_orc {
+    image=$1
+    id=$2
+    etcd_ip=$3
+    docker run -d --name ${ORC_TEST_PREFIX}-server-${id} \
+            --privileged -v /dev:/host/dev \
+            -v /var/run/docker.sock:/var/run/docker.sock $image \
+            /usr/local/sbin/launch-orc -d --orchestrator docker \
+            --longhorn-image rancher/longhorn:latest \
+            --etcd-servers http://${etcd_ip}:2379
+    trap cleanup_orc_test EXIT
+}
+
+function wait_for_orc {
+    orc_ip=$1
+    wait_for http://${orc_ip}:7000/v1
 }
