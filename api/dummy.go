@@ -67,6 +67,10 @@ func (d *dummyVolumeManager) List() ([]*types.VolumeInfo, error) {
 	return vs, nil
 }
 
+func (d *dummyVolumeManager) Start() error {
+	return nil
+}
+
 func (d *dummyVolumeManager) Attach(name string) error {
 	return nil
 }

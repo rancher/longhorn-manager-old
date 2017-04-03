@@ -29,6 +29,7 @@ const (
 )
 
 type VolumeManager interface {
+	Start() error
 	Create(volume *VolumeInfo) (*VolumeInfo, error)
 	Delete(name string) error
 	Get(name string) (*VolumeInfo, error)

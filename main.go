@@ -118,6 +118,9 @@ func RunManager(c *cli.Context) error {
 	}
 
 	man := manager.New(orc, manager.Monitor(controller.New), controller.New, backups.New)
+	if err := man.Start(); err != nil {
+		return err
+	}
 
 	go server.NewUnixServer(sockFile).Serve(api.HandlerLocal(man))
 

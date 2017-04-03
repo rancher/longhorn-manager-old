@@ -215,6 +215,19 @@ func (man *volumeManager) List() ([]*types.VolumeInfo, error) {
 	return volumes, nil
 }
 
+func (man *volumeManager) Start() error {
+	vs, err := man.List()
+	if err != nil {
+		return err
+	}
+	for _, v := range vs {
+		if v.Controller != nil && v.Controller.Running && v.Controller.HostID == man.orc.GetCurrentHostID() {
+			man.startMonitoring(v)
+		}
+	}
+	return nil
+}
+
 func (man *volumeManager) startMonitoring(volume *types.VolumeInfo) {
 	man.Lock()
 	defer man.Unlock()
