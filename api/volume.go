@@ -106,7 +106,7 @@ func (s *Server) AttachVolume(rw http.ResponseWriter, req *http.Request) error {
 		return errors.Wrap(err, "unable to attach volume")
 	}
 
-	return nil
+	return s.GetVolume(rw, req)
 }
 
 func (s *Server) DetachVolume(rw http.ResponseWriter, req *http.Request) error {
@@ -116,5 +116,5 @@ func (s *Server) DetachVolume(rw http.ResponseWriter, req *http.Request) error {
 		return errors.Wrap(err, "unable to detach volume")
 	}
 
-	return nil
+	return s.GetVolume(rw, req)
 }

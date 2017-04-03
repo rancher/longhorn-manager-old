@@ -129,9 +129,12 @@ func volumeSchema(volume *client.Schema) {
 	volume.ResourceMethods = []string{"GET", "DELETE"}
 	volume.ResourceActions = map[string]client.Action{
 		"attach": {
-			Input: "attachInput",
+			Input:  "attachInput",
+			Output: "volume",
 		},
-		"detach": {},
+		"detach": {
+			Output: "volume",
+		},
 	}
 	volume.ResourceFields["controller"] = client.Field{
 		Type:     "struct",

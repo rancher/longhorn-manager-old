@@ -69,11 +69,12 @@ def test_volume():
     assert host["uuid"] is not None
     assert host["address"] is not None
 
-    volume.attach(hostId=host["uuid"])
+    volume = volume.attach(hostId=host["uuid"])
 
     # FIXME should able to use volume = client.update(volume)
     volume = client.by_id_volume(VOLUME_NAME)
-    volume.detach()
+
+    volume = volume.detach()
 
     client.delete(volume)
 
