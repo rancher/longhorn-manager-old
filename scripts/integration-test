@@ -17,8 +17,7 @@ hostip=`hostname -i`
 
 ./bin/longhorn-orc -d --orchestrator docker \
         --longhorn-image rancher/longhorn:latest \
-        --etcd-servers http://localhost:2379 \
-        --host-address ${hostip}:7000 &
+        --etcd-servers http://localhost:2379 &
 wait_for http://${hostip}:7000/v1/
 
 echo longhorn-orc is ready

@@ -28,7 +28,6 @@ func (s *TestSuite) SetUpTest(c *C) {
 
 	cfg := &dockerOrcConfig{
 		servers: []string{"http://localhost:2379"},
-		address: "127.0.0.1",
 		prefix:  "/longhorn",
 	}
 	orc, err := newDocker(cfg)

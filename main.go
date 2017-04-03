@@ -62,12 +62,6 @@ func main() {
 			Value: "/longhorn",
 		},
 
-		// TODO Temporarily, will be removed later
-		cli.StringFlag{
-			Name:  "host-address",
-			Usage: "The address of longhorn volume manager exposed on the host, in format of <ip>:<port>",
-		},
-
 		// Cattle
 		cli.StringFlag{
 			Name:   "cattle-url",

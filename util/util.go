@@ -3,6 +3,7 @@ package util
 import (
 	"crypto/md5"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -126,4 +127,20 @@ func WaitForDevice(dev string, timeout int) error {
 
 func RandomID() string {
 	return UUID()[:18]
+}
+
+func GetLocalIPs() ([]string, error) {
+	results := []string{}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+	for _, addr := range addrs {
+		if ip, ok := addr.(*net.IPNet); ok && !ip.IP.IsLoopback() {
+			if ip.IP.To4() != nil {
+				results = append(results, ip.IP.String())
+			}
+		}
+	}
+	return results, nil
 }

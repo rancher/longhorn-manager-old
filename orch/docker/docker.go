@@ -21,6 +21,7 @@ import (
 	dCli "github.com/docker/docker/client"
 	dNat "github.com/docker/go-connections/nat"
 
+	"github.com/rancher/longhorn-orc/api"
 	"github.com/rancher/longhorn-orc/orch"
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
@@ -52,7 +53,6 @@ type dockerOrc struct {
 
 type dockerOrcConfig struct {
 	servers []string
-	address string
 	prefix  string
 	image   string
 }
@@ -62,12 +62,10 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("Unspecified etcd servers")
 	}
-	address := c.String("host-address")
 	prefix := c.String("etcd-prefix")
 	image := c.String(orch.LonghornImageParam)
 	return newDocker(&dockerOrcConfig{
 		servers: servers,
-		address: address,
 		prefix:  prefix,
 		image:   image,
 	})
@@ -104,7 +102,13 @@ func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
 		return nil, errors.Wrap(err, "cannot pass test to get container list")
 	}
 
-	if err := docker.Register(cfg.address); err != nil {
+	ips, err := util.GetLocalIPs()
+	if err != nil || len(ips) == 0 {
+		return nil, fmt.Errorf("unable to get ip")
+	}
+	address := ips[0] + ":" + strconv.Itoa(api.Port)
+
+	if err := docker.Register(address); err != nil {
 		return nil, err
 	}
 	logrus.Info("Docker orchestrator is ready")
