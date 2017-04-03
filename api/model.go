@@ -32,13 +32,13 @@ type Volume struct {
 type Snapshot struct {
 	client.Resource
 
-	Name        string   `json:"name,omitempty"`
-	Parent      string   `json:"parent,omitempty"`
-	Children    []string `json:"children,omitempty"`
-	Removed     bool     `json:"removed,omitempty"`
-	UserCreated bool     `json:"usercreated,omitempty"`
-	Created     string   `json:"created,omitempty"`
-	Size        string   `json:"size,omitempty"`
+	Name        string   `json:"name"`
+	Parent      string   `json:"parent"`
+	Children    []string `json:"children"`
+	Removed     bool     `json:"removed"`
+	UserCreated bool     `json:"usercreated"`
+	Created     string   `json:"created"`
+	Size        string   `json:"size"`
 }
 
 type Host struct {
@@ -87,17 +87,22 @@ type Empty struct {
 	client.Resource
 }
 
+type SnapshotInput struct {
+	Name string `json:"name,omitempty"`
+}
+
 func NewSchema() *client.Schemas {
 	schemas := &client.Schemas{}
 
 	schemas.AddType("apiVersion", client.Resource{})
 	schemas.AddType("schema", client.Schema{})
 	schemas.AddType("error", client.ServerApiError{})
+	schemas.AddType("snapshot", Snapshot{})
 	schemas.AddType("attachInput", AttachInput{})
+	schemas.AddType("snapshotInput", SnapshotInput{})
 
 	hostSchema(schemas.AddType("host", Host{}))
 	volumeSchema(schemas.AddType("volume", Volume{}))
-	snapshotSchema(schemas.AddType("snapshot", Snapshot{}))
 	backupSchema(schemas.AddType("backup", Backup{}))
 	settingsSchema(schemas.AddType("settings", SettingsResource{}))
 
@@ -135,6 +140,26 @@ func volumeSchema(volume *client.Schema) {
 		"detach": {
 			Output: "volume",
 		},
+		"snapshotCreate": {
+			Input:  "snapshotInput",
+			Output: "snapshot",
+		},
+		"snapshotGet": {
+			Input:  "snapshotInput",
+			Output: "snapshot",
+		},
+		"snapshotList": {},
+		"snapshotDelete": {
+			Input:  "snapshotInput",
+			Output: "snapshot",
+		},
+		"snapshotRevert": {
+			Input:  "snapshotInput",
+			Output: "snapshot",
+		},
+		"snapshotBackup": {
+			Input: "snapshotInput",
+		},
 	}
 	volume.ResourceFields["controller"] = client.Field{
 		Type:     "struct",
@@ -166,20 +191,6 @@ func volumeSchema(volume *client.Schema) {
 	volumeStaleReplicaTimeout.Create = true
 	volumeStaleReplicaTimeout.Default = 20
 	volume.ResourceFields["staleReplicaTimeout"] = volumeStaleReplicaTimeout
-}
-
-func snapshotSchema(snapshot *client.Schema) {
-	snapshot.CollectionMethods = []string{"GET", "POST"}
-	snapshot.ResourceMethods = []string{"GET", "DELETE"}
-	snapshot.ResourceActions = map[string]client.Action{
-		"revert": {},
-		"backup": {},
-	}
-
-	snapshotName := snapshot.ResourceFields["name"]
-	snapshotName.Create = true
-	snapshotName.Unique = true
-	snapshot.ResourceFields["name"] = snapshotName
 }
 
 func backupSchema(backup *client.Schema) {
@@ -236,9 +247,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 			Id:      v.Name,
 			Type:    "volume",
 			Actions: map[string]string{},
-			Links: map[string]string{
-				"snapshots": v.Name + "/snapshots/",
-			},
+			Links:   map[string]string{},
 		},
 		Name:                v.Name,
 		Size:                strconv.FormatInt(v.Size, 10),
@@ -259,8 +268,20 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["attach"] = struct{}{}
 	case types.VolumeStateHealthy:
 		actions["detach"] = struct{}{}
+		actions["snapshotCreate"] = struct{}{}
+		actions["snapshotList"] = struct{}{}
+		actions["snapshotGet"] = struct{}{}
+		actions["snapshotDelete"] = struct{}{}
+		actions["snapshotRevert"] = struct{}{}
+		actions["snapshotBackup"] = struct{}{}
 	case types.VolumeStateDegraded:
 		actions["detach"] = struct{}{}
+		actions["snapshotCreate"] = struct{}{}
+		actions["snapshotList"] = struct{}{}
+		actions["snapshotGet"] = struct{}{}
+		actions["snapshotDelete"] = struct{}{}
+		actions["snapshotRevert"] = struct{}{}
+		actions["snapshotBackup"] = struct{}{}
 	case types.VolumeStateCreated:
 	case types.VolumeStateFaulted:
 	}
@@ -287,14 +308,8 @@ func toSnapshotResource(s *types.SnapshotInfo) *Snapshot {
 	}
 	return &Snapshot{
 		Resource: client.Resource{
+			Id:   s.Name,
 			Type: "snapshot",
-			Actions: map[string]string{
-				"revert": s.Name + "/revert",
-				"backup": s.Name + "/backup",
-			},
-			Links: map[string]string{
-				"self": s.Name,
-			},
 		},
 		Name:        s.Name,
 		Parent:      s.Parent,

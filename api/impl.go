@@ -9,20 +9,11 @@ import (
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
-	"io"
 	"net/http"
 	"net/http/httputil"
 )
 
 type HostIDFunc func(req *http.Request) (string, error)
-
-func dataFromReq(body io.ReadCloser) (map[string]interface{}, error) {
-	data := map[string]interface{}{}
-	if err := json.NewDecoder(body).Decode(&data); err != nil {
-		return nil, errors.Wrap(err, "could not parse req body")
-	}
-	return data, nil
-}
 
 func HostIDFromAttachReq(req *http.Request) (string, error) {
 	attachInput := AttachInput{}
@@ -81,137 +72,6 @@ func (f *Fwd) Handler(getHostID HostIDFunc, h HandleFuncWithError) HandleFuncWit
 
 func Proxy() http.Handler {
 	return &httputil.ReverseProxy{Director: func(r *http.Request) {}}
-}
-
-type SnapshotHandlers struct {
-	man types.VolumeManager
-}
-
-func (sh *SnapshotHandlers) Create(w http.ResponseWriter, req *http.Request) error {
-	volName := mux.Vars(req)["name"]
-
-	snapshots, err := sh.man.SnapshotOps(volName)
-	if err != nil {
-		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
-	}
-
-	data, err := dataFromReq(req.Body)
-	if err != nil {
-		return err
-	}
-	s0, err := fromSnapshotResMap(data)
-	if err != nil {
-		return err
-	}
-	snapName, err := snapshots.Create(s0.Name)
-	logrus.Debugf("created snapshot '%s'", snapName)
-	if err != nil {
-		return errors.Wrapf(err, "error creating snapshot '%s', for volume '%s'", s0.Name, volName)
-	}
-	snap, err := snapshots.Get(snapName)
-	if err != nil {
-		return errors.Wrapf(err, "error getting snapshot '%s', for volume '%s'", snapName, volName)
-	}
-	if snap == nil {
-		return errors.Errorf("not found just created snapshot '%s', for volume '%s'", snapName, volName)
-	}
-	logrus.Debugf("success: created snapshot '%s' for volume '%s'", snapName, volName)
-	api.GetApiContext(req).Write(toSnapshotResource(snap))
-	return nil
-}
-
-func (sh *SnapshotHandlers) List(w http.ResponseWriter, req *http.Request) error {
-	volName := mux.Vars(req)["name"]
-
-	snapshots, err := sh.man.SnapshotOps(volName)
-	if err != nil {
-		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
-	}
-
-	snapList, err := snapshots.List()
-	if err != nil {
-		return errors.Wrapf(err, "error listing snapshots, for volume '%+v'", volName)
-	}
-	logrus.Debugf("success: listed snapshots for volume '%s'", volName)
-	api.GetApiContext(req).Write(toSnapshotCollection(snapList))
-	return nil
-}
-
-func (sh *SnapshotHandlers) Get(w http.ResponseWriter, req *http.Request) error {
-	volName := mux.Vars(req)["name"]
-	snapName := mux.Vars(req)["snapName"]
-
-	snapshots, err := sh.man.SnapshotOps(volName)
-	if err != nil {
-		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
-	}
-
-	snap, err := snapshots.Get(snapName)
-	if err != nil {
-		return errors.Wrapf(err, "error getting snapshot '%s', for volume '%s'", snapName, volName)
-	}
-	if snap == nil {
-		return errors.Errorf("not found snapshot '%s', for volume '%s'", snapName, volName)
-	}
-	logrus.Debugf("success: got snapshot '%s' for volume '%s'", snap.Name, volName)
-	api.GetApiContext(req).Write(toSnapshotResource(snap))
-	return nil
-}
-
-func (sh *SnapshotHandlers) Delete(w http.ResponseWriter, req *http.Request) error {
-	volName := mux.Vars(req)["name"]
-	snapName := mux.Vars(req)["snapName"]
-
-	snapshots, err := sh.man.SnapshotOps(volName)
-	if err != nil {
-		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
-	}
-
-	if err := snapshots.Delete(snapName); err != nil {
-		return errors.Wrapf(err, "error deleting snapshot '%+v', for volume '%+v'", snapName, volName)
-	}
-	logrus.Debugf("success: deleted snapshot '%s' for volume '%s'", snapName, volName)
-	api.GetApiContext(req).Write(&Empty{})
-	return nil
-}
-
-func (sh *SnapshotHandlers) Revert(w http.ResponseWriter, req *http.Request) error {
-	volName := mux.Vars(req)["name"]
-	snapName := mux.Vars(req)["snapName"]
-
-	snapshots, err := sh.man.SnapshotOps(volName)
-	if err != nil {
-		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
-	}
-
-	if err := snapshots.Revert(snapName); err != nil {
-		return errors.Wrapf(err, "error reverting to snapshot '%+v', for volume '%+v'", snapName, volName)
-	}
-	logrus.Debugf("success: reverted to snapshot '%s' for volume '%s'", snapName, volName)
-	api.GetApiContext(req).Write(&Empty{})
-	return nil
-}
-
-func (sh *SnapshotHandlers) Backup(w http.ResponseWriter, req *http.Request) error {
-	volName := mux.Vars(req)["name"]
-	snapName := mux.Vars(req)["snapName"]
-
-	backupTarget := sh.man.Settings().GetSettings().BackupTarget
-	if backupTarget == "" {
-		return errors.New("cannot backup: backupTarget not set")
-	}
-
-	backups, err := sh.man.VolumeBackupOps(volName)
-	if err != nil {
-		return errors.Wrapf(err, "error getting VolumeBackupOps for volume '%s'", volName)
-	}
-
-	if err := backups.Backup(snapName, backupTarget); err != nil {
-		return errors.Wrapf(err, "error creating backup: snapshot '%s', volume '%s', dest '%s'", snapName, volName, backupTarget)
-	}
-	logrus.Debugf("success: started backup: snapshot '%s', volume '%s', dest '%s'", snapName, volName, backupTarget)
-	api.GetApiContext(req).Write(&Empty{})
-	return nil
 }
 
 type BackupsHandlers struct {

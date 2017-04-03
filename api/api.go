@@ -45,8 +45,14 @@ func Handler(s *Server) http.Handler {
 	r.Methods("POST").Path("/v1/volumes").Handler(f(schemas, s.CreateVolume))
 
 	volumeActions := map[string]func(http.ResponseWriter, *http.Request) error{
-		"attach": s.fwd.Handler(HostIDFromAttachReq, s.AttachVolume),
-		"detach": s.fwd.Handler(HostIDFromVolume(s.man), s.DetachVolume),
+		"attach":         s.fwd.Handler(HostIDFromAttachReq, s.AttachVolume),
+		"detach":         s.fwd.Handler(HostIDFromVolume(s.man), s.DetachVolume),
+		"snapshotCreate": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Create),
+		"snapshotList":   s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.List),
+		"snapshotGet":    s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Get),
+		"snapshotDelete": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Delete),
+		"snapshotRevert": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Revert),
+		"snapshotBackup": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Backup),
 	}
 	for name, action := range volumeActions {
 		r.Methods("POST").Path("/v1/volumes/{name}").Queries("action", name).Handler(f(schemas, action))
@@ -58,19 +64,6 @@ func Handler(s *Server) http.Handler {
 		Handler(fo(schemas, http.HandlerFunc(s.backups.Get)))
 	r.Methods("DELETE").Path("/v1/backups/{backupName}").Queries("volume", "{volName}").
 		Handler(fo(schemas, http.HandlerFunc(s.backups.Delete)))
-
-	r.Methods("POST").Path("/v1/volumes/{name}/snapshots").
-		Handler(f(schemas, s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Create)))
-	r.Methods("GET").Path("/v1/volumes/{name}/snapshots").
-		Handler(f(schemas, s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.List)))
-	r.Methods("GET").Path("/v1/volumes/{name}/snapshots/{snapName}").
-		Handler(f(schemas, s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Get)))
-	r.Methods("DELETE").Path("/v1/volumes/{name}/snapshots/{snapName}").
-		Handler(f(schemas, s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Delete)))
-	r.Methods("POST").Path("/v1/volumes/{name}/snapshots/{snapName}/revert").
-		Handler(f(schemas, s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Revert)))
-	r.Methods("POST").Path("/v1/volumes/{name}/snapshots/{snapName}/backup").
-		Handler(f(schemas, s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Backup)))
 
 	r.Methods("GET").Path("/v1/hosts").Handler(f(schemas, s.ListHost))
 	r.Methods("GET").Path("/v1/hosts/{id}").Handler(f(schemas, s.GetHost))
