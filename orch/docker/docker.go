@@ -226,6 +226,7 @@ func (d *dockerOrc) createController(volume *types.VolumeInfo, replicas map[stri
 	controllerName := volume.Name + "-controller"
 	cmd := []string{
 		"launch", "controller",
+		"--listen", "0.0.0.0:9501",
 		"--frontend", "tgt",
 	}
 	for _, replica := range replicas {
@@ -266,7 +267,7 @@ func (d *dockerOrc) createController(volume *types.VolumeInfo, replicas map[stri
 		InstanceInfo: types.InstanceInfo{
 			ID:      inspectJSON.ID,
 			HostID:  d.GetCurrentHostID(),
-			Address: inspectJSON.NetworkSettings.IPAddress,
+			Address: "http://" + inspectJSON.NetworkSettings.IPAddress + ":9501",
 			Running: inspectJSON.State.Running,
 		},
 	}, nil
