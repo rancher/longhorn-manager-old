@@ -208,5 +208,6 @@ func (sh *SnapshotHandlers) Backup(w http.ResponseWriter, req *http.Request) err
 		return errors.Wrapf(err, "error creating backup: snapshot '%s', volume '%s', dest '%s'", input.Name, volName, backupTarget)
 	}
 	logrus.Debugf("success: started backup: snapshot '%s', volume '%s', dest '%s'", input.Name, volName, backupTarget)
+	apiContext.Write(&Empty{})
 	return nil
 }

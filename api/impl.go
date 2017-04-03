@@ -3,14 +3,15 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httputil"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/rancher/go-rancher/api"
+
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
-	"net/http"
-	"net/http/httputil"
 )
 
 type HostIDFunc func(req *http.Request) (string, error)
@@ -72,68 +73,4 @@ func (f *Fwd) Handler(getHostID HostIDFunc, h HandleFuncWithError) HandleFuncWit
 
 func Proxy() http.Handler {
 	return &httputil.ReverseProxy{Director: func(r *http.Request) {}}
-}
-
-type BackupsHandlers struct {
-	man types.VolumeManager
-}
-
-func (bh *BackupsHandlers) List(w http.ResponseWriter, req *http.Request) {
-	volName := mux.Vars(req)["volName"]
-
-	backupTarget := bh.man.Settings().GetSettings().BackupTarget
-	backups := bh.man.ManagerBackupOps(backupTarget)
-
-	bs, err := backups.List(volName)
-	if err != nil {
-		logrus.Errorf("%+v", errors.Wrapf(err, "error listing backups, backupTarget '%s', volume '%s'", backupTarget, volName))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	logrus.Debugf("success: list backups, volume '%s', backupTarget '%s'", volName, backupTarget)
-	api.GetApiContext(req).Write(toBackupCollection(bs))
-}
-
-func backupURL(backupTarget, backupName, volName string) string {
-	return fmt.Sprintf("%s?backup=%s&volume=%s", backupTarget, backupName, volName)
-}
-
-func (bh *BackupsHandlers) Get(w http.ResponseWriter, req *http.Request) {
-	volName := mux.Vars(req)["volName"]
-	backupName := mux.Vars(req)["backupName"]
-
-	backupTarget := bh.man.Settings().GetSettings().BackupTarget
-	backups := bh.man.ManagerBackupOps(backupTarget)
-
-	url := backupURL(backupTarget, backupName, volName)
-	backup, err := backups.Get(url)
-	if err != nil {
-		logrus.Errorf("%+v", errors.Wrapf(err, "error getting backup '%s'", url))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	if backup == nil {
-		logrus.Warnf("not found: backup '%s'", url)
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	logrus.Debugf("success: got backup '%s'", url)
-	api.GetApiContext(req).Write(toBackupResource(backup))
-}
-
-func (bh *BackupsHandlers) Delete(w http.ResponseWriter, req *http.Request) {
-	volName := mux.Vars(req)["volName"]
-	backupName := mux.Vars(req)["backupName"]
-
-	backupTarget := bh.man.Settings().GetSettings().BackupTarget
-	backups := bh.man.ManagerBackupOps(backupTarget)
-
-	url := backupURL(backupTarget, backupName, volName)
-	if err := backups.Delete(url); err != nil {
-		logrus.Errorf("%+v", errors.Wrapf(err, "error deleting backup '%s'", url))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	logrus.Debugf("success: removed backup '%s'", url)
-	api.GetApiContext(req).Write(&Empty{})
 }
