@@ -18,6 +18,8 @@ start_etcd
 etcd_ip=$(get_container_ip $ETCD_SERVER)
 wait_for_etcd $etcd_ip
 
+start_longhorn_binary rancher/longhorn:latest
+
 image=`cat ./bin/latest_image`
 
 orc1="${ORC_TEST_PREFIX}-server-1"

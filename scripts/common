@@ -83,13 +83,20 @@ function get_container_ip {
     echo $ip
 }
 
+function start_longhorn_binary {
+    image=$1
+    docker run -d -it --name ${ORC_TEST_PREFIX}-longhorn-binary $image bash
+    trap cleanup_orc_test EXIT
+}
+
 function start_orc {
     image=$1
     id=$2
     etcd_ip=$3
     docker run -d --name ${ORC_TEST_PREFIX}-server-${id} \
             --privileged -v /dev:/host/dev \
-            -v /var/run/docker.sock:/var/run/docker.sock $image \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            --volumes-from ${ORC_TEST_PREFIX}-longhorn-binary $image \
             /usr/local/sbin/launch-orc -d --orchestrator docker \
             --longhorn-image rancher/longhorn:latest \
             --etcd-servers http://${etcd_ip}:2379
