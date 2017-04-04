@@ -21,7 +21,7 @@ def get_orc_ips():
     return string.split(os.environ[ENV_ORC_IPS], ",")
 
 
-def test_host_list():
+def test_host_and_settings():
     ips = get_orc_ips()
     client = get_client(ips[0])
 
@@ -36,6 +36,32 @@ def test_host_list():
     assert new_host["uuid"] == host["uuid"]
     assert new_host["name"] == host["name"]
     assert new_host["address"] == host["address"]
+
+    settings = client.list_setting()
+    assert len(settings) == 2
+
+    settingMap = {}
+    for setting in settings:
+        settingMap[setting["name"]] = setting
+
+    assert settingMap["backupTarget"]["value"] != ""
+    assert settingMap["longhornImage"]["value"] != ""
+
+    setting = client.by_id_setting("longhornImage")
+    assert settingMap["longhornImage"]["value"] == setting["value"]
+
+    setting = client.by_id_setting("backupTarget")
+    assert settingMap["backupTarget"]["value"] == setting["value"]
+
+    old_target = setting["value"]
+
+    setting = client.update(setting, value="testbackup")
+    assert setting["value"] == "testbackup"
+    setting = client.by_id_setting("backupTarget")
+    assert setting["value"] == "testbackup"
+
+    setting = client.update(setting, value=old_target)
+    assert setting["value"] == old_target
 
 
 def test_volume():

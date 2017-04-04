@@ -19,7 +19,15 @@ type BackupsHandlers struct {
 func (bh *BackupsHandlers) ListVolume(w http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
 
-	backupTarget := bh.man.Settings().GetSettings().BackupTarget
+	settings, err := bh.man.Settings().GetSettings()
+	if err != nil || settings == nil {
+		return errors.New("cannot backup: unable to read settings")
+	}
+	backupTarget := settings.BackupTarget
+	if backupTarget == "" {
+		return errors.New("cannot backup: backupTarget not set")
+	}
+
 	backups := bh.man.ManagerBackupOps(backupTarget)
 
 	volumes, err := backups.ListVolumes()
@@ -36,7 +44,15 @@ func (bh *BackupsHandlers) GetVolume(w http.ResponseWriter, req *http.Request) e
 
 	volName := mux.Vars(req)["volName"]
 
-	backupTarget := bh.man.Settings().GetSettings().BackupTarget
+	settings, err := bh.man.Settings().GetSettings()
+	if err != nil || settings == nil {
+		return errors.New("cannot backup: unable to read settings")
+	}
+	backupTarget := settings.BackupTarget
+	if backupTarget == "" {
+		return errors.New("cannot backup: backupTarget not set")
+	}
+
 	backups := bh.man.ManagerBackupOps(backupTarget)
 
 	bv, err := backups.GetVolume(volName)
@@ -51,7 +67,15 @@ func (bh *BackupsHandlers) GetVolume(w http.ResponseWriter, req *http.Request) e
 func (bh *BackupsHandlers) List(w http.ResponseWriter, req *http.Request) error {
 	volName := mux.Vars(req)["volName"]
 
-	backupTarget := bh.man.Settings().GetSettings().BackupTarget
+	settings, err := bh.man.Settings().GetSettings()
+	if err != nil || settings == nil {
+		return errors.New("cannot backup: unable to read settings")
+	}
+	backupTarget := settings.BackupTarget
+	if backupTarget == "" {
+		return errors.New("cannot backup: backupTarget not set")
+	}
+
 	backups := bh.man.ManagerBackupOps(backupTarget)
 
 	bs, err := backups.List(volName)
@@ -80,7 +104,15 @@ func (bh *BackupsHandlers) Get(w http.ResponseWriter, req *http.Request) error {
 	}
 	volName := mux.Vars(req)["volName"]
 
-	backupTarget := bh.man.Settings().GetSettings().BackupTarget
+	settings, err := bh.man.Settings().GetSettings()
+	if err != nil || settings == nil {
+		return errors.New("cannot backup: unable to read settings")
+	}
+	backupTarget := settings.BackupTarget
+	if backupTarget == "" {
+		return errors.New("cannot backup: backupTarget not set")
+	}
+
 	backups := bh.man.ManagerBackupOps(backupTarget)
 
 	url := backupURL(backupTarget, input.Name, volName)
@@ -112,7 +144,15 @@ func (bh *BackupsHandlers) Delete(w http.ResponseWriter, req *http.Request) erro
 
 	volName := mux.Vars(req)["volName"]
 
-	backupTarget := bh.man.Settings().GetSettings().BackupTarget
+	settings, err := bh.man.Settings().GetSettings()
+	if err != nil || settings == nil {
+		return errors.New("cannot backup: unable to read settings")
+	}
+	backupTarget := settings.BackupTarget
+	if backupTarget == "" {
+		return errors.New("cannot backup: backupTarget not set")
+	}
+
 	backups := bh.man.ManagerBackupOps(backupTarget)
 
 	url := backupURL(backupTarget, input.Name, volName)

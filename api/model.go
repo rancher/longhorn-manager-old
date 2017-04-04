@@ -59,9 +59,10 @@ type Backup struct {
 	types.BackupInfo
 }
 
-type SettingsResource struct {
+type Setting struct {
 	client.Resource
-	types.SettingsInfo
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type Instance struct {
@@ -115,24 +116,24 @@ func NewSchema() *client.Schemas {
 	hostSchema(schemas.AddType("host", Host{}))
 	volumeSchema(schemas.AddType("volume", Volume{}))
 	backupVolumeSchema(schemas.AddType("backupVolume", BackupVolume{}))
-	settingsSchema(schemas.AddType("settings", SettingsResource{}))
+	settingSchema(schemas.AddType("setting", Setting{}))
 
 	return schemas
 }
 
-func settingsSchema(settings *client.Schema) {
-	settings.CollectionMethods = []string{}
-	settings.ResourceMethods = []string{"GET", "PUT"}
+func settingSchema(setting *client.Schema) {
+	setting.CollectionMethods = []string{"GET"}
+	setting.ResourceMethods = []string{"GET", "PUT"}
 
-	backupTarget := settings.ResourceFields["backupTarget"]
-	backupTarget.Update = true
-	backupTarget.Required = true
-	settings.ResourceFields["backupTarget"] = backupTarget
+	settingName := setting.ResourceFields["name"]
+	settingName.Required = true
+	settingName.Unique = true
+	setting.ResourceFields["name"] = settingName
 
-	longhornImage := settings.ResourceFields["longhornImage"]
-	longhornImage.Update = true
-	longhornImage.Required = true
-	settings.ResourceFields["longhornImage"] = longhornImage
+	settingValue := setting.ResourceFields["value"]
+	settingValue.Required = true
+	settingValue.Update = true
+	setting.ResourceFields["value"] = settingValue
 }
 
 func hostSchema(host *client.Schema) {
@@ -220,13 +221,23 @@ func backupVolumeSchema(backupVolume *client.Schema) {
 	}
 }
 
-func toSettingsResource(s *types.SettingsInfo) *SettingsResource {
-	return &SettingsResource{
+func toSettingResource(name, value string) *Setting {
+	return &Setting{
 		Resource: client.Resource{
-			Type: "settings",
+			Id:   name,
+			Type: "setting",
 		},
-		SettingsInfo: *s,
+		Name:  name,
+		Value: value,
 	}
+}
+
+func toSettingCollection(settings *types.SettingsInfo) *client.GenericCollection {
+	data := []interface{}{
+		toSettingResource("backupTarget", settings.BackupTarget),
+		toSettingResource("longhornImage", settings.LonghornImage),
+	}
+	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "setting"}}
 }
 
 func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {

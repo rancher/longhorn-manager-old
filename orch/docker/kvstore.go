@@ -13,6 +13,12 @@ import (
 	"github.com/rancher/longhorn-orc/types"
 )
 
+const (
+	keyHosts    = "hosts"
+	keyVolumes  = "volumes"
+	keySettings = "settings"
+)
+
 func (d *dockerOrc) key(key string) string {
 	// It's not file path, but we use it to deal with '/'
 	return filepath.Join(d.Prefix, key)
@@ -147,4 +153,40 @@ func node2Volume(node *eCli.Node) (*types.VolumeInfo, error) {
 		return nil, errors.Wrap(err, "fail to unmarshall json for volume")
 	}
 	return volume, nil
+}
+
+func (d *dockerOrc) settingsKey() string {
+	return d.key(keySettings)
+}
+
+func (d *dockerOrc) setSettings(settings *types.SettingsInfo) error {
+	value, err := json.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	if _, err := d.kapi.Set(context.Background(), d.settingsKey(), string(value), nil); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *dockerOrc) getSettings() (*types.SettingsInfo, error) {
+	resp, err := d.kapi.Get(context.Background(), d.settingsKey(), nil)
+	if err != nil {
+		if eCli.IsKeyNotFound(err) {
+			return nil, nil
+		}
+		return nil, errors.Wrap(err, "unable to get settings")
+	}
+
+	settings := &types.SettingsInfo{}
+	node := resp.Node
+	if node.Dir {
+		return nil, errors.Errorf("Invalid node %v is a directory",
+			node.Key)
+	}
+	if err := json.Unmarshal([]byte(node.Value), settings); err != nil {
+		return nil, errors.Wrap(err, "fail to unmarshall json for settings")
+	}
+	return settings, nil
 }

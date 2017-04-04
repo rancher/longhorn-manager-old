@@ -28,9 +28,6 @@ import (
 )
 
 const (
-	keyHosts   = "hosts"
-	keyVolumes = "volumes"
-
 	cfgDirectory = "/var/lib/rancher/longhorn/"
 	hostUUIDFile = cfgDirectory + ".physical_host_uuid"
 )
@@ -342,12 +339,20 @@ func (d *dockerOrc) RemoveInstance(instanceID string) error {
 	return d.cli.ContainerRemove(context.Background(), instanceID, dTypes.ContainerRemoveOptions{RemoveVolumes: true})
 }
 
-func (d *dockerOrc) GetSettings() *types.SettingsInfo {
-	return &types.SettingsInfo{
-		BackupTarget:  "vfs:///var/lib/longhorn/backups/default",
-		LonghornImage: d.LonghornImage,
+func (d *dockerOrc) GetSettings() (*types.SettingsInfo, error) {
+	settings, err := d.getSettings()
+	if err != nil {
+		return nil, err
 	}
+	if settings == nil {
+		return &types.SettingsInfo{
+			BackupTarget:  "vfs:///var/lib/longhorn/backups/default",
+			LonghornImage: d.LonghornImage,
+		}, nil
+	}
+	return settings, nil
 }
 
-func (d *dockerOrc) SetSettings(*types.SettingsInfo) {
+func (d *dockerOrc) SetSettings(settings *types.SettingsInfo) error {
+	return d.setSettings(settings)
 }

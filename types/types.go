@@ -50,8 +50,8 @@ type VolumeManager interface {
 }
 
 type Settings interface {
-	GetSettings() *SettingsInfo
-	SetSettings(*SettingsInfo)
+	GetSettings() (*SettingsInfo, error)
+	SetSettings(*SettingsInfo) error
 }
 
 type SnapshotOps interface {
