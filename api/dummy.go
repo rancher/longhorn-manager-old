@@ -35,11 +35,11 @@ func (d *dummyVolumeManager) Get(name string) (*types.VolumeInfo, error) {
 				Running: true,
 			},
 			Name: "replica-" + index,
-			Mode: types.RW,
+			Mode: types.ReplicaModeRW,
 		}
 	}
 
-	state := types.Healthy
+	state := types.VolumeStateHealthy
 
 	return &types.VolumeInfo{
 		Name:             name,
@@ -83,11 +83,11 @@ func (d *dummyVolumeManager) Cleanup(volume *types.VolumeInfo) error {
 	return nil
 }
 
-func (d *dummyVolumeManager) VolumeSnapshots(name string) (types.VolumeSnapshots, error) {
+func (d *dummyVolumeManager) SnapshotOps(name string) (types.SnapshotOps, error) {
 	return &dummySnapshots{}, nil
 }
 
-func (d *dummyVolumeManager) VolumeBackups(name string) (types.VolumeBackups, error) {
+func (d *dummyVolumeManager) VolumeBackupOps(name string) (types.VolumeBackupOps, error) {
 	return nil, nil
 }
 
@@ -99,7 +99,7 @@ func (d *dummyVolumeManager) Settings() types.Settings {
 	return &dummySettings{}
 }
 
-func (d *dummyVolumeManager) Backups(backupTarget string) types.Backups {
+func (d *dummyVolumeManager) ManagerBackupOps(backupTarget string) types.ManagerBackupOps {
 	panic("implement me")
 }
 

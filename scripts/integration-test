@@ -3,27 +3,33 @@ set -e
 
 cd $(dirname $0)/..
 
-if [ ! -x ./bin/longhorn ]; then
-    ./scripts/build
+if [ ! -x ./bin/latest_image ]; then
+    ./scripts/package
 fi
 
 source ./scripts/common
 
+image=`cat ./bin/latest_image`
+
+mount --bind /host/dev /dev
+
 start_etcd
 
-hostip=`hostname -i`
+etcd_ip=$(get_container_ip $ETCD_SERVER)
+wait_for_etcd $etcd_ip
 
-./bin/longhorn-orc -d --orchestrator docker \
-        --longhorn-image rancher/longhorn:latest \
-        --etcd-servers http://localhost:2379 \
-        --host-address ${hostip}:7000 &
-wait_for http://${hostip}:7000/v1/
+start_longhorn_binary rancher/longhorn:latest
 
-echo longhorn-orc is ready
+image=`cat ./bin/latest_image`
 
-pid_orc=$!
+orc1="${ORC_TEST_PREFIX}-server-1"
+start_orc $image 1 ${etcd_ip}
+orc1_ip=$(get_container_ip ${orc1})
+wait_for_orc ${orc1_ip}
 
-ps $pid_orc
+echo $orc1 is ready
+
+export LONGHORN_ORC_TEST_SERVER_IPS="$orc1_ip"
 
 cd integration
 find -depth -name __pycache__ -o -name "*.pyc" -exec rm -rf {} \;

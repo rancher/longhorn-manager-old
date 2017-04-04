@@ -62,12 +62,6 @@ func main() {
 			Value: "/longhorn",
 		},
 
-		// TODO Temporarily, will be removed later
-		cli.StringFlag{
-			Name:  "host-address",
-			Usage: "The address of longhorn volume manager exposed on the host, in format of <ip>:<port>",
-		},
-
 		// Cattle
 		cli.StringFlag{
 			Name:   "cattle-url",
@@ -127,7 +121,9 @@ func RunManager(c *cli.Context) error {
 	//sl := api.DummyServiceLocator("localhost-ID")
 	proxy := api.Proxy()
 
-	go server.NewTCPServer(fmt.Sprintf(":%v", api.Port)).Serve(api.Handler(man, orc, proxy))
+	s := api.NewServer(man, orc, proxy)
+
+	go server.NewTCPServer(fmt.Sprintf(":%v", api.Port)).Serve(api.Handler(s))
 
 	return daemon.WaitForExit()
 }

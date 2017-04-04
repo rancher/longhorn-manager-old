@@ -119,7 +119,7 @@ func copyVolumeProperties(volume0 *types.VolumeInfo) *types.VolumeInfo {
 	*volume = *volume0
 	volume.Controller = nil
 	volume.Replicas = nil
-	volume.State = 0
+	volume.State = types.VolumeStateCreated
 	return volume
 }
 
@@ -558,4 +558,12 @@ func (orc *cattleOrc) ListHosts() (map[string]*types.HostInfo, error) {
 
 func (orc *cattleOrc) GetHost(id string) (*types.HostInfo, error) {
 	return nil, errors.Errorf("Haven't implemented GetHost yet")
+}
+
+func (orc *cattleOrc) ListVolumes() ([]*types.VolumeInfo, error) {
+	return nil, errors.Errorf("Haven't implemented ListVolumes yet")
+}
+
+func (orc *cattleOrc) UpdateVolume(volume *types.VolumeInfo) error {
+	return nil
 }

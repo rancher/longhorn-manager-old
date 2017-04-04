@@ -21,6 +21,7 @@ import (
 	dCli "github.com/docker/docker/client"
 	dNat "github.com/docker/go-connections/nat"
 
+	"github.com/rancher/longhorn-orc/api"
 	"github.com/rancher/longhorn-orc/orch"
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
@@ -52,7 +53,6 @@ type dockerOrc struct {
 
 type dockerOrcConfig struct {
 	servers []string
-	address string
 	prefix  string
 	image   string
 }
@@ -62,12 +62,10 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("Unspecified etcd servers")
 	}
-	address := c.String("host-address")
 	prefix := c.String("etcd-prefix")
 	image := c.String(orch.LonghornImageParam)
 	return newDocker(&dockerOrcConfig{
 		servers: servers,
-		address: address,
 		prefix:  prefix,
 		image:   image,
 	})
@@ -104,7 +102,13 @@ func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
 		return nil, errors.Wrap(err, "cannot pass test to get container list")
 	}
 
-	if err := docker.Register(cfg.address); err != nil {
+	ips, err := util.GetLocalIPs()
+	if err != nil || len(ips) == 0 {
+		return nil, fmt.Errorf("unable to get ip")
+	}
+	address := ips[0] + ":" + strconv.Itoa(api.Port)
+
+	if err := docker.Register(address); err != nil {
 		return nil, err
 	}
 	logrus.Info("Docker orchestrator is ready")
@@ -176,9 +180,9 @@ func (d *dockerOrc) GetAddress(hostID string) (string, error) {
 }
 
 func (d *dockerOrc) CreateVolume(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
-	_, err := d.getVolume(volume.Name)
-	if err == nil {
-		return nil, errors.Errorf("volume %v already exists", volume.Name)
+	v, err := d.getVolume(volume.Name)
+	if err == nil && v != nil {
+		return nil, errors.Errorf("volume %v already exists %+v", volume.Name, v)
 	}
 	if err := d.setVolume(volume); err != nil {
 		return nil, errors.Wrap(err, "fail to create new volume metadata")
@@ -192,6 +196,18 @@ func (d *dockerOrc) DeleteVolume(volumeName string) error {
 
 func (d *dockerOrc) GetVolume(volumeName string) (*types.VolumeInfo, error) {
 	return d.getVolume(volumeName)
+}
+
+func (d *dockerOrc) UpdateVolume(volume *types.VolumeInfo) error {
+	v, err := d.getVolume(volume.Name)
+	if err != nil {
+		return errors.Errorf("cannot update volume %v because it doesn't exists %+v", volume.Name, v)
+	}
+	return d.setVolume(volume)
+}
+
+func (d *dockerOrc) ListVolumes() ([]*types.VolumeInfo, error) {
+	return d.listVolumes()
 }
 
 func (d *dockerOrc) MarkBadReplica(volumeName string, replica *types.ReplicaInfo) error {
@@ -210,6 +226,7 @@ func (d *dockerOrc) createController(volume *types.VolumeInfo, replicas map[stri
 	controllerName := volume.Name + "-controller"
 	cmd := []string{
 		"launch", "controller",
+		"--listen", "0.0.0.0:9501",
 		"--frontend", "tgt",
 	}
 	for _, replica := range replicas {
@@ -250,7 +267,7 @@ func (d *dockerOrc) createController(volume *types.VolumeInfo, replicas map[stri
 		InstanceInfo: types.InstanceInfo{
 			ID:      inspectJSON.ID,
 			HostID:  d.GetCurrentHostID(),
-			Address: inspectJSON.NetworkSettings.IPAddress,
+			Address: "http://" + inspectJSON.NetworkSettings.IPAddress + ":9501",
 			Running: inspectJSON.State.Running,
 		},
 	}, nil

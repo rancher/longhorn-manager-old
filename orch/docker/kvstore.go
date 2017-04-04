@@ -95,6 +95,9 @@ func (d *dockerOrc) setVolume(volume *types.VolumeInfo) error {
 func (d *dockerOrc) getVolume(id string) (*types.VolumeInfo, error) {
 	resp, err := d.kapi.Get(context.Background(), d.volumeKey(id), nil)
 	if err != nil {
+		if eCli.IsKeyNotFound(err) {
+			return nil, nil
+		}
 		return nil, errors.Wrap(err, "unable to get volume")
 	}
 	return node2Volume(resp.Node)
@@ -108,9 +111,12 @@ func (d *dockerOrc) rmVolume(id string) error {
 	return nil
 }
 
-func (d *dockerOrc) listVolumes() (map[string]*types.VolumeInfo, error) {
+func (d *dockerOrc) listVolumes() ([]*types.VolumeInfo, error) {
 	resp, err := d.kapi.Get(context.Background(), d.key(keyVolumes), nil)
 	if err != nil {
+		if eCli.IsKeyNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -119,14 +125,14 @@ func (d *dockerOrc) listVolumes() (map[string]*types.VolumeInfo, error) {
 			resp.Node.Key)
 	}
 
-	volumes := make(map[string]*types.VolumeInfo)
+	volumes := []*types.VolumeInfo{}
 	for _, node := range resp.Node.Nodes {
 		volume, err := node2Volume(node)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Invalid node %v:%v, %v",
 				node.Key, node.Value, err)
 		}
-		volumes[volume.Name] = volume
+		volumes = append(volumes, volume)
 	}
 	return volumes, nil
 }

@@ -24,12 +24,12 @@ type volumeManager struct {
 	monitor types.Monitor
 
 	getController types.GetController
-	getBackups    types.GetBackups
+	getBackups    types.GetManagerBackupOps
 
 	settings types.Settings
 }
 
-func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetController, getBackups types.GetBackups) types.VolumeManager {
+func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetController, getBackups types.GetManagerBackupOps) types.VolumeManager {
 	return &volumeManager{
 		monitors:       map[string]io.Closer{},
 		addingReplicas: map[string]int{},
@@ -59,6 +59,22 @@ func (man *volumeManager) doCreate(volume *types.VolumeInfo) (*types.VolumeInfo,
 		replicas[replica.Name] = replica
 	}
 	vol.Replicas = replicas
+	if err := man.orc.UpdateVolume(vol); err != nil {
+		for _, replica := range vol.Replicas {
+			if err := man.orc.StopInstance(replica.ID); err != nil {
+				logrus.Errorf("Fail to stop replica %v as cleanup for creation failure", replica.Name)
+			}
+			if err := man.orc.RemoveInstance(replica.ID); err != nil {
+				logrus.Errorf("Fail to remove replica %v as cleanup for creation failure", replica.Name)
+			}
+		}
+		return nil, err
+	}
+
+	//TODO need to call to Get() and get a consistent return
+	state := volumeState(vol)
+	vol.State = state
+
 	return vol, nil
 }
 
@@ -144,13 +160,13 @@ func volumeState(volume *types.VolumeInfo) types.VolumeState {
 	}
 	switch {
 	case goodReplicaCount == 0:
-		return types.Faulted
+		return types.VolumeStateFaulted
 	case volume.Controller == nil:
-		return types.Detached
+		return types.VolumeStateDetached
 	case goodReplicaCount == volume.NumberOfReplicas:
-		return types.Healthy
+		return types.VolumeStateHealthy
 	}
-	return types.Degraded
+	return types.VolumeStateDegraded
 }
 
 func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
@@ -162,6 +178,7 @@ func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
 		return nil, nil
 	}
 
+	//FIXME this should be included in GET, now it's a side effect of GET
 	state := volumeState(vol)
 	vol.State = state
 
@@ -169,8 +186,15 @@ func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
 }
 
 func (man *volumeManager) List() ([]*types.VolumeInfo, error) {
-	// TODO impl volume list
-	return []*types.VolumeInfo{}, nil
+	volumes, err := man.orc.ListVolumes()
+	if err != nil {
+		return nil, err
+	}
+	for i, v := range volumes {
+		v.State = volumeState(v)
+		volumes[i] = v
+	}
+	return volumes, nil
 }
 
 func (man *volumeManager) startMonitoring(volume *types.VolumeInfo) {
@@ -278,6 +302,11 @@ func (man *volumeManager) doAttach(volume *types.VolumeInfo) error {
 	}
 
 	volume.Controller = controller
+
+	if err := man.orc.UpdateVolume(volume); err != nil {
+		//TODO rollback
+		return err
+	}
 	man.startMonitoring(volume)
 	return nil
 }
@@ -324,6 +353,11 @@ func (man *volumeManager) doDetach(volume *types.VolumeInfo) error {
 		if err := man.orc.RemoveInstance(volume.Controller.ID); err != nil {
 			return errors.Wrapf(err, "error removing the controller id='%s', volume '%s'", volume.Controller.ID, volume.Name)
 		}
+		volume.Controller = nil
+	}
+	if err := man.orc.UpdateVolume(volume); err != nil {
+		//TODO rollback
+		return err
 	}
 	return nil
 }
@@ -366,11 +400,11 @@ func (man *volumeManager) CheckController(ctrl types.Controller, volume *types.V
 	wg := &sync.WaitGroup{}
 	for _, replica := range replicas {
 		switch replica.Mode {
-		case types.RW:
+		case types.ReplicaModeRW:
 			goodReplicas = append(goodReplicas, replica)
-		case types.WO:
+		case types.ReplicaModeWO:
 			woReplicas = append(woReplicas, replica)
-		case types.ERR:
+		case types.ReplicaModeERR:
 			wg.Add(1)
 			go func(replica *types.ReplicaInfo) {
 				defer wg.Done()
@@ -483,12 +517,12 @@ func (man *volumeManager) Controller(name string) (types.Controller, error) {
 	return man.getController(volume), nil
 }
 
-func (man *volumeManager) VolumeSnapshots(name string) (types.VolumeSnapshots, error) {
+func (man *volumeManager) SnapshotOps(name string) (types.SnapshotOps, error) {
 	controller, err := man.Controller(name)
 	if err != nil {
 		return nil, err
 	}
-	return controller.Snapshots(), nil
+	return controller.SnapshotOps(), nil
 }
 
 func (man *volumeManager) ListHosts() (map[string]*types.HostInfo, error) {
@@ -499,7 +533,7 @@ func (man *volumeManager) GetHost(id string) (*types.HostInfo, error) {
 	return man.orc.GetHost(id)
 }
 
-func (man *volumeManager) VolumeBackups(name string) (types.VolumeBackups, error) {
+func (man *volumeManager) VolumeBackupOps(name string) (types.VolumeBackupOps, error) {
 	controller, err := man.Controller(name)
 	if err != nil {
 		return nil, err
@@ -511,6 +545,6 @@ func (man *volumeManager) Settings() types.Settings {
 	return man.settings
 }
 
-func (man *volumeManager) Backups(backupTarget string) types.Backups {
+func (man *volumeManager) ManagerBackupOps(backupTarget string) types.ManagerBackupOps {
 	return man.getBackups(backupTarget)
 }

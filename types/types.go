@@ -10,22 +10,22 @@ const (
 	DefaultStaleReplicaTimeout = time.Hour * 16 * 24
 )
 
-type VolumeState int
+type VolumeState string
 
 const (
-	Created VolumeState = iota
-	Detached
-	Faulted
-	Healthy
-	Degraded
+	VolumeStateCreated  = VolumeState("created")
+	VolumeStateDetached = VolumeState("detached")
+	VolumeStateFaulted  = VolumeState("faulted")
+	VolumeStateHealthy  = VolumeState("healthy")
+	VolumeStateDegraded = VolumeState("degraded")
 )
 
-type ReplicaMode int
+type ReplicaMode string
 
 const (
-	RW ReplicaMode = iota
-	WO
-	ERR
+	ReplicaModeRW  = ReplicaMode("RW")
+	ReplicaModeWO  = ReplicaMode("WO")
+	ReplicaModeERR = ReplicaMode("ERR")
 )
 
 type VolumeManager interface {
@@ -43,10 +43,10 @@ type VolumeManager interface {
 	Cleanup(volume *VolumeInfo) error
 
 	Controller(name string) (Controller, error)
-	VolumeSnapshots(name string) (VolumeSnapshots, error)
-	VolumeBackups(name string) (VolumeBackups, error)
+	SnapshotOps(name string) (SnapshotOps, error)
+	VolumeBackupOps(name string) (VolumeBackupOps, error)
 	Settings() Settings
-	Backups(backupTarget string) Backups
+	ManagerBackupOps(backupTarget string) ManagerBackupOps
 }
 
 type Settings interface {
@@ -54,7 +54,7 @@ type Settings interface {
 	SetSettings(*SettingsInfo)
 }
 
-type VolumeSnapshots interface {
+type SnapshotOps interface {
 	Create(name string) (string, error)
 	List() ([]*SnapshotInfo, error)
 	Get(name string) (*SnapshotInfo, error)
@@ -62,14 +62,14 @@ type VolumeSnapshots interface {
 	Revert(name string) error
 }
 
-type VolumeBackups interface {
+type VolumeBackupOps interface {
 	Backup(snapName, backupTarget string) error
 	Restore(backup string) error
 }
 
-type GetBackups func(backupTarget string) Backups
+type GetManagerBackupOps func(backupTarget string) ManagerBackupOps
 
-type Backups interface {
+type ManagerBackupOps interface {
 	List(volumeName string) ([]*BackupInfo, error)
 	Get(url string) (*BackupInfo, error)
 	Delete(url string) error
@@ -85,15 +85,17 @@ type Controller interface {
 	AddReplica(replica *ReplicaInfo) error
 	RemoveReplica(replica *ReplicaInfo) error
 
-	Snapshots() VolumeSnapshots
-	Backups() VolumeBackups
+	SnapshotOps() SnapshotOps
+	Backups() VolumeBackupOps
 }
 
 type Orchestrator interface {
-	CreateVolume(volume *VolumeInfo) (*VolumeInfo, error) // creates volume metadata
+	CreateVolume(volume *VolumeInfo) (*VolumeInfo, error) // creates volume metadata and prepare for volume
 	DeleteVolume(volumeName string) error                 // removes volume metadata
-	GetVolume(volumeName string) (*VolumeInfo, error)
+	GetVolume(volumeName string) (*VolumeInfo, error)     // For non-existing volume, return (nil, nil)
+	ListVolumes() ([]*VolumeInfo, error)
 	MarkBadReplica(volumeName string, replica *ReplicaInfo) error // find replica by Address
+	UpdateVolume(volume *VolumeInfo) error
 
 	CreateController(volumeName string, replicas map[string]*ReplicaInfo) (*ControllerInfo, error)
 	CreateReplica(volumeName string) (*ReplicaInfo, error)

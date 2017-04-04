@@ -4,9 +4,11 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
+	"net/http"
 	"strconv"
 	"time"
 )
@@ -30,13 +32,13 @@ type Volume struct {
 type Snapshot struct {
 	client.Resource
 
-	Name        string   `json:"name,omitempty"`
-	Parent      string   `json:"parent,omitempty"`
-	Children    []string `json:"children,omitempty"`
-	Removed     bool     `json:"removed,omitempty"`
-	UserCreated bool     `json:"usercreated,omitempty"`
-	Created     string   `json:"created,omitempty"`
-	Size        string   `json:"size,omitempty"`
+	Name        string   `json:"name"`
+	Parent      string   `json:"parent"`
+	Children    []string `json:"children"`
+	Removed     bool     `json:"removed"`
+	UserCreated bool     `json:"usercreated"`
+	Created     string   `json:"created"`
+	Size        string   `json:"size"`
 }
 
 type Host struct {
@@ -85,17 +87,8 @@ type Empty struct {
 	client.Resource
 }
 
-var volumeState = map[types.VolumeState]string{
-	types.Detached: "detached",
-	types.Faulted:  "faulted",
-	types.Healthy:  "healthy",
-	types.Degraded: "degraded",
-}
-
-var replicaModes = map[types.ReplicaMode]string{
-	types.RW:  "RW",
-	types.WO:  "WO",
-	types.ERR: "ERR",
+type SnapshotInput struct {
+	Name string `json:"name,omitempty"`
 }
 
 func NewSchema() *client.Schemas {
@@ -103,11 +96,13 @@ func NewSchema() *client.Schemas {
 
 	schemas.AddType("apiVersion", client.Resource{})
 	schemas.AddType("schema", client.Schema{})
+	schemas.AddType("error", client.ServerApiError{})
+	schemas.AddType("snapshot", Snapshot{})
 	schemas.AddType("attachInput", AttachInput{})
+	schemas.AddType("snapshotInput", SnapshotInput{})
 
 	hostSchema(schemas.AddType("host", Host{}))
 	volumeSchema(schemas.AddType("volume", Volume{}))
-	snapshotSchema(schemas.AddType("snapshot", Snapshot{}))
 	backupSchema(schemas.AddType("backup", Backup{}))
 	settingsSchema(schemas.AddType("settings", SettingsResource{}))
 
@@ -139,9 +134,32 @@ func volumeSchema(volume *client.Schema) {
 	volume.ResourceMethods = []string{"GET", "DELETE"}
 	volume.ResourceActions = map[string]client.Action{
 		"attach": {
-			Input: "attachInput",
+			Input:  "attachInput",
+			Output: "volume",
 		},
-		"detach": {},
+		"detach": {
+			Output: "volume",
+		},
+		"snapshotCreate": {
+			Input:  "snapshotInput",
+			Output: "snapshot",
+		},
+		"snapshotGet": {
+			Input:  "snapshotInput",
+			Output: "snapshot",
+		},
+		"snapshotList": {},
+		"snapshotDelete": {
+			Input:  "snapshotInput",
+			Output: "snapshot",
+		},
+		"snapshotRevert": {
+			Input:  "snapshotInput",
+			Output: "snapshot",
+		},
+		"snapshotBackup": {
+			Input: "snapshotInput",
+		},
 	}
 	volume.ResourceFields["controller"] = client.Field{
 		Type:     "struct",
@@ -175,20 +193,6 @@ func volumeSchema(volume *client.Schema) {
 	volume.ResourceFields["staleReplicaTimeout"] = volumeStaleReplicaTimeout
 }
 
-func snapshotSchema(snapshot *client.Schema) {
-	snapshot.CollectionMethods = []string{"GET", "POST"}
-	snapshot.ResourceMethods = []string{"GET", "DELETE"}
-	snapshot.ResourceActions = map[string]client.Action{
-		"revert": {},
-		"backup": {},
-	}
-
-	snapshotName := snapshot.ResourceFields["name"]
-	snapshotName.Create = true
-	snapshotName.Unique = true
-	snapshot.ResourceFields["name"] = snapshotName
-}
-
 func backupSchema(backup *client.Schema) {
 	backup.CollectionMethods = []string{"GET"}
 	backup.ResourceMethods = []string{"GET", "DELETE"}
@@ -204,14 +208,12 @@ func toSettingsResource(s *types.SettingsInfo) *SettingsResource {
 	}
 }
 
-func toVolumeResource(v *types.VolumeInfo) *Volume {
-	state := volumeState[v.State]
-
+func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 	replicas := []Replica{}
 	for _, r := range v.Replicas {
 		mode := ""
 		if r.Running {
-			mode = replicaModes[r.Mode]
+			mode = string(r.Mode)
 		}
 		badTimestamp := ""
 		if r.BadTimestamp != nil {
@@ -240,56 +242,63 @@ func toVolumeResource(v *types.VolumeInfo) *Volume {
 
 	logrus.Debugf("controller: %+v", controller)
 
-	return &Volume{
+	r := &Volume{
 		Resource: client.Resource{
-			Type: "volume",
-			Actions: map[string]string{
-				"attach": v.Name + "/attach",
-				"detach": v.Name + "/detach",
-			},
-			Links: map[string]string{
-				"self":      v.Name,
-				"snapshots": v.Name + "/snapshots/",
-			},
+			Id:      v.Name,
+			Type:    "volume",
+			Actions: map[string]string{},
+			Links:   map[string]string{},
 		},
 		Name:                v.Name,
 		Size:                strconv.FormatInt(v.Size, 10),
 		BaseImage:           v.BaseImage,
 		FromBackup:          v.FromBackup,
 		NumberOfReplicas:    v.NumberOfReplicas,
-		State:               state,
+		State:               string(v.State),
 		LonghornImage:       v.LonghornImage,
 		StaleReplicaTimeout: int(v.StaleReplicaTimeout / time.Minute),
 		Replicas:            replicas,
 		Controller:          controller,
 	}
+
+	actions := map[string]struct{}{}
+
+	switch v.State {
+	case types.VolumeStateDetached:
+		actions["attach"] = struct{}{}
+	case types.VolumeStateHealthy:
+		actions["detach"] = struct{}{}
+		actions["snapshotCreate"] = struct{}{}
+		actions["snapshotList"] = struct{}{}
+		actions["snapshotGet"] = struct{}{}
+		actions["snapshotDelete"] = struct{}{}
+		actions["snapshotRevert"] = struct{}{}
+		actions["snapshotBackup"] = struct{}{}
+	case types.VolumeStateDegraded:
+		actions["detach"] = struct{}{}
+		actions["snapshotCreate"] = struct{}{}
+		actions["snapshotList"] = struct{}{}
+		actions["snapshotGet"] = struct{}{}
+		actions["snapshotDelete"] = struct{}{}
+		actions["snapshotRevert"] = struct{}{}
+		actions["snapshotBackup"] = struct{}{}
+	case types.VolumeStateCreated:
+	case types.VolumeStateFaulted:
+	}
+
+	for action := range actions {
+		r.Actions[action] = apiContext.UrlBuilder.ActionLink(r.Resource, action)
+	}
+
+	return r
 }
 
-func toVolumeCollection(vs []*types.VolumeInfo) *client.GenericCollection {
+func toVolumeCollection(vs []*types.VolumeInfo, apiContext *api.ApiContext) *client.GenericCollection {
 	data := []interface{}{}
 	for _, v := range vs {
-		data = append(data, toVolumeResource(v))
+		data = append(data, toVolumeResource(v, apiContext))
 	}
 	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "volume"}}
-}
-
-func fromVolumeResMap(m map[string]interface{}) (*types.VolumeInfo, error) {
-	v := new(Volume)
-	if err := mapstructure.Decode(m, v); err != nil {
-		return nil, errors.Wrapf(err, "error converting volume info '%+v'", m)
-	}
-	size, err := util.ConvertSize(v.Size)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error converting size '%s'", v.Size)
-	}
-	return &types.VolumeInfo{
-		Name:                v.Name,
-		Size:                util.RoundUpSize(size),
-		BaseImage:           v.BaseImage,
-		FromBackup:          v.FromBackup,
-		NumberOfReplicas:    v.NumberOfReplicas,
-		StaleReplicaTimeout: time.Duration(v.StaleReplicaTimeout) * time.Minute,
-	}, nil
 }
 
 func toSnapshotResource(s *types.SnapshotInfo) *Snapshot {
@@ -299,14 +308,8 @@ func toSnapshotResource(s *types.SnapshotInfo) *Snapshot {
 	}
 	return &Snapshot{
 		Resource: client.Resource{
+			Id:   s.Name,
 			Type: "snapshot",
-			Actions: map[string]string{
-				"revert": s.Name + "/revert",
-				"backup": s.Name + "/backup",
-			},
-			Links: map[string]string{
-				"self": s.Name,
-			},
 		},
 		Name:        s.Name,
 		Parent:      s.Parent,
@@ -387,4 +390,32 @@ func fromSettingsResMap(m map[string]interface{}) (*types.SettingsInfo, error) {
 		return nil, errors.Wrapf(err, "error converting settings info '%+v'", m)
 	}
 	return s, nil
+}
+
+type Server struct {
+	man       types.VolumeManager
+	sl        types.ServiceLocator
+	proxy     http.Handler
+	fwd       *Fwd
+	snapshots *SnapshotHandlers
+	settings  *SettingsHandlers
+	backups   *BackupsHandlers
+}
+
+func NewServer(m types.VolumeManager, sl types.ServiceLocator, proxy http.Handler) *Server {
+	return &Server{
+		man:   m,
+		sl:    sl,
+		proxy: proxy,
+		fwd:   &Fwd{sl, proxy},
+		snapshots: &SnapshotHandlers{
+			m,
+		},
+		settings: &SettingsHandlers{
+			m.Settings(),
+		},
+		backups: &BackupsHandlers{
+			m,
+		},
+	}
 }

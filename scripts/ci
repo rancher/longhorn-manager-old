@@ -3,10 +3,8 @@ set -e
 
 cd $(dirname $0)
 
-mount --bind /host/dev /dev
-
 ./build
 ./validate
 ./heavy-test
-./integration-test
 ./package
+./integration-test
