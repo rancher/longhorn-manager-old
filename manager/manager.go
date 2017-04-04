@@ -194,9 +194,7 @@ func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
 		return nil, nil
 	}
 
-	//FIXME this should be included in GET, now it's a side effect of GET
-	state := volumeState(vol)
-	vol.State = state
+	vol.State = volumeState(vol)
 
 	vol.Endpoint = ""
 	if vol.Controller != nil && vol.Controller.Running {
@@ -211,9 +209,8 @@ func (man *volumeManager) List() ([]*types.VolumeInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	for i, v := range volumes {
+	for _, v := range volumes {
 		v.State = volumeState(v)
-		volumes[i] = v
 	}
 	return volumes, nil
 }
