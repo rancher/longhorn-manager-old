@@ -35,6 +35,7 @@ const (
 var (
 	ContainerStopTimeout = 1 * time.Minute
 	WaitDeviceTimeout    = 30 //seconds
+	WaitAPITimeout       = 30 //seconds
 )
 
 type dockerOrc struct {
@@ -256,6 +257,12 @@ func (d *dockerOrc) createController(volume *types.VolumeInfo, replicas map[stri
 		return nil, errors.Wrap(err, "fail to inspect controller container")
 	}
 
+	address := "http://" + inspectJSON.NetworkSettings.IPAddress + ":9501"
+	url := address + "/v1"
+	if err := util.WaitForAPI(url, WaitAPITimeout); err != nil {
+		return nil, errors.Wrapf(err, "fail to wait for api endpoint at %v", url)
+	}
+
 	if err := util.WaitForDevice(d.getDeviceName(volume.Name), WaitDeviceTimeout); err != nil {
 		return nil, errors.Wrap(err, "fail to wait for device")
 	}
@@ -264,7 +271,7 @@ func (d *dockerOrc) createController(volume *types.VolumeInfo, replicas map[stri
 		InstanceInfo: types.InstanceInfo{
 			ID:      inspectJSON.ID,
 			HostID:  d.GetCurrentHostID(),
-			Address: "http://" + inspectJSON.NetworkSettings.IPAddress + ":9501",
+			Address: address,
 			Running: inspectJSON.State.Running,
 		},
 	}, nil
