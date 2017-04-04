@@ -180,12 +180,24 @@ func (orc *cattleOrc) getStack(volumeName string) (*client.Stack, error) {
 		"removed_null": nil,
 	}})
 	if err != nil {
-		return nil, errors.Wrap(err, "error listing stacks")
+		return nil, errors.Wrapf(err, "error finding stack, volume '%s'", volumeName)
 	}
 	if len(stackColl.Data) == 0 {
 		return nil, nil
 	}
 	return &stackColl.Data[0], nil
+}
+
+func (orc *cattleOrc) getVolumeStacks() ([]client.Stack, error) {
+	stackColl, err := orc.rancher.Stack.List(&client.ListOpts{Filters: map[string]interface{}{
+		"name_prefix":       util.VolumeStackPrefix,
+		"externalId_prefix": "system://rancher-longhorn?name=",
+		"removed_null":      nil,
+	}})
+	if err != nil {
+		return nil, errors.Wrap(err, "error listing stacks")
+	}
+	return stackColl.Data, nil
 }
 
 type replicaMd struct {
@@ -214,7 +226,7 @@ func (orc *cattleOrc) getReplicaBadTS(replicaName, volumeName string, svc *clien
 }
 
 func (orc *cattleOrc) getReplicas(volumeName string, stack *client.Stack) (map[string]*types.ReplicaInfo, error) {
-	svc, err := orc.getService(volumeName, util.ReplicaServiceName)
+	svc, err := orc.getService(stack, util.ReplicaServiceName)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing replica services")
 	}
@@ -261,7 +273,7 @@ func (orc *cattleOrc) getHostID(cnt *client.Container) (string, error) {
 }
 
 func (orc *cattleOrc) getController(volumeName string, stack *client.Stack) (*types.ControllerInfo, error) {
-	svc, err := orc.getService(volumeName, util.ControllerServiceName)
+	svc, err := orc.getService(stack, util.ControllerServiceName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error finding controller, volume '%s'", volumeName)
 	}
@@ -290,26 +302,23 @@ func (orc *cattleOrc) getController(volumeName string, stack *client.Stack) (*ty
 	return nil, nil
 }
 
-func (orc *cattleOrc) getVolume(volumeName string, stack *client.Stack) (*types.VolumeInfo, error) {
-	md, err := orc.getService(volumeName, util.ControllerServiceName)
+func (orc *cattleOrc) getVolume(stack *client.Stack) (*types.VolumeInfo, error) {
+	md, err := orc.getService(stack, util.ControllerServiceName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error getting metadata service, volume '%s'", volumeName)
+		return nil, errors.Wrapf(err, "error getting controller service, stack '%s'", stack.Name)
 	}
 	volume := new(types.VolumeInfo)
 	if err := mapstructure.Decode(md.Metadata[volumeProperty], volume); err != nil {
-		return nil, errors.Wrapf(err, "Failed to decode metadata for volume '%s'", volumeName)
-	}
-	if volume.Name != volumeName {
-		return nil, errors.Errorf("Name check failed: decoding volume metadata: expected '%s', got '%s'", volumeName, volume.Name)
+		return nil, errors.Wrapf(err, "Failed to decode volume metadata, stack '%s'", stack.Name)
 	}
 	volume.StaleReplicaTimeout = volume.StaleReplicaTimeout * time.Hour
 
-	replicas, err := orc.getReplicas(volumeName, stack)
+	replicas, err := orc.getReplicas(volume.Name, stack)
 	if err != nil {
 		return nil, err
 	}
 
-	controller, err := orc.getController(volumeName, stack)
+	controller, err := orc.getController(volume.Name, stack)
 	if err != nil {
 		return nil, err
 	}
@@ -328,14 +337,10 @@ func (orc *cattleOrc) GetVolume(volumeName string) (*types.VolumeInfo, error) {
 	if stack == nil {
 		return nil, nil
 	}
-	return orc.getVolume(volumeName, stack)
+	return orc.getVolume(stack)
 }
 
-func (orc *cattleOrc) getService(volumeName, serviceName string) (*client.Service, error) {
-	stack, err := orc.getStack(volumeName)
-	if err != nil {
-		return nil, err
-	}
+func (orc *cattleOrc) getService(stack *client.Stack, serviceName string) (*client.Service, error) {
 	svcColl, err := orc.rancher.Service.List(&client.ListOpts{Filters: map[string]interface{}{
 		"stackId": stack.Id,
 		"name":    serviceName,
@@ -344,7 +349,7 @@ func (orc *cattleOrc) getService(volumeName, serviceName string) (*client.Servic
 		return nil, errors.Wrapf(err, "error listing service '%s'", serviceName)
 	}
 	if len(svcColl.Data) < 1 {
-		return nil, errors.Errorf("Could not find service '%s', volume '%s'", serviceName, volumeName)
+		return nil, errors.Errorf("Could not find service '%s', stack '%s'", serviceName, stack.Name)
 	}
 	return &svcColl.Data[0], nil
 }
@@ -353,7 +358,11 @@ func (orc *cattleOrc) MarkBadReplica(volumeName string, replica *types.ReplicaIn
 	orc.Lock()
 	defer orc.Unlock()
 
-	svc, err := orc.getService(volumeName, util.ReplicaServiceName)
+	stack, err := orc.getStack(volumeName)
+	if err != nil {
+		return err
+	}
+	svc, err := orc.getService(stack, util.ReplicaServiceName)
 	if err != nil {
 		return err
 	}
@@ -372,7 +381,11 @@ func (orc *cattleOrc) unMarkBadReplica(volumeName string, replica *types.Replica
 	orc.Lock()
 	defer orc.Unlock()
 
-	svc, err := orc.getService(volumeName, util.ReplicaServiceName)
+	stack, err := orc.getStack(volumeName)
+	if err != nil {
+		return err
+	}
+	svc, err := orc.getService(stack, util.ReplicaServiceName)
 	if err != nil {
 		return err
 	}
@@ -393,7 +406,7 @@ func (orc *cattleOrc) CreateController(volumeName string, replicas map[string]*t
 	if stack == nil {
 		return nil, errors.Errorf("can not create controller for non-existent volume '%s'", volumeName)
 	}
-	volume, err := orc.getVolume(volumeName, stack)
+	volume, err := orc.getVolume(stack)
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +465,7 @@ func (orc *cattleOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, erro
 	if stack == nil {
 		return nil, errors.Errorf("can not create replica for non-existent volume '%s'", volumeName)
 	}
-	volume, err := orc.getVolume(volumeName, stack)
+	volume, err := orc.getVolume(stack)
 	if err != nil {
 		return nil, err
 	}
@@ -561,7 +574,19 @@ func (orc *cattleOrc) GetHost(id string) (*types.HostInfo, error) {
 }
 
 func (orc *cattleOrc) ListVolumes() ([]*types.VolumeInfo, error) {
-	return nil, errors.Errorf("Haven't implemented ListVolumes yet")
+	stacks, err := orc.getVolumeStacks()
+	if err != nil {
+		return nil, err
+	}
+	volumes := []*types.VolumeInfo{}
+	for _, stack := range stacks {
+		volume, err := orc.getVolume(&stack)
+		if err != nil {
+			return nil, err
+		}
+		volumes = append(volumes, volume)
+	}
+	return volumes, nil
 }
 
 func (orc *cattleOrc) UpdateVolume(volume *types.VolumeInfo) error {
