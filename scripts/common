@@ -5,6 +5,11 @@ ORC_TEST_PREFIX=longhorn-orc-test
 ETCD_SERVER=${ORC_TEST_PREFIX}-etcd-server
 ETCD_IMAGE=quay.io/coreos/etcd:v3.1.5
 
+NFS_SERVER=${ORC_TEST_PREFIX}-nfs-server
+NFS_IMAGE=docker.io/erezhorev/dockerized_nfs_server
+
+BACKUPSTORE_PATH=/opt/backupstore
+
 function start_etcd {
     echo Start etcd server
     docker run -d \
@@ -106,4 +111,10 @@ function start_orc {
 function wait_for_orc {
     orc_ip=$1
     wait_for http://${orc_ip}:7000/v1
+}
+
+function start_nfs {
+    docker run -d --name ${ORC_TEST_PREFIX}-nfs-server --privileged \
+            ${NFS_IMAGE} ${BACKUPSTORE_PATH}
+    trap cleanup_orc_test EXIT
 }

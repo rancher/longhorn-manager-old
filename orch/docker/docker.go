@@ -299,7 +299,10 @@ func (d *dockerOrc) createReplica(volume *types.VolumeInfo, replicaName string) 
 				"/volume": {},
 			},
 			Cmd: cmd,
-		}, nil, nil, replicaName)
+		},
+		&dContainer.HostConfig{
+			Privileged: true,
+		}, nil, replicaName)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create replica container")
 	}
