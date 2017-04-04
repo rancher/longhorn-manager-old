@@ -11,6 +11,9 @@ source ./scripts/common
 
 image=`cat ./bin/latest_image`
 
+# Removing any existing testing containers, e.g. from scripts/server
+cleanup_orc_test
+
 trap cleanup_orc_test EXIT
 
 start_etcd

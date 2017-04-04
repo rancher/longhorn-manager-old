@@ -10,7 +10,27 @@ NFS_IMAGE=docker.io/erezhorev/dockerized_nfs_server
 
 BACKUPSTORE_PATH=/opt/backupstore
 
+function check_exists {
+    name=$1
+    if [ "$(docker ps -aq -f status=exited -f name=${name})" ];
+    then
+	docker rm -v ${name}
+    fi
+    if [ "$(docker ps -q -f name=${name})" ]; then
+        echo true
+        return
+    fi
+    echo false
+}
+
 function start_etcd {
+    exists=$(check_exists $ETCD_SERVER)
+
+    if [ "$exists" == "true" ]; then
+        echo etcd server exists
+        return
+    fi
+
     echo Start etcd server
     docker run -d \
                 --name $ETCD_SERVER \
@@ -33,7 +53,9 @@ function start_etcd {
 
 function cleanup_orc_test {
     echo clean up test containers
+    set +e
     docker rm -vf $(docker ps -f name=$ORC_TEST_PREFIX -a -q)
+    set -e
 }
 
 function wait_for {
@@ -88,8 +110,16 @@ function get_container_ip {
 }
 
 function start_longhorn_binary {
+    name=${ORC_TEST_PREFIX}-longhorn-binary
+    exists=$(check_exists $name)
+
+    if [ "$exists" == "true" ]; then
+        echo longhorn binary exists
+        return
+    fi
+
     image=$1
-    docker run -d -it --name ${ORC_TEST_PREFIX}-longhorn-binary $image bash
+    docker run -d -it --name $name $image bash
     echo longhorn binary ready
 }
 
@@ -97,10 +127,19 @@ function start_orc {
     image=$1
     id=$2
     etcd_ip=$3
+    shift 3
+    extra=$@
+
     name=${ORC_TEST_PREFIX}-server-${id}
+    exists=$(check_exists $name)
+    if [ "$exists" == "true" ]; then
+        echo remove old longhorn-orc server
+	docker rm -vf ${name}
+    fi
+
     docker run -d --name ${name} \
             --privileged -v /dev:/host/dev \
-            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v /var/run/docker.sock:/var/run/docker.sock ${extra} \
             --volumes-from ${ORC_TEST_PREFIX}-longhorn-binary ${image} \
             /usr/local/sbin/launch-orc -d --orchestrator docker \
             --longhorn-image rancher/longhorn:latest \
@@ -114,7 +153,14 @@ function wait_for_orc {
 }
 
 function start_nfs {
-    docker run -d --name ${ORC_TEST_PREFIX}-nfs-server --privileged \
-            ${NFS_IMAGE} ${BACKUPSTORE_PATH}
+    name=${NFS_SERVER}
+    exists=$(check_exists $name)
+
+    if [ "$exists" == "true" ]; then
+        echo nfs server exists
+        return
+    fi
+
+    docker run -d --name ${NFS_SERVER} --privileged ${NFS_IMAGE} ${BACKUPSTORE_PATH}
     echo nfs server ready
 }
