@@ -52,11 +52,15 @@ func parseBackupsList(stdout io.Reader, volumeName string) ([]*types.BackupInfo,
 	if currentBackup := controller.CurrentBackup(); currentBackup != nil {
 		backups = append(backups, currentBackup)
 	}
+	volume := data[volumeName]
 	for _, v := range data[volumeName].Backups {
 		backup, err := parseBackup(v)
 		if err != nil {
 			return nil, err
 		}
+		backup.VolumeName = volume.Name
+		backup.VolumeSize = volume.Size
+		backup.VolumeCreated = volume.Created
 		backups = append(backups, backup)
 	}
 
