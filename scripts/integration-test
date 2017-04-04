@@ -11,7 +11,7 @@ source ./scripts/common
 
 image=`cat ./bin/latest_image`
 
-mount --bind /host/dev /dev
+trap cleanup_orc_test EXIT
 
 start_etcd
 

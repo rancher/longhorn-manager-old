@@ -27,7 +27,6 @@ function start_etcd {
                 --initial-cluster-token my-etcd-token \
                 --initial-cluster-state new \
                 --auto-compaction-retention 1
-    trap cleanup_orc_test EXIT
 
     echo etcd server ready
 }
@@ -91,21 +90,22 @@ function get_container_ip {
 function start_longhorn_binary {
     image=$1
     docker run -d -it --name ${ORC_TEST_PREFIX}-longhorn-binary $image bash
-    trap cleanup_orc_test EXIT
+    echo longhorn binary ready
 }
 
 function start_orc {
     image=$1
     id=$2
     etcd_ip=$3
-    docker run -d --name ${ORC_TEST_PREFIX}-server-${id} \
+    name=${ORC_TEST_PREFIX}-server-${id}
+    docker run -d --name ${name} \
             --privileged -v /dev:/host/dev \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            --volumes-from ${ORC_TEST_PREFIX}-longhorn-binary $image \
+            --volumes-from ${ORC_TEST_PREFIX}-longhorn-binary ${image} \
             /usr/local/sbin/launch-orc -d --orchestrator docker \
             --longhorn-image rancher/longhorn:latest \
             --etcd-servers http://${etcd_ip}:2379
-    trap cleanup_orc_test EXIT
+    echo ${name} ready
 }
 
 function wait_for_orc {
@@ -116,5 +116,5 @@ function wait_for_orc {
 function start_nfs {
     docker run -d --name ${ORC_TEST_PREFIX}-nfs-server --privileged \
             ${NFS_IMAGE} ${BACKUPSTORE_PATH}
-    trap cleanup_orc_test EXIT
+    echo nfs server ready
 }
