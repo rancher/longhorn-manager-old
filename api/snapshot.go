@@ -194,7 +194,11 @@ func (sh *SnapshotHandlers) Backup(w http.ResponseWriter, req *http.Request) err
 		return errors.Errorf("volume name required")
 	}
 
-	backupTarget := sh.man.Settings().GetSettings().BackupTarget
+	settings, err := sh.man.Settings().GetSettings()
+	if err != nil || settings == nil {
+		return errors.New("cannot backup: unable to read settings")
+	}
+	backupTarget := settings.BackupTarget
 	if backupTarget == "" {
 		return errors.New("cannot backup: backupTarget not set")
 	}
@@ -208,5 +212,6 @@ func (sh *SnapshotHandlers) Backup(w http.ResponseWriter, req *http.Request) err
 		return errors.Wrapf(err, "error creating backup: snapshot '%s', volume '%s', dest '%s'", input.Name, volName, backupTarget)
 	}
 	logrus.Debugf("success: started backup: snapshot '%s', volume '%s', dest '%s'", input.Name, volName, backupTarget)
+	apiContext.Write(&Empty{})
 	return nil
 }

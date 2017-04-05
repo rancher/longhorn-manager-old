@@ -52,15 +52,42 @@ func parseBackupsList(stdout io.Reader, volumeName string) ([]*types.BackupInfo,
 	if currentBackup := controller.CurrentBackup(); currentBackup != nil {
 		backups = append(backups, currentBackup)
 	}
+	volume := data[volumeName]
 	for _, v := range data[volumeName].Backups {
 		backup, err := parseBackup(v)
 		if err != nil {
 			return nil, err
 		}
+		backup.VolumeName = volume.Name
+		backup.VolumeSize = volume.Size
+		backup.VolumeCreated = volume.Created
 		backups = append(backups, backup)
 	}
 
 	return backups, nil
+}
+
+func parseBackupVolumesList(stdout io.Reader) ([]*types.BackupVolumeInfo, error) {
+	buffer := new(bytes.Buffer)
+	reader := io.TeeReader(stdout, buffer)
+	data := map[string]*backupVolume{}
+	if err := json.NewDecoder(reader).Decode(&data); err != nil {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(buffer.String())), "cannot find ") {
+			return nil, nil
+		}
+		return nil, errors.Wrapf(err, "error parsing backups: \n%s", buffer)
+	}
+	volumes := []*types.BackupVolumeInfo{}
+
+	for name, v := range data {
+		volumes = append(volumes, &types.BackupVolumeInfo{
+			Name:    name,
+			Size:    v.Size,
+			Created: v.Created,
+		})
+	}
+
+	return volumes, nil
 }
 
 func parseOneBackup(stdout io.Reader) (*types.BackupInfo, error) {
@@ -74,6 +101,44 @@ func parseOneBackup(stdout io.Reader) (*types.BackupInfo, error) {
 		return nil, errors.Wrapf(err, "error parsing backups: \n%s", buffer)
 	}
 	return parseBackup(data)
+}
+
+func (b *backups) ListVolumes() ([]*types.BackupVolumeInfo, error) {
+	cmd := exec.Command("longhorn", "backup", "ls", "--volume-only", b.BackupTarget)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, errors.Wrapf(err, "error getting stdout from cmd '%v'", cmd)
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, errors.Wrapf(err, "error starting cmd '%v'", cmd)
+	}
+	defer func() {
+		if err := cmd.Wait(); err != nil {
+			logrus.Errorf("%+v", errors.Wrapf(err, "error waiting for cmd '%v'", cmd))
+		}
+	}()
+	return parseBackupVolumesList(stdout)
+}
+
+func (b *backups) GetVolume(volumeName string) (*types.BackupVolumeInfo, error) {
+	cmd := exec.Command("longhorn", "backup", "ls", "--volume", volumeName, "--volume-only", b.BackupTarget)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, errors.Wrapf(err, "error getting stdout from cmd '%v'", cmd)
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, errors.Wrapf(err, "error starting cmd '%v'", cmd)
+	}
+	defer func() {
+		if err := cmd.Wait(); err != nil {
+			logrus.Errorf("%+v", errors.Wrapf(err, "error waiting for cmd '%v'", cmd))
+		}
+	}()
+	list, err := parseBackupVolumesList(stdout)
+	if err != nil {
+		return nil, err
+	}
+	return list[0], nil
 }
 
 func (b *backups) List(volumeName string) ([]*types.BackupInfo, error) {

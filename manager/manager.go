@@ -119,11 +119,23 @@ func (man *volumeManager) Create(volume *types.VolumeInfo) (*types.VolumeInfo, e
 	if vol != nil {
 		return vol, nil
 	}
+	settings, err := man.settings.GetSettings()
+	if err != nil || settings == nil {
+		return nil, errors.New("create volume fail: fail to load settings")
+	}
 	if volume.LonghornImage == "" {
-		volume.LonghornImage = man.settings.GetSettings().LonghornImage
+		volume.LonghornImage = settings.LonghornImage
+		if volume.LonghornImage == "" {
+			return nil, errors.New("create volume fail: No LonghornImage specified")
+		}
 	}
 	if volume.FromBackup != "" {
-		backup, err := man.getBackups(man.settings.GetSettings().BackupTarget).Get(volume.FromBackup)
+		backupTarget := settings.BackupTarget
+		if backupTarget == "" {
+			return nil, errors.New("create volume fail: No BackupTarget specified")
+		}
+
+		backup, err := man.getBackups(backupTarget).Get(volume.FromBackup)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error getting backup (to create volume) '%s'", volume.FromBackup)
 		}

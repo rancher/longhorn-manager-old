@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -143,4 +144,17 @@ func GetLocalIPs() ([]string, error) {
 		}
 	}
 	return results, nil
+}
+
+// WaitForAPI timeout in second
+func WaitForAPI(url string, timeout int) error {
+	for i := 0; i < timeout; i++ {
+		resp, err := http.Get(url)
+		if err == nil {
+			resp.Body.Close()
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return fmt.Errorf("timeout waiting for %v", url)
 }

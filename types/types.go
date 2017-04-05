@@ -50,8 +50,8 @@ type VolumeManager interface {
 }
 
 type Settings interface {
-	GetSettings() *SettingsInfo
-	SetSettings(*SettingsInfo)
+	GetSettings() (*SettingsInfo, error)
+	SetSettings(*SettingsInfo) error
 }
 
 type SnapshotOps interface {
@@ -73,6 +73,9 @@ type ManagerBackupOps interface {
 	List(volumeName string) ([]*BackupInfo, error)
 	Get(url string) (*BackupInfo, error)
 	Delete(url string) error
+
+	ListVolumes() ([]*BackupVolumeInfo, error)
+	GetVolume(volumeName string) (*BackupVolumeInfo, error)
 }
 
 type Monitor func(volume *VolumeInfo, man VolumeManager) io.Closer
@@ -179,4 +182,10 @@ type BackupInfo struct {
 	VolumeName      string `json:"volumeName,omitempty"`
 	VolumeSize      string `json:"volumeSize,omitempty"`
 	VolumeCreated   string `json:"volumeCreated,omitempty"`
+}
+
+type BackupVolumeInfo struct {
+	Name    string `json:"name"`
+	Size    string `json:"size"`
+	Created string `json:"created"`
 }

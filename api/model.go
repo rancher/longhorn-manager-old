@@ -49,14 +49,20 @@ type Host struct {
 	Address string `json:"address,omitempty"`
 }
 
+type BackupVolume struct {
+	client.Resource
+	types.BackupVolumeInfo
+}
+
 type Backup struct {
 	client.Resource
 	types.BackupInfo
 }
 
-type SettingsResource struct {
+type Setting struct {
 	client.Resource
-	types.SettingsInfo
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type Instance struct {
@@ -91,6 +97,10 @@ type SnapshotInput struct {
 	Name string `json:"name,omitempty"`
 }
 
+type BackupInput struct {
+	Name string `json:"name,omitempty"`
+}
+
 func NewSchema() *client.Schemas {
 	schemas := &client.Schemas{}
 
@@ -100,28 +110,30 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("snapshot", Snapshot{})
 	schemas.AddType("attachInput", AttachInput{})
 	schemas.AddType("snapshotInput", SnapshotInput{})
+	schemas.AddType("backup", Backup{})
+	schemas.AddType("backupInput", BackupInput{})
 
 	hostSchema(schemas.AddType("host", Host{}))
 	volumeSchema(schemas.AddType("volume", Volume{}))
-	backupSchema(schemas.AddType("backup", Backup{}))
-	settingsSchema(schemas.AddType("settings", SettingsResource{}))
+	backupVolumeSchema(schemas.AddType("backupVolume", BackupVolume{}))
+	settingSchema(schemas.AddType("setting", Setting{}))
 
 	return schemas
 }
 
-func settingsSchema(settings *client.Schema) {
-	settings.CollectionMethods = []string{}
-	settings.ResourceMethods = []string{"GET", "PUT"}
+func settingSchema(setting *client.Schema) {
+	setting.CollectionMethods = []string{"GET"}
+	setting.ResourceMethods = []string{"GET", "PUT"}
 
-	backupTarget := settings.ResourceFields["backupTarget"]
-	backupTarget.Update = true
-	backupTarget.Required = true
-	settings.ResourceFields["backupTarget"] = backupTarget
+	settingName := setting.ResourceFields["name"]
+	settingName.Required = true
+	settingName.Unique = true
+	setting.ResourceFields["name"] = settingName
 
-	longhornImage := settings.ResourceFields["longhornImage"]
-	longhornImage.Update = true
-	longhornImage.Required = true
-	settings.ResourceFields["longhornImage"] = longhornImage
+	settingValue := setting.ResourceFields["value"]
+	settingValue.Required = true
+	settingValue.Update = true
+	setting.ResourceFields["value"] = settingValue
 }
 
 func hostSchema(host *client.Schema) {
@@ -193,19 +205,39 @@ func volumeSchema(volume *client.Schema) {
 	volume.ResourceFields["staleReplicaTimeout"] = volumeStaleReplicaTimeout
 }
 
-func backupSchema(backup *client.Schema) {
-	backup.CollectionMethods = []string{"GET"}
-	backup.ResourceMethods = []string{"GET", "DELETE"}
-	backup.ResourceActions = map[string]client.Action{}
+func backupVolumeSchema(backupVolume *client.Schema) {
+	backupVolume.CollectionMethods = []string{"GET"}
+	backupVolume.ResourceMethods = []string{"GET"}
+	backupVolume.ResourceActions = map[string]client.Action{
+		"backupList": {},
+		"backupGet": {
+			Input:  "backupInput",
+			Output: "backup",
+		},
+		"backupDelete": {
+			Input:  "backupInput",
+			Output: "backupVolume",
+		},
+	}
 }
 
-func toSettingsResource(s *types.SettingsInfo) *SettingsResource {
-	return &SettingsResource{
+func toSettingResource(name, value string) *Setting {
+	return &Setting{
 		Resource: client.Resource{
-			Type: "settings",
+			Id:   name,
+			Type: "setting",
 		},
-		SettingsInfo: *s,
+		Name:  name,
+		Value: value,
 	}
+}
+
+func toSettingCollection(settings *types.SettingsInfo) *client.GenericCollection {
+	data := []interface{}{
+		toSettingResource("backupTarget", settings.BackupTarget),
+		toSettingResource("longhornImage", settings.LonghornImage),
+	}
+	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "setting"}}
 }
 
 func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
@@ -360,6 +392,35 @@ func toHostResource(h *types.HostInfo) *Host {
 	}
 }
 
+func toBackupVolumeResource(bv *types.BackupVolumeInfo, apiContext *api.ApiContext) *BackupVolume {
+	if bv == nil {
+		logrus.Warnf("weird: nil backupVolume")
+		return nil
+	}
+	b := &BackupVolume{
+		Resource: client.Resource{
+			Id:    bv.Name,
+			Type:  "backupVolume",
+			Links: map[string]string{},
+		},
+		BackupVolumeInfo: *bv,
+	}
+	b.Actions = map[string]string{
+		"backupList":   apiContext.UrlBuilder.ActionLink(b.Resource, "backupList"),
+		"backupGet":    apiContext.UrlBuilder.ActionLink(b.Resource, "backupGet"),
+		"backupDelete": apiContext.UrlBuilder.ActionLink(b.Resource, "backupDelete"),
+	}
+	return b
+}
+
+func toBackupVolumeCollection(bv []*types.BackupVolumeInfo, apiContext *api.ApiContext) *client.GenericCollection {
+	data := []interface{}{}
+	for _, v := range bv {
+		data = append(data, toBackupVolumeResource(v, apiContext))
+	}
+	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "backupVolume"}}
+}
+
 func toBackupResource(b *types.BackupInfo) *Backup {
 	if b == nil {
 		logrus.Warnf("weird: nil backup")
@@ -367,10 +428,9 @@ func toBackupResource(b *types.BackupInfo) *Backup {
 	}
 	return &Backup{
 		Resource: client.Resource{
-			Type: "backup",
-			Links: map[string]string{
-				"self": b.Name + "?volume=" + b.VolumeName,
-			},
+			Id:    b.Name,
+			Type:  "backup",
+			Links: map[string]string{},
 		},
 		BackupInfo: *b,
 	}

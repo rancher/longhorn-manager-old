@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
 	"github.com/rancher/longhorn-orc/types"
@@ -46,10 +47,15 @@ func (c *controller) runBackup(backupTarget, snapName string) func() error {
 			currentBackup = nil
 			currentBackupLock.Unlock()
 		}()
+
+		var stdout, stderr bytes.Buffer
 		cmd := exec.Command("longhorn", "--url", c.url, "backup", "create", "--dest", backupTarget, snapName)
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
 		err := cmd.Run()
 		if err != nil {
-			return errors.Wrapf(err, "error creating backup for snapshot '%s', backupTarget '%s'", snapName, backupTarget)
+			return errors.Wrapf(err, "error creating backup for snapshot '%s', backupTarget '%s': %s",
+				snapName, backupTarget, stderr.String())
 		}
 		logrus.Infof("completed backup: volume '%s', snapshot '%s', backupTarget '%s'", c.name, snapName, backupTarget)
 		return nil
