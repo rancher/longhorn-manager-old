@@ -7,14 +7,14 @@ import cattle
 ENV_ORC_IPS = "LONGHORN_ORC_TEST_SERVER_IPS"
 ENV_BACKUPSTORE_URL = "LONGHORN_ORC_TEST_BACKUPSTORE_URL"
 
-ORC = 'http://localhost:7000'
+ORC = 'http://localhost:9500'
 
 SIZE = str(16 * 1024 * 1024)
 VOLUME_NAME = "longhorn-orc-test_vol-1.0"
 
 
 def get_client(ip):
-    url = 'http://' + ip + ':7000/v1/schemas'
+    url = 'http://' + ip + ':9500/v1/schemas'
     c = cattle.from_env(url=url)
     return c
 

@@ -149,7 +149,7 @@ function start_orc {
 
 function wait_for_orc {
     orc_ip=$1
-    wait_for http://${orc_ip}:7000/v1
+    wait_for http://${orc_ip}:9500/v1
 }
 
 function start_nfs {

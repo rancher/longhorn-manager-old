@@ -28,5 +28,5 @@ image=`cat ./bin/latest_image`
 echo NFS backupstore at: nfs://${nfs_ip}:${BACKUPSTORE_PATH}
 
 # persist the host UUID and expose the port
-start_orc $image 0 $etcd_ip -p 7000:7000 \
+start_orc $image 0 $etcd_ip -p 9500:9500 \
         -v /var/lib/rancher/longhorn:/var/lib/rancher/longhorn
