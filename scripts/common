@@ -54,7 +54,8 @@ function start_etcd {
 function cleanup_orc_test {
     echo clean up test containers
     set +e
-    docker rm -vf $(docker ps -f name=$ORC_TEST_PREFIX -a -q)
+    docker stop $(docker ps -f name=$ORC_TEST_PREFIX -a -q)
+    docker rm -v $(docker ps -f name=$ORC_TEST_PREFIX -a -q)
     set -e
 }
 
@@ -134,7 +135,8 @@ function start_orc {
     exists=$(check_exists $name)
     if [ "$exists" == "true" ]; then
         echo remove old longhorn-orc server
-	docker rm -vf ${name}
+	docker stop ${name}
+	docker rm -v ${name}
     fi
 
     docker run -d --name ${name} \
