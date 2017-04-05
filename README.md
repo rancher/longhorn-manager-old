@@ -20,15 +20,17 @@ For using Docker orchestrator, make sure you have `iscsiadm`/`open-iscsi` instal
 
 `./bin/longhorn-orc`
 
-## Example Server
+## Experimental Server
 
-It can be run as a single node example server.
+It can be run as a single node experimental server.
 
-Use `make server` to start the server bind-mounted to host port `9500`. It will contain necessary components for Docker orchestrator to work, e.g. etcd server for k/v store, nfs server for backupstore. Each of them will be started as a container.
+`make server` will start the server bind-mounted to host port `9500`. Then you can use web browser to take a look at it's API UI, by accessing `http://<host_ip>:9500/v1`
 
-The URL for backupstore will show up as: `nfs://xxx.xxx.xxx.xxx:/opt/backupstore` in the console. You can update `backupTarget` accordingly in the `settings`.
+This experimental server will contain necessary components for Docker orchestrator to work, e.g. etcd server for k/v store, nfs server for backupstore. Each of them will be started as a container.
 
-Use `make server-cleanup` to cleanup the example servers.
+The backupstore URL will show up as: `nfs://xxx.xxx.xxx.xxx:/opt/backupstore` in the console when you starting the server. You can update `backupTarget` accordingly in the `v1/settings/backupTarget`.
+
+`make server-cleanup` will cleanup the servers.
 
 ## License
 Copyright (c) 2014-2016 [Rancher Labs, Inc.](http://rancher.com)
