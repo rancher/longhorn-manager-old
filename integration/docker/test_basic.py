@@ -193,7 +193,8 @@ def test_snapshot():
     assert snapMap[snap1["name"]]["removed"] is False
     assert snapMap[snap2["name"]]["name"] == snap2["name"]
     assert snapMap[snap2["name"]]["parent"] == snap1["name"]
-    assert snapMap[snap2["name"]]["children"] == ["volume-head", snap3["name"]]
+    assert "volume-head" in snapMap[snap2["name"]]["children"]
+    assert snap3["name"] in snapMap[snap2["name"]]["children"]
     assert snapMap[snap2["name"]]["removed"] is False
     assert snapMap[snap3["name"]]["name"] == snap3["name"]
     assert snapMap[snap3["name"]]["parent"] == snap2["name"]
