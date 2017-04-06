@@ -137,6 +137,7 @@ type VolumeInfo struct {
 	State               VolumeState
 	LonghornImage       string
 	Endpoint            string
+	Created             string
 }
 
 type InstanceInfo struct {

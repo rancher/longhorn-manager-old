@@ -158,3 +158,7 @@ func WaitForAPI(url string, timeout int) error {
 	}
 	return fmt.Errorf("timeout waiting for %v", url)
 }
+
+func Now() string {
+	return time.Now().UTC().Format(time.RFC3339)
+}

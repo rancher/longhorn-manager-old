@@ -1,13 +1,16 @@
 package manager
 
 import (
-	"github.com/Sirupsen/logrus"
-	"github.com/pkg/errors"
-	"github.com/rancher/longhorn-orc/types"
 	"io"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
+
+	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-orc/util"
 )
 
 var (
@@ -45,6 +48,7 @@ func New(orc types.Orchestrator, monitor types.Monitor, getController types.GetC
 }
 
 func (man *volumeManager) doCreate(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
+	volume.Created = util.Now()
 	vol, err := man.orc.CreateVolume(volume)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create volume '%s'", volume.Name)

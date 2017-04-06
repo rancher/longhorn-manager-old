@@ -81,19 +81,22 @@ def test_volume():
     assert volume["size"] == SIZE
     assert volume["numberOfReplicas"] == 2
     assert volume["state"] == "detached"
+    assert volume["created"] != ""
 
     volumes = client.list_volume()
     assert len(volumes) == 1
-    assert volumes[0]["name"] == VOLUME_NAME
-    assert volumes[0]["size"] == SIZE
-    assert volumes[0]["numberOfReplicas"] == 2
-    assert volumes[0]["state"] == "detached"
+    assert volumes[0]["name"] == volume["name"]
+    assert volumes[0]["size"] == volume["size"]
+    assert volumes[0]["numberOfReplicas"] == volume["numberOfReplicas"]
+    assert volumes[0]["state"] == volume["state"]
+    assert volumes[0]["created"] == volume["created"]
 
     volumeByName = client.by_id_volume(VOLUME_NAME)
-    assert volumeByName["name"] == VOLUME_NAME
-    assert volumeByName["size"] == SIZE
-    assert volumeByName["numberOfReplicas"] == 2
-    assert volumeByName["state"] == "detached"
+    assert volumeByName["name"] == volume["name"]
+    assert volumeByName["size"] == volume["size"]
+    assert volumeByName["numberOfReplicas"] == volume["numberOfReplicas"]
+    assert volumeByName["state"] == volume["state"]
+    assert volumeByName["created"] == volume["created"]
 
     hosts = client.list_host()
     assert len(hosts) == 1
