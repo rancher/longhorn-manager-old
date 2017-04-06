@@ -194,6 +194,11 @@ func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
 	state := volumeState(vol)
 	vol.State = state
 
+	vol.Endpoint = ""
+	if vol.Controller != nil && vol.Controller.Running {
+		vol.Endpoint = man.getController(vol).Endpoint()
+	}
+
 	return vol, nil
 }
 

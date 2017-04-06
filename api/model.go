@@ -24,6 +24,7 @@ type Volume struct {
 	StaleReplicaTimeout int    `json:"staleReplicaTimeout,omitempty"`
 	State               string `json:"state,omitempty"`
 	LonghornImage       string `json:"longhornImage,omitempty"`
+	Endpoint            string `json:"endpoint,omitemtpy"`
 
 	Replicas   []Replica   `json:"replicas,omitempty"`
 	Controller *Controller `json:"controller,omitempty"`
@@ -289,6 +290,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		State:               string(v.State),
 		LonghornImage:       v.LonghornImage,
 		StaleReplicaTimeout: int(v.StaleReplicaTimeout / time.Minute),
+		Endpoint:            v.Endpoint,
 		Replicas:            replicas,
 		Controller:          controller,
 	}

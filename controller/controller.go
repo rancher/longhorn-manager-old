@@ -1,17 +1,27 @@
 package controller
 
 import (
-	"github.com/pkg/errors"
-	"github.com/rancher/longhorn-orc/types"
-	"github.com/rancher/longhorn-orc/util"
+	"bytes"
+	"encoding/json"
 	"os/exec"
 	"strings"
 	"sync"
+
+	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
+	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-orc/util"
 )
 
 type controller struct {
 	name string
 	url  string
+}
+
+type volumeInfo struct {
+	Name         string `json:"name"`
+	ReplicaCount int    `json:"replicaCount"`
+	Endpoint     string `json:"endpoint"`
 }
 
 func New(volume *types.VolumeInfo) types.Controller {
@@ -127,4 +137,32 @@ func (c *controller) AddReplica(replica *types.ReplicaInfo) error {
 func (c *controller) RemoveReplica(replica *types.ReplicaInfo) error {
 	err := exec.Command("longhorn", "--url", c.url, "rm", replica.Address).Run()
 	return errors.Wrapf(err, "failed to rm replica address='%s' from controller '%s'", replica.Address, c.name)
+}
+
+func (c *controller) Endpoint() string {
+	info, err := c.info()
+	if err != nil {
+		logrus.Warn("Fail to get frontend info: ", err)
+		return ""
+	}
+
+	return info.Endpoint
+}
+
+func (c *controller) info() (*volumeInfo, error) {
+	var stdout, stderr bytes.Buffer
+
+	cmd := exec.Command("longhorn", "--url", c.url, "info")
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot get volume info: %v", stderr.String())
+	}
+
+	info := &volumeInfo{}
+	if err := json.Unmarshal(stdout.Bytes(), info); err != nil {
+		return nil, errors.Wrapf(err, "cannot decode volume info: %v", stdout.String())
+	}
+	return info, nil
 }

@@ -11,6 +11,7 @@ ORC = 'http://localhost:9500'
 
 SIZE = str(16 * 1024 * 1024)
 VOLUME_NAME = "longhorn-orc-test_vol-1.0"
+DEV_PATH = "/dev/longhorn/"
 
 
 def get_client(ip):
@@ -103,8 +104,8 @@ def test_volume():
 
     volume = volume.attach(hostId=host["uuid"])
 
-    # FIXME should able to use volume = client.update(volume)
     volume = client.by_id_volume(VOLUME_NAME)
+    assert volume["endpoint"] == DEV_PATH + VOLUME_NAME
 
     volume = volume.detach()
 

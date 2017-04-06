@@ -84,6 +84,7 @@ type GetController func(volume *VolumeInfo) Controller
 
 type Controller interface {
 	Name() string
+	Endpoint() string
 	GetReplicaStates() ([]*ReplicaInfo, error)
 	AddReplica(replica *ReplicaInfo) error
 	RemoveReplica(replica *ReplicaInfo) error
@@ -135,6 +136,7 @@ type VolumeInfo struct {
 	Replicas            map[string]*ReplicaInfo
 	State               VolumeState
 	LonghornImage       string
+	Endpoint            string
 }
 
 type InstanceInfo struct {
