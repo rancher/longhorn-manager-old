@@ -5,3 +5,5 @@ dist/
 .trash-cache/
 .bash_history
 tmp/
+.venv/
+longhorn-orc
