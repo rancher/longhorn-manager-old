@@ -130,7 +130,7 @@ func RunManager(c *cli.Context) error {
 
 	s := api.NewServer(man, orc, proxy)
 
-	go server.NewTCPServer(fmt.Sprintf(":%v", api.Port)).Serve(api.Handler(s))
+	go server.NewTCPServer(fmt.Sprintf(":%v", api.DefaultPort)).Serve(api.Handler(s))
 
 	return daemon.WaitForExit()
 }

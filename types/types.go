@@ -127,7 +127,7 @@ type Orchestrator interface {
 
 type ServiceLocator interface {
 	GetCurrentHostID() string
-	GetAddress(hostID string) (string, error)
+	GetAddress(hostID string) (string, error) // Return <host>:<port>
 }
 
 type SettingsInfo struct {

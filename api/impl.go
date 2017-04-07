@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httputil"
 
@@ -54,7 +53,6 @@ func (f *Fwd) Handler(getHostID HostIDFunc, h HandleFuncWithError) HandleFuncWit
 			if err != nil {
 				return errors.Wrapf(err, "cannot find host %v", hostID)
 			}
-			targetHost = fmt.Sprintf("%v:%v", targetHost, Port)
 			if targetHost != req.Host {
 				req.Host = targetHost
 				req.URL.Host = targetHost

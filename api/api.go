@@ -11,7 +11,7 @@ import (
 
 type HandleFuncWithError func(http.ResponseWriter, *http.Request) error
 
-const Port int = 9500
+const DefaultPort int = 9500
 
 func HandleError(s *client.Schemas, t HandleFuncWithError) http.Handler {
 	return api.ApiHandler(s, http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {

@@ -1,7 +1,10 @@
 package cattle
 
 import (
+	"strconv"
+
 	"github.com/pkg/errors"
+	"github.com/rancher/longhorn-orc/api"
 )
 
 func (orc *cattleOrc) GetAddress(hostID string) (string, error) {
@@ -11,7 +14,8 @@ func (orc *cattleOrc) GetAddress(hostID string) (string, error) {
 	}
 	for _, c := range svc.Containers {
 		if c.HostUUID == hostID {
-			return c.Name, nil
+			// FIXME Port should be a part of address
+			return c.Name + ":" + strconv.Itoa(api.DefaultPort), nil
 		}
 	}
 	return "", nil

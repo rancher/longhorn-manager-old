@@ -104,7 +104,7 @@ func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
 	if err != nil || len(ips) == 0 {
 		return nil, fmt.Errorf("unable to get ip")
 	}
-	address := ips[0] + ":" + strconv.Itoa(api.Port)
+	address := ips[0] + ":" + strconv.Itoa(api.DefaultPort)
 
 	if err := docker.Register(address); err != nil {
 		return nil, err
