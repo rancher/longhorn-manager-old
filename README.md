@@ -9,6 +9,7 @@ It's mood is high unstable now.
 
 1. Ubuntu v16.04
 2. Docker v1.12
+3. For development, you need to have `nfs-kernel-server` package install on the host for testing NFS server.
 
 For using Docker orchestrator, make sure you have `iscsiadm`/`open-iscsi` installed on the host.
 
