@@ -50,7 +50,7 @@ def get_clients(hosts):
     return clients
 
 
-def test_host_and_settings(clients):
+def test_hosts_and_settings(clients):
     hosts = clients.itervalues().next().list_host()
     assert hosts[0]["uuid"] is not None
     assert hosts[0]["address"] is not None
@@ -302,4 +302,23 @@ def test_backup(clients):
     client.delete(volume)
 
     volumes = client.list_volume()
+    assert len(volumes) == 0
+
+
+def test_volume_multinode(clients):
+    hosts = clients.keys()
+
+    volume = clients[hosts[0]].create_volume(name=VOLUME_NAME, size=SIZE,
+                                             numberOfReplicas=2)
+    assert volume["state"] == "detached"
+
+    for host_id in hosts:
+        volume = volume.attach(hostId=host_id)
+        assert volume["state"] == "healthy"
+        assert volume["controller"]["hostId"] == host_id
+        volume = volume.detach()
+
+    clients[hosts[0]].delete(volume)
+
+    volumes = clients[hosts[0]].list_volume()
     assert len(volumes) == 0
