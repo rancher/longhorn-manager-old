@@ -2,6 +2,8 @@ import os
 import string
 import time
 
+import pytest
+
 import cattle
 
 ENV_ORC_IPS = "LONGHORN_ORC_TEST_SERVER_IPS"
@@ -13,9 +15,20 @@ SIZE = str(16 * 1024 * 1024)
 VOLUME_NAME = "longhorn-orc-test_vol-1.0"
 DEV_PATH = "/dev/longhorn/"
 
+PORT = ":9500"
 
-def get_client(ip):
-    url = 'http://' + ip + ':9500/v1/schemas'
+
+@pytest.fixture
+def clients(request):
+    ips = get_orc_ips()
+    client = get_client(ips[0] + PORT)
+    hosts = client.list_host()
+    assert len(hosts) == len(ips)
+    return get_clients(hosts)
+
+
+def get_client(address):
+    url = 'http://' + address + '/v1/schemas'
     c = cattle.from_env(url=url)
     return c
 
@@ -28,21 +41,38 @@ def get_backupstore_url():
     return os.environ[ENV_BACKUPSTORE_URL]
 
 
-def test_host_and_settings():
-    ips = get_orc_ips()
-    client = get_client(ips[0])
+def get_clients(hosts):
+    clients = {}
+    for host in hosts:
+        assert host["uuid"] is not None
+        assert host["address"] is not None
+        clients[host["uuid"]] = get_client(host["address"])
+    return clients
 
-    hosts = client.list_host()
-    assert len(hosts) == 1
 
-    host = hosts[0]
-    assert host["uuid"] is not None
-    assert host["address"] is not None
+def test_host_and_settings(clients):
+    hosts = clients.itervalues().next().list_host()
+    assert hosts[0]["uuid"] is not None
+    assert hosts[0]["address"] is not None
+    assert hosts[1]["uuid"] is not None
+    assert hosts[1]["address"] is not None
+    assert hosts[2]["uuid"] is not None
+    assert hosts[2]["address"] is not None
 
-    new_host = client.by_id_host(host["uuid"])
-    assert new_host["uuid"] == host["uuid"]
-    assert new_host["name"] == host["name"]
-    assert new_host["address"] == host["address"]
+    host0_id = hosts[0]["uuid"]
+    host1_id = hosts[1]["uuid"]
+    host2_id = hosts[2]["uuid"]
+    host0_from0 = clients[host0_id].by_id_host(host0_id)
+    host0_from1 = clients[host1_id].by_id_host(host0_id)
+    host0_from2 = clients[host2_id].by_id_host(host0_id)
+    assert host0_from0["uuid"] == \
+        host0_from1["uuid"] == \
+        host0_from2["uuid"]
+    assert host0_from0["address"] == \
+        host0_from1["address"] == \
+        host0_from2["address"]
+
+    client = clients[host0_id]
 
     settings = client.list_setting()
     assert len(settings) == 2
@@ -71,9 +101,10 @@ def test_host_and_settings():
     assert setting["value"] == old_target
 
 
-def test_volume():
-    ips = get_orc_ips()
-    client = get_client(ips[0])
+def test_volume(clients):
+    # get a random client
+    for host_id, client in clients.iteritems():
+        break
 
     volume = client.create_volume(name=VOLUME_NAME, size=SIZE,
                                   numberOfReplicas=2)
@@ -98,14 +129,7 @@ def test_volume():
     assert volumeByName["state"] == volume["state"]
     assert volumeByName["created"] == volume["created"]
 
-    hosts = client.list_host()
-    assert len(hosts) == 1
-
-    host = hosts[0]
-    assert host["uuid"] is not None
-    assert host["address"] is not None
-
-    volume = volume.attach(hostId=host["uuid"])
+    volume = volume.attach(hostId=host_id)
 
     volume = client.by_id_volume(VOLUME_NAME)
     assert volume["endpoint"] == DEV_PATH + VOLUME_NAME
@@ -118,9 +142,9 @@ def test_volume():
     assert len(volumes) == 0
 
 
-def test_snapshot():
-    ips = get_orc_ips()
-    client = get_client(ips[0])
+def test_snapshot(clients):
+    for host_id, client in clients.iteritems():
+        break
 
     volume = client.create_volume(name=VOLUME_NAME, size=SIZE,
                                   numberOfReplicas=2)
@@ -129,14 +153,7 @@ def test_snapshot():
     assert volume["numberOfReplicas"] == 2
     assert volume["state"] == "detached"
 
-    hosts = client.list_host()
-    assert len(hosts) == 1
-
-    host = hosts[0]
-    assert host["uuid"] is not None
-    assert host["address"] is not None
-
-    volume = volume.attach(hostId=host["uuid"])
+    volume = volume.attach(hostId=host_id)
 
     snap1 = volume.snapshotCreate()
     snap2 = volume.snapshotCreate()
@@ -213,9 +230,9 @@ def test_snapshot():
     assert len(volumes) == 0
 
 
-def test_backup():
-    ips = get_orc_ips()
-    client = get_client(ips[0])
+def test_backup(clients):
+    for host_id, client in clients.iteritems():
+        break
 
     setting = client.by_id_setting("backupTarget")
     setting = client.update(setting, value=get_backupstore_url())
@@ -228,14 +245,7 @@ def test_backup():
     assert volume["numberOfReplicas"] == 2
     assert volume["state"] == "detached"
 
-    hosts = client.list_host()
-    assert len(hosts) == 1
-
-    host = hosts[0]
-    assert host["uuid"] is not None
-    assert host["address"] is not None
-
-    volume = volume.attach(hostId=host["uuid"])
+    volume = volume.attach(hostId=host_id)
 
     volume.snapshotCreate()
     snap2 = volume.snapshotCreate()

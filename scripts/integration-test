@@ -35,7 +35,21 @@ wait_for_orc ${orc1_ip}
 
 echo $orc1 is ready
 
-export LONGHORN_ORC_TEST_SERVER_IPS="$orc1_ip"
+orc2="${ORC_TEST_PREFIX}-server-2"
+start_orc $image 2 ${etcd_ip}
+orc2_ip=$(get_container_ip ${orc2})
+wait_for_orc ${orc2_ip}
+
+echo $orc2 is ready
+
+orc3="${ORC_TEST_PREFIX}-server-3"
+start_orc $image 3 ${etcd_ip}
+orc3_ip=$(get_container_ip ${orc3})
+wait_for_orc ${orc3_ip}
+
+echo $orc3 is ready
+
+export LONGHORN_ORC_TEST_SERVER_IPS="$orc1_ip,$orc2_ip,$orc3_ip"
 export LONGHORN_ORC_TEST_BACKUPSTORE_URL="nfs://${nfs_ip}:${BACKUPSTORE_PATH}"
 
 cd integration
