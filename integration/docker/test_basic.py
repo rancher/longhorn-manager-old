@@ -154,19 +154,27 @@ def test_snapshot(clients):
     assert volume["state"] == "detached"
 
     volume = volume.attach(hostId=host_id)
+    snapshot_test(client)
+    volume = volume.detach()
+
+    client.delete(volume)
+
+    volumes = client.list_volume()
+    assert len(volumes) == 0
+
+
+def snapshot_test(client):
+    volume = client.by_id_volume(VOLUME_NAME)
 
     snap1 = volume.snapshotCreate()
     snap2 = volume.snapshotCreate()
     snap3 = volume.snapshotCreate()
 
     snapshots = volume.snapshotList()
-    assert len(snapshots) == 3
-
     snapMap = {}
     for snap in snapshots:
         snapMap[snap["name"]] = snap
 
-    assert len(snapMap) == 3
     assert snapMap[snap1["name"]]["name"] == snap1["name"]
     assert snapMap[snap1["name"]]["removed"] is False
     assert snapMap[snap2["name"]]["name"] == snap2["name"]
@@ -179,12 +187,10 @@ def test_snapshot(clients):
     volume.snapshotDelete(name=snap3["name"])
 
     snapshots = volume.snapshotList(volume=VOLUME_NAME)
-    assert len(snapshots) == 3
     snapMap = {}
     for snap in snapshots:
         snapMap[snap["name"]] = snap
 
-    assert len(snapMap) == 3
     assert snapMap[snap1["name"]]["name"] == snap1["name"]
     assert snapMap[snap1["name"]]["removed"] is False
     assert snapMap[snap2["name"]]["name"] == snap2["name"]
@@ -204,12 +210,10 @@ def test_snapshot(clients):
     volume.snapshotRevert(name=snap2["name"])
 
     snapshots = volume.snapshotList(volume=VOLUME_NAME)
-    assert len(snapshots) == 3
     snapMap = {}
     for snap in snapshots:
         snapMap[snap["name"]] = snap
 
-    assert len(snapMap) == 3
     assert snapMap[snap1["name"]]["name"] == snap1["name"]
     assert snapMap[snap1["name"]]["removed"] is False
     assert snapMap[snap2["name"]]["name"] == snap2["name"]
@@ -222,21 +226,14 @@ def test_snapshot(clients):
     assert snapMap[snap3["name"]]["children"] == []
     assert snapMap[snap3["name"]]["removed"] is True
 
-    volume = volume.detach()
-
-    client.delete(volume)
-
-    volumes = client.list_volume()
-    assert len(volumes) == 0
+    volume.snapshotDelete(name=snap1["name"])
+    volume.snapshotDelete(name=snap2["name"])
+    # volume.snapshotPurge()
 
 
 def test_backup(clients):
     for host_id, client in clients.iteritems():
         break
-
-    setting = client.by_id_setting("backupTarget")
-    setting = client.update(setting, value=get_backupstore_url())
-    assert setting["value"] == get_backupstore_url()
 
     volume = client.create_volume(name=VOLUME_NAME, size=SIZE,
                                   numberOfReplicas=2)
@@ -246,6 +243,21 @@ def test_backup(clients):
     assert volume["state"] == "detached"
 
     volume = volume.attach(hostId=host_id)
+    backup_test(client)
+    volume = volume.detach()
+
+    client.delete(volume)
+
+    volumes = client.list_volume()
+    assert len(volumes) == 0
+
+
+def backup_test(client):
+    volume = client.by_id_volume(VOLUME_NAME)
+
+    setting = client.by_id_setting("backupTarget")
+    setting = client.update(setting, value=get_backupstore_url())
+    assert setting["value"] == get_backupstore_url()
 
     volume.snapshotCreate()
     snap2 = volume.snapshotCreate()
@@ -297,13 +309,6 @@ def test_backup(clients):
             break
     assert not found
 
-    volume = volume.detach()
-
-    client.delete(volume)
-
-    volumes = client.list_volume()
-    assert len(volumes) == 0
-
 
 def test_volume_multinode(clients):
     hosts = clients.keys()
@@ -318,7 +323,14 @@ def test_volume_multinode(clients):
         assert volume["controller"]["hostId"] == host_id
         volume = volume.detach()
 
-    clients[hosts[0]].delete(volume)
+    volume = volume.attach(hostId=hosts[0])
+    assert volume["state"] == "healthy"
+    assert volume["controller"]["hostId"] == hosts[0]
 
-    volumes = clients[hosts[0]].list_volume()
+    snapshot_test(clients[hosts[1]])
+    backup_test(clients[hosts[2]])
+
+    clients[hosts[1]].delete(volume)
+
+    volumes = clients[hosts[2]].list_volume()
     assert len(volumes) == 0
