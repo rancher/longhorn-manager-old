@@ -63,8 +63,8 @@ func (s *Server) UpdateSchedule(rw http.ResponseWriter, req *http.Request) error
 	}
 
 	jobs := make([]*types.RecurringJob, len(schedule.Jobs))
-	for i, job := range schedule.Jobs {
-		jobs[i] = &job
+	for i := range schedule.Jobs { // cannot use i, job here: &job would be the same pointer for every iteration
+		jobs[i] = &schedule.Jobs[i]
 	}
 
 	if err := s.man.UpdateSchedule(id, jobs); err != nil {
