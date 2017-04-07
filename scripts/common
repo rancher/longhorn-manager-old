@@ -50,7 +50,7 @@ function start_etcd {
                 --initial-cluster-state new \
                 --auto-compaction-retention 1
 
-    echo etcd server ready
+    echo etcd server is up
 }
 
 function cleanup_orc_test {
@@ -123,7 +123,7 @@ function start_longhorn_binary {
 
     image=$1
     docker run -d -it --name $name $image bash
-    echo longhorn binary ready
+    echo longhorn binary is up
 }
 
 function start_orc {
@@ -148,7 +148,7 @@ function start_orc {
             /usr/local/sbin/launch-orc -d --orchestrator docker \
             --longhorn-image $LONGHORN_IMAGE \
             --etcd-servers http://${etcd_ip}:2379
-    echo ${name} ready
+    echo ${name} is up
 }
 
 function wait_for_orc {
@@ -166,5 +166,8 @@ function start_nfs {
     fi
 
     docker run -d --name ${NFS_SERVER} --privileged ${NFS_IMAGE} ${BACKUPSTORE_PATH}
-    echo nfs server ready
+
+    echo wait for nfs server\'s 90 seconds grace period to pass
+    sleep 90
+    echo nfs server is up
 }
