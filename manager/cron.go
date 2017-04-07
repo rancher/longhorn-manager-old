@@ -61,9 +61,10 @@ func ValidateJobs(jobs []*types.RecurringJob) error {
 
 func setJobs(volume *types.VolumeInfo, ctrl types.Controller, jobs []*types.RecurringJob) *cron.Cron {
 	c := cron.NewWithLocation(time.UTC)
-	for _, j := range jobs {
-		if t := tasks[j.Task]; t != nil {
-			c.AddFunc(j.Cron, t(volume, ctrl, j.Name))
+	for _, job := range jobs {
+		if t := tasks[job.Task]; t != nil {
+			c.AddFunc(job.Cron, t(volume, ctrl, job.Name))
+			logrus.Infof("scheduled recurring job %+v, volume '%s'", job, volume.Name)
 		}
 	}
 	return c
