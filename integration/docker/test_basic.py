@@ -142,6 +142,38 @@ def test_volume(clients):
     assert len(volumes) == 0
 
 
+def test_recurring_snapshot(clients):
+    for host_id, client in clients.iteritems():
+        break
+
+    volume = client.create_volume(name=VOLUME_NAME, size=SIZE,
+                                  numberOfReplicas=2)
+    try:
+        assert volume["name"] == VOLUME_NAME
+        assert volume["size"] == SIZE
+        assert volume["numberOfReplicas"] == 2
+        assert volume["state"] == "detached"
+
+        volume = volume.attach(hostId=host_id)
+
+        snap3s = {"name": "snap3s", "cron": "@every 3s", "task": "snapshot"}
+        snap5s = {"name": "snap5s", "cron": "@every 5s", "task": "snapshot"}
+        volume.scheduleUpdate(jobs=[snap3s, snap5s])
+
+        time.sleep(11)
+
+        snapshots = volume.snapshotList()
+        assert len(snapshots) == 5
+
+        volume = volume.detach()
+
+    finally:
+        client.delete(volume)
+
+    volumes = client.list_volume()
+    assert len(volumes) == 0
+
+
 def test_snapshot(clients):
     for host_id, client in clients.iteritems():
         break
