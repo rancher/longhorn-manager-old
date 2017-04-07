@@ -21,7 +21,7 @@ wait_for_etcd $etcd_ip
 start_nfs
 nfs_ip=$(get_container_ip $NFS_SERVER)
 
-start_longhorn_binary rancher/longhorn:latest
+start_longhorn_binary $LONGHORN_IMAGE
 
 image=`cat ./bin/latest_image`
 

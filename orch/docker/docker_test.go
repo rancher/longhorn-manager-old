@@ -12,13 +12,16 @@ import (
 const (
 	TestVolumeName = "test-vol"
 
-	EnvEtcdServer = "LONGHORN_ORC_TEST_ETCD_SERVER"
+	EnvEtcdServer    = "LONGHORN_ORC_TEST_ETCD_SERVER"
+	EnvLonghornImage = "LONGHORN_IMAGE"
 )
 
 func Test(t *testing.T) { TestingT(t) }
 
 type TestSuite struct {
-	d            *dockerOrc
+	d             *dockerOrc
+	longhornImage string
+
 	containerBin map[string]struct{}
 }
 
@@ -31,6 +34,9 @@ func (s *TestSuite) SetUpTest(c *C) {
 
 	etcdIP := os.Getenv(EnvEtcdServer)
 	c.Assert(etcdIP, Not(Equals), "")
+
+	s.longhornImage = os.Getenv(EnvLonghornImage)
+	c.Assert(s.longhornImage, Not(Equals), "")
 
 	cfg := &dockerOrcConfig{
 		servers: []string{"http://" + etcdIP + ":2379"},
@@ -54,7 +60,7 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	volume := &types.VolumeInfo{
 		Name:          TestVolumeName,
 		Size:          8 * 1024 * 1024, // 8M
-		LonghornImage: "rancher/longhorn:latest",
+		LonghornImage: s.longhornImage,
 	}
 	replica1Name := "replica-test-1"
 	replica1, err := s.d.createReplica(volume, replica1Name)

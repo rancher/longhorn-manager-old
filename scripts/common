@@ -8,6 +8,8 @@ ETCD_IMAGE=quay.io/coreos/etcd:v3.1.5
 NFS_SERVER=${ORC_TEST_PREFIX}-nfs-server
 NFS_IMAGE=docker.io/erezhorev/dockerized_nfs_server
 
+LONGHORN_IMAGE=rancher/longhorn:7a918a0
+
 BACKUPSTORE_PATH=/opt/backupstore
 
 function check_exists {
@@ -144,7 +146,7 @@ function start_orc {
             -v /var/run/docker.sock:/var/run/docker.sock ${extra} \
             --volumes-from ${ORC_TEST_PREFIX}-longhorn-binary ${image} \
             /usr/local/sbin/launch-orc -d --orchestrator docker \
-            --longhorn-image rancher/longhorn:latest \
+            --longhorn-image $LONGHORN_IMAGE \
             --etcd-servers http://${etcd_ip}:2379
     echo ${name} ready
 }

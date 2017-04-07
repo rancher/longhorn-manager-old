@@ -101,6 +101,10 @@ func RunManager(c *cli.Context) error {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
+	if c.String(orch.LonghornImageParam) == "" {
+		return fmt.Errorf("Must specify %v", orch.LonghornImageParam)
+	}
+
 	orcName := c.String("orchestrator")
 	if orcName == "cattle" {
 		orc, err = cattle.New(c)
