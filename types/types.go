@@ -63,6 +63,7 @@ type SnapshotOps interface {
 	Get(name string) (*SnapshotInfo, error)
 	Delete(name string) error
 	Revert(name string) error
+	Purge() error
 }
 
 type VolumeBackupOps interface {

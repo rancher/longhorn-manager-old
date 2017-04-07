@@ -168,6 +168,8 @@ func volumeSchema(volume *client.Schema) {
 		"detach": {
 			Output: "volume",
 		},
+		"snapshotPurge": {},
+
 		"snapshotCreate": {
 			Input:  "snapshotInput",
 			Output: "snapshot",
@@ -324,6 +326,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["scheduleUpdate"] = struct{}{}
 	case types.VolumeStateHealthy:
 		actions["detach"] = struct{}{}
+		actions["snapshotPurge"] = struct{}{}
 		actions["snapshotCreate"] = struct{}{}
 		actions["snapshotList"] = struct{}{}
 		actions["snapshotGet"] = struct{}{}
@@ -333,6 +336,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["scheduleUpdate"] = struct{}{}
 	case types.VolumeStateDegraded:
 		actions["detach"] = struct{}{}
+		actions["snapshotPurge"] = struct{}{}
 		actions["snapshotCreate"] = struct{}{}
 		actions["snapshotList"] = struct{}{}
 		actions["snapshotGet"] = struct{}{}

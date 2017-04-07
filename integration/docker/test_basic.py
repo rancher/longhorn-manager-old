@@ -228,7 +228,21 @@ def snapshot_test(client):
 
     volume.snapshotDelete(name=snap1["name"])
     volume.snapshotDelete(name=snap2["name"])
-    # volume.snapshotPurge()
+
+    volume.snapshotPurge()
+
+    snapshots = volume.snapshotList(volume=VOLUME_NAME)
+    snapMap = {}
+    for snap in snapshots:
+        snapMap[snap["name"]] = snap
+    assert snap1["name"] not in snapMap
+    assert snap3["name"] not in snapMap
+
+    # it's the parent of volume-head, so it cannot be purged at this time
+    assert snapMap[snap2["name"]]["name"] == snap2["name"]
+    assert snapMap[snap2["name"]]["parent"] == ""
+    assert "volume-head" in snapMap[snap2["name"]]["children"]
+    assert snapMap[snap2["name"]]["removed"] is True
 
 
 def test_backup(clients):

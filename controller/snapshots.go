@@ -88,3 +88,12 @@ func (c *controller) Revert(name string) error {
 	}
 	return nil
 }
+
+func (c *controller) Purge() error {
+	cmd := exec.Command("longhorn", "--url", c.url, "snapshot", "purge")
+	err := cmd.Run()
+	if err != nil {
+		return errors.Wrapf(err, "error purging snapshots")
+	}
+	return nil
+}

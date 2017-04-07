@@ -49,6 +49,7 @@ func Handler(s *Server) http.Handler {
 	volumeActions := map[string]func(http.ResponseWriter, *http.Request) error{
 		"attach":         s.fwd.Handler(HostIDFromAttachReq, s.AttachVolume),
 		"detach":         s.fwd.Handler(HostIDFromVolume(s.man), s.DetachVolume),
+		"snapshotPurge":  s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Purge),
 		"snapshotCreate": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Create),
 		"snapshotList":   s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.List),
 		"snapshotGet":    s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Get),

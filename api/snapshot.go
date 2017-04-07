@@ -215,3 +215,22 @@ func (sh *SnapshotHandlers) Backup(w http.ResponseWriter, req *http.Request) err
 	apiContext.Write(&Empty{})
 	return nil
 }
+
+func (sh *SnapshotHandlers) Purge(w http.ResponseWriter, req *http.Request) error {
+	volName := mux.Vars(req)["name"]
+	if volName == "" {
+		return errors.Errorf("volume name required")
+	}
+
+	snapOps, err := sh.man.SnapshotOps(volName)
+	if err != nil {
+		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
+	}
+
+	if err := snapOps.Purge(); err != nil {
+		return errors.Wrapf(err, "error purging snapshots, for volume '%+v'", volName)
+	}
+	logrus.Debugf("success: purge snapshots for volume '%s'", volName)
+	api.GetApiContext(req).Write(&Empty{})
+	return nil
+}

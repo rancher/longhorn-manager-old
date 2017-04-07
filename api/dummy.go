@@ -167,6 +167,10 @@ func (d *dummySnapshots) Backup(name, backupTarget string) error {
 	return nil
 }
 
+func (d *dummySnapshots) Purge() error {
+	return nil
+}
+
 func (d *dummyVolumeManager) ListHosts() (map[string]*types.HostInfo, error) {
 	return nil, nil
 }
