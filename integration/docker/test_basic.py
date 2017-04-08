@@ -24,7 +24,17 @@ def clients(request):
     client = get_client(ips[0] + PORT)
     hosts = client.list_host()
     assert len(hosts) == len(ips)
-    return get_clients(hosts)
+    clis = get_clients(hosts)
+    request.addfinalizer(lambda: cleanup_clients(clis))
+    cleanup_clients(clis)
+    return clis
+
+
+def cleanup_clients(clis):
+    client = clis.itervalues().next()
+    volumes = client.list_volume()
+    for v in volumes:
+        client.delete(v)
 
 
 def get_client(address):

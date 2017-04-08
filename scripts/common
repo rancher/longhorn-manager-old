@@ -166,8 +166,5 @@ function start_nfs {
     fi
 
     docker run -d --name ${NFS_SERVER} --privileged ${NFS_IMAGE} ${BACKUPSTORE_PATH}
-
-    echo wait for nfs server\'s 90 seconds grace period to pass
-    sleep 90
     echo nfs server is up
 }
