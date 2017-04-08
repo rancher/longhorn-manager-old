@@ -343,6 +343,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["snapshotDelete"] = struct{}{}
 		actions["snapshotRevert"] = struct{}{}
 		actions["snapshotBackup"] = struct{}{}
+		actions["scheduleUpdate"] = struct{}{}
 	case types.VolumeStateCreated:
 		actions["scheduleUpdate"] = struct{}{}
 	case types.VolumeStateFaulted:
