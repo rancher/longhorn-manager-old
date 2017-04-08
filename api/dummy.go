@@ -143,7 +143,7 @@ func (l *dummyLocator) GetCurrentHostID() string {
 
 type dummySnapshots struct{}
 
-func (d *dummySnapshots) Create(name string) (string, error) {
+func (d *dummySnapshots) Create(name string, labels map[string]string) (string, error) {
 	return "dummy", nil
 }
 

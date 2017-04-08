@@ -2,8 +2,6 @@ package api
 
 import (
 	"github.com/Sirupsen/logrus"
-	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 	"github.com/rancher/longhorn-orc/types"
@@ -35,14 +33,7 @@ type Volume struct {
 
 type Snapshot struct {
 	client.Resource
-
-	Name        string   `json:"name"`
-	Parent      string   `json:"parent"`
-	Children    []string `json:"children"`
-	Removed     bool     `json:"removed"`
-	UserCreated bool     `json:"usercreated"`
-	Created     string   `json:"created"`
-	Size        string   `json:"size"`
+	types.SnapshotInfo
 }
 
 type Host struct {
@@ -99,6 +90,8 @@ type Empty struct {
 
 type SnapshotInput struct {
 	Name string `json:"name,omitempty"`
+
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 type BackupInput struct {
@@ -356,14 +349,6 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 	return r
 }
 
-func toVolumeCollection(vs []*types.VolumeInfo, apiContext *api.ApiContext) *client.GenericCollection {
-	data := []interface{}{}
-	for _, v := range vs {
-		data = append(data, toVolumeResource(v, apiContext))
-	}
-	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "volume"}}
-}
-
 func toSnapshotResource(s *types.SnapshotInfo) *Snapshot {
 	if s == nil {
 		logrus.Warn("weird: nil snapshot")
@@ -374,13 +359,7 @@ func toSnapshotResource(s *types.SnapshotInfo) *Snapshot {
 			Id:   s.Name,
 			Type: "snapshot",
 		},
-		Name:        s.Name,
-		Parent:      s.Parent,
-		Children:    s.Children,
-		Removed:     s.Removed,
-		UserCreated: s.UserCreated,
-		Created:     s.Created,
-		Size:        s.Size,
+		SnapshotInfo: *s,
 	}
 }
 
@@ -390,16 +369,6 @@ func toSnapshotCollection(ss []*types.SnapshotInfo) *client.GenericCollection {
 		data = append(data, toSnapshotResource(v))
 	}
 	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "snapshot"}}
-}
-
-func fromSnapshotResMap(m map[string]interface{}) (*types.SnapshotInfo, error) {
-	s := new(Snapshot)
-	if err := mapstructure.Decode(m, s); err != nil {
-		return nil, errors.Wrapf(err, "error converting snapshot info '%+v'", m)
-	}
-	return &types.SnapshotInfo{
-		Name: s.Name,
-	}, nil
 }
 
 func toHostCollection(hosts map[string]*types.HostInfo) *client.GenericCollection {
@@ -473,14 +442,6 @@ func toBackupCollection(bs []*types.BackupInfo) *client.GenericCollection {
 		data = append(data, toBackupResource(v))
 	}
 	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "backup"}}
-}
-
-func fromSettingsResMap(m map[string]interface{}) (*types.SettingsInfo, error) {
-	s := new(types.SettingsInfo)
-	if err := mapstructure.Decode(m, s); err != nil {
-		return nil, errors.Wrapf(err, "error converting settings info '%+v'", m)
-	}
-	return s, nil
 }
 
 type Server struct {

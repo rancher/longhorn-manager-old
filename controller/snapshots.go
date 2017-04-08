@@ -16,10 +16,16 @@ func (c *controller) SnapshotOps() types.SnapshotOps {
 	return c
 }
 
-func (c *controller) Create(name string) (string, error) {
+func (c *controller) Create(name string, labels map[string]string) (string, error) {
 	var stdout, stderr bytes.Buffer
 
-	cmd := exec.Command("longhorn", "--url", c.url, "snapshot", "create", name)
+	args := []string{"--url", c.url, "snapshot", "create"}
+	for k, v := range labels {
+		args = append(args, "--label", k+"="+v)
+	}
+	args = append(args, name)
+
+	cmd := exec.Command("longhorn", args...)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()

@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
@@ -22,6 +23,12 @@ func (sh *SnapshotHandlers) Create(w http.ResponseWriter, req *http.Request) err
 		return errors.Wrapf(err, "error read snapshotInput")
 	}
 
+	for k, v := range input.Labels {
+		if strings.Contains(k, "=") || strings.Contains(v, "=") {
+			return errors.New("labels cannot contain '='")
+		}
+	}
+
 	volName := mux.Vars(req)["name"]
 	if volName == "" {
 		return errors.Errorf("volume name required")
@@ -31,7 +38,7 @@ func (sh *SnapshotHandlers) Create(w http.ResponseWriter, req *http.Request) err
 	if err != nil {
 		return errors.Wrapf(err, "error getting SnapshotOps for volume '%s'", volName)
 	}
-	snapName, err := snapOps.Create(input.Name)
+	snapName, err := snapOps.Create(input.Name, input.Labels)
 	if err != nil {
 		return errors.Wrapf(err, "error creating snapshot '%s', for volume '%s'", input.Name, volName)
 	}

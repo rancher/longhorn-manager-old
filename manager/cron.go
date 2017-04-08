@@ -10,7 +10,11 @@ import (
 	"time"
 )
 
-var tasks = map[string]func(volume *types.VolumeInfo, ctrl types.Controller, name string) func(){
+const (
+	JobName = "job"
+)
+
+var tasks = map[string]func(volume *types.VolumeInfo, ctrl types.Controller, jobName string) func(){
 	types.SnapshotTask: snapshotTask,
 	types.BackupTask:   backupTask,
 }
@@ -74,17 +78,17 @@ func snapName(name string) string {
 	return name + "-" + util.FormatTimeZ(time.Now()) + "-" + util.RandomID()
 }
 
-func snapshotTask(volume *types.VolumeInfo, ctrl types.Controller, taskName string) func() {
+func snapshotTask(volume *types.VolumeInfo, ctrl types.Controller, jobName string) func() {
 	return func() {
-		name := snapName(taskName)
+		name := snapName(jobName)
 		logrus.Infof("recurring job: snapshot '%s', volume '%s'", name, volume.Name)
-		if _, err := ctrl.SnapshotOps().Create(name); err != nil {
+		if _, err := ctrl.SnapshotOps().Create(name, map[string]string{JobName: jobName}); err != nil {
 			logrus.Errorf("%+v", errors.Wrapf(err, "error running recurring job: snapshot '%s', volume '%s'", name, volume.Name))
 		}
 	}
 }
 
-func backupTask(volume *types.VolumeInfo, ctrl types.Controller, taskName string) func() {
+func backupTask(volume *types.VolumeInfo, ctrl types.Controller, jobName string) func() {
 	return func() {
 		// TODO impl
 	}

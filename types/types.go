@@ -58,7 +58,7 @@ type Settings interface {
 }
 
 type SnapshotOps interface {
-	Create(name string) (string, error)
+	Create(name string, labels map[string]string) (string, error)
 	List() ([]*SnapshotInfo, error)
 	Get(name string) (*SnapshotInfo, error)
 	Delete(name string) error
@@ -172,13 +172,14 @@ type ReplicaInfo struct {
 }
 
 type SnapshotInfo struct {
-	Name        string   `json:"name,omitempty"`
-	Parent      string   `json:"parent,omitempty"`
-	Children    []string `json:"children,omitempty"`
-	Removed     bool     `json:"removed,omitempty"`
-	UserCreated bool     `json:"usercreated,omitempty"`
-	Created     string   `json:"created,omitempty"`
-	Size        string   `json:"size,omitempty"`
+	Name        string            `json:"name"`
+	Parent      string            `json:"parent"`
+	Children    []string          `json:"children"`
+	Removed     bool              `json:"removed"`
+	UserCreated bool              `json:"usercreated"`
+	Created     string            `json:"created"`
+	Size        string            `json:"size"`
+	Labels      map[string]string `json:"labels"`
 }
 
 type HostInfo struct {
