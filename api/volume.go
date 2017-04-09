@@ -53,22 +53,22 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
-func (s *Server) UpdateSchedule(rw http.ResponseWriter, req *http.Request) error {
+func (s *Server) UpdateRecurring(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
 	id := mux.Vars(req)["name"]
 
-	var schedule ScheduleInput
-	if err := apiContext.Read(&schedule); err != nil {
-		return errors.Wrapf(err, "unable to parse schedule for update")
+	var recurring RecurringInput
+	if err := apiContext.Read(&recurring); err != nil {
+		return errors.Wrapf(err, "unable to parse recurring schedule for update")
 	}
 
-	jobs := make([]*types.RecurringJob, len(schedule.Jobs))
-	for i := range schedule.Jobs { // cannot use i, job here: &job would be the same pointer for every iteration
-		jobs[i] = &schedule.Jobs[i]
+	jobs := make([]*types.RecurringJob, len(recurring.Jobs))
+	for i := range recurring.Jobs { // cannot use i, job here: &job would be the same pointer for every iteration
+		jobs[i] = &recurring.Jobs[i]
 	}
 
-	if err := s.man.UpdateSchedule(id, jobs); err != nil {
-		return errors.Wrapf(err, "unable to update volume schedule")
+	if err := s.man.UpdateRecurring(id, jobs); err != nil {
+		return errors.Wrapf(err, "unable to update volume recurring schedule")
 	}
 
 	return s.GetVolume(rw, req)

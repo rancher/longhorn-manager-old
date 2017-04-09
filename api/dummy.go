@@ -79,7 +79,7 @@ func (d *dummyVolumeManager) Detach(name string) error {
 	return nil
 }
 
-func (d *dummyVolumeManager) UpdateSchedule(name string, jobs []*types.RecurringJob) error {
+func (d *dummyVolumeManager) UpdateRecurring(name string, jobs []*types.RecurringJob) error {
 	return nil
 }
 

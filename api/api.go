@@ -47,16 +47,16 @@ func Handler(s *Server) http.Handler {
 	r.Methods("POST").Path("/v1/volumes").Handler(f(schemas, s.CreateVolume))
 
 	volumeActions := map[string]func(http.ResponseWriter, *http.Request) error{
-		"attach":         s.fwd.Handler(HostIDFromAttachReq, s.AttachVolume),
-		"detach":         s.fwd.Handler(HostIDFromVolume(s.man), s.DetachVolume),
-		"snapshotPurge":  s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Purge),
-		"snapshotCreate": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Create),
-		"snapshotList":   s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.List),
-		"snapshotGet":    s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Get),
-		"snapshotDelete": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Delete),
-		"snapshotRevert": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Revert),
-		"snapshotBackup": s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Backup),
-		"scheduleUpdate": s.fwd.Handler(HostIDFromVolume(s.man), s.UpdateSchedule),
+		"attach":          s.fwd.Handler(HostIDFromAttachReq, s.AttachVolume),
+		"detach":          s.fwd.Handler(HostIDFromVolume(s.man), s.DetachVolume),
+		"snapshotPurge":   s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Purge),
+		"snapshotCreate":  s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Create),
+		"snapshotList":    s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.List),
+		"snapshotGet":     s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Get),
+		"snapshotDelete":  s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Delete),
+		"snapshotRevert":  s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Revert),
+		"snapshotBackup":  s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Backup),
+		"recurringUpdate": s.fwd.Handler(HostIDFromVolume(s.man), s.UpdateRecurring),
 	}
 	for name, action := range volumeActions {
 		r.Methods("POST").Path("/v1/volumes/{name}").Queries("action", name).Handler(f(schemas, action))

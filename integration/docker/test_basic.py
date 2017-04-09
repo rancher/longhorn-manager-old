@@ -161,7 +161,7 @@ def test_recurring_snapshot(clients):
 
     snap3s = {"name": "snap3s", "cron": "@every 3s", "task": "snapshot"}
     snap5s = {"name": "snap5s", "cron": "@every 5s", "task": "snapshot"}
-    volume.scheduleUpdate(jobs=[snap3s, snap5s])
+    volume.recurringUpdate(jobs=[snap3s, snap5s])
 
     volume = volume.attach(hostId=host_id)
 
@@ -181,7 +181,7 @@ def test_recurring_snapshot_live_update(clients):
 
     snap3s = {"name": "snap3s", "cron": "@every 3s", "task": "snapshot"}
     snap5s = {"name": "snap5s", "cron": "@every 5s", "task": "snapshot"}
-    volume.scheduleUpdate(jobs=[snap3s, snap5s])
+    volume.recurringUpdate(jobs=[snap3s, snap5s])
 
     time.sleep(10)
 

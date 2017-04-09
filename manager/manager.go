@@ -431,7 +431,7 @@ func (man *volumeManager) addingReplicasCount(name string, add int) int {
 	return count
 }
 
-func (man *volumeManager) UpdateSchedule(name string, jobs []*types.RecurringJob) error {
+func (man *volumeManager) UpdateRecurring(name string, jobs []*types.RecurringJob) error {
 	volume, err := man.orc.GetVolume(name)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get volume '%s'", name)

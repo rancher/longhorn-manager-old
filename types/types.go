@@ -37,7 +37,7 @@ type VolumeManager interface {
 	List() ([]*VolumeInfo, error)
 	Attach(name string) error
 	Detach(name string) error
-	UpdateSchedule(name string, jobs []*RecurringJob) error
+	UpdateRecurring(name string, jobs []*RecurringJob) error
 
 	ListHosts() (map[string]*HostInfo, error)
 	GetHost(id string) (*HostInfo, error)
