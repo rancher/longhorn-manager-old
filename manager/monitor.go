@@ -40,7 +40,7 @@ func Monitor(getController types.GetController) types.BeginMonitoring {
 		cleanupCh := make(chan types.Event)
 		go cleanup(volume, man, cleanupCh)
 		cronCh := make(chan types.Event)
-		go doCron(volume, getController(volume), cronCh)
+		go RunJobs(volume, getController(volume), man.Settings(), cronCh)
 		return &monitorChan{cronCh: cronCh, monitorCh: monitorCh, cleanupCh: cleanupCh}
 	}
 }

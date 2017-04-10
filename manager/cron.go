@@ -3,20 +3,42 @@ package manager
 import (
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
+	"github.com/rancher/longhorn-orc/backups"
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
 	"github.com/robfig/cron"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	JobName = "job"
+	JobName   = "job"
+	BackupJob = "backupJob"
+
+	retainBackupSnapshots = 2
 )
 
-var tasks = map[string]func(volume *types.VolumeInfo, ctrl types.Controller, jobName string) func(){
-	types.SnapshotTask: snapshotTask,
-	types.BackupTask:   backupTask,
+type taskCons func(runner *jobRunner, job *types.RecurringJob, si *types.SettingsInfo) Task
+
+var tasks = map[string]taskCons{
+	types.SnapshotTask: SnapshotTask,
+	types.BackupTask:   BackupTask,
+}
+
+type jobRunner struct {
+	volume   *types.VolumeInfo
+	ctrl     types.Controller
+	settings types.Settings
+
+	guardCh chan struct{}
+}
+
+func newJobRunner(volume *types.VolumeInfo, ctrl types.Controller, settings types.Settings) *jobRunner {
+	guardCh := make(chan struct{}, 1)
+	guardCh <- struct{}{}
+	return &jobRunner{volume: volume, ctrl: ctrl, guardCh: guardCh, settings: settings}
 }
 
 type cronUpdate struct {
@@ -27,8 +49,13 @@ func CronUpdate(jobs []*types.RecurringJob) types.Event {
 	return &cronUpdate{Jobs: jobs}
 }
 
-func doCron(volume *types.VolumeInfo, ctrl types.Controller, ch chan types.Event) {
-	c := setJobs(volume, ctrl, volume.RecurringJobs)
+func RunJobs(volume *types.VolumeInfo, ctrl types.Controller, settings types.Settings, ch chan types.Event) {
+	runner := newJobRunner(volume, ctrl, settings)
+
+	c := runner.setJobs(volume.RecurringJobs)
+	if c == nil {
+		return
+	}
 	c.Start()
 	defer func() {
 		c.Stop()
@@ -38,7 +65,10 @@ func doCron(volume *types.VolumeInfo, ctrl types.Controller, ch chan types.Event
 		switch e := e.(type) {
 		case *cronUpdate:
 			c.Stop()
-			c = setJobs(volume, ctrl, e.Jobs)
+			c = runner.setJobs(e.Jobs)
+			if c == nil {
+				return
+			}
 			c.Start()
 			logrus.Infof("restarted recurring jobs, volume '%s'", volume.Name)
 		}
@@ -63,12 +93,17 @@ func ValidateJobs(jobs []*types.RecurringJob) error {
 	return nil
 }
 
-func setJobs(volume *types.VolumeInfo, ctrl types.Controller, jobs []*types.RecurringJob) *cron.Cron {
+func (runner *jobRunner) setJobs(jobs []*types.RecurringJob) *cron.Cron {
+	si, err := runner.settings.GetSettings()
+	if err != nil {
+		logrus.Errorf("%+v", errors.Wrap(err, "unable to get settings, not setting jobs"))
+		return nil
+	}
 	c := cron.NewWithLocation(time.UTC)
 	for _, job := range jobs {
 		if t := tasks[job.Task]; t != nil {
-			c.AddFunc(job.Cron, t(volume, ctrl, job.Name))
-			logrus.Infof("scheduled recurring job %+v, volume '%s'", job, volume.Name)
+			c.AddFunc(job.Cron, runner.newTask(job, t(runner, job, si)))
+			logrus.Infof("scheduled recurring job %+v, volume '%s'", job, runner.volume.Name)
 		}
 	}
 	return c
@@ -78,18 +113,242 @@ func snapName(name string) string {
 	return name + "-" + util.FormatTimeZ(time.Now()) + "-" + util.RandomID()
 }
 
-func snapshotTask(volume *types.VolumeInfo, ctrl types.Controller, jobName string) func() {
+func (runner *jobRunner) newTask(job *types.RecurringJob, task Task) func() {
 	return func() {
-		name := snapName(jobName)
-		logrus.Infof("recurring job: snapshot '%s', volume '%s'", name, volume.Name)
-		if _, err := ctrl.SnapshotOps().Create(name, map[string]string{JobName: jobName}); err != nil {
-			logrus.Errorf("%+v", errors.Wrapf(err, "error running recurring job: snapshot '%s', volume '%s'", name, volume.Name))
+		if err := task.Run(); err != nil {
+			logrus.Errorf("error running job: %+v", errors.Wrapf(err, "unable to run a task for job '%s'", job.Name))
+			return
+		}
+		if err := task.Cleanup(); err != nil {
+			logrus.Errorf("error cleaning up: %+v", errors.Wrapf(err, "unable to cleanup for job '%s'", job.Name))
 		}
 	}
 }
 
-func backupTask(volume *types.VolumeInfo, ctrl types.Controller, jobName string) func() {
-	return func() {
-		// TODO impl
+type Task interface {
+	Run() error
+	Cleanup() error
+}
+
+type snapshotTask struct {
+	sync.Mutex
+
+	runner *jobRunner
+	job    *types.RecurringJob
+
+	count  int
+	cached []*types.SnapshotInfo
+}
+
+func SnapshotTask(runner *jobRunner, job *types.RecurringJob, _ *types.SettingsInfo) Task {
+	return &snapshotTask{runner: runner, job: job}
+}
+
+func (st *snapshotTask) Run() error {
+	name := snapName(st.job.Name)
+	logrus.Infof("recurring job: snapshot '%s', volume '%s'", name, st.runner.volume.Name)
+	if _, err := st.runner.ctrl.SnapshotOps().Create(name, map[string]string{JobName: st.job.Name}); err != nil {
+		return errors.Wrapf(err, "error running recurring job: snapshot '%s', volume '%s'", name, st.runner.volume.Name)
 	}
+	return nil
+}
+
+func (st *snapshotTask) filterSnapshots(l []*types.SnapshotInfo) []*types.SnapshotInfo {
+	r := []*types.SnapshotInfo{}
+	for _, s := range l {
+		if !s.Removed && s.Labels[JobName] == st.job.Name {
+			r = append(r, s)
+		}
+	}
+	return r
+}
+
+func (st *snapshotTask) listSnapshots() ([]*types.SnapshotInfo, error) {
+	ss, err := st.runner.ctrl.SnapshotOps().List()
+	if err != nil {
+		return nil, errors.Wrapf(err, "error listing snapshots, volume '%s'", st.runner.volume.Name)
+	}
+	ss = st.filterSnapshots(ss)
+	sort.Slice(ss, func(i, j int) bool { return ss[i].Created < ss[j].Created })
+	return ss, nil
+}
+
+func (st *snapshotTask) Cleanup() error {
+	st.Lock()
+	defer st.Unlock()
+
+	if st.job.Retain == 0 {
+		return nil
+	}
+
+	st.count++
+	for st.count > st.job.Retain {
+		if len(st.cached) == 0 {
+			ss, err := st.listSnapshots()
+			if err != nil {
+				return errors.Wrapf(err, "error cleaning up snapshots, recurring job '%s', volume '%s'", st.job.Name, st.runner.volume.Name)
+			}
+			st.cached = ss
+			st.count = len(ss)
+		}
+		for st.count > st.job.Retain && len(st.cached) > 0 {
+			toRm := st.cached[0]
+			logrus.Infof("recurring job cleanup: snapshot '%s', volume '%s'", toRm.Name, st.runner.volume.Name)
+			if err := st.runner.ctrl.SnapshotOps().Delete(toRm.Name); err != nil {
+				return errors.Wrapf(err, "deleting snapshot '%s', volume '%s'", toRm.Name, st.runner.volume.Name)
+			}
+			st.cached = st.cached[1:]
+			st.count--
+		}
+	}
+	return nil
+}
+
+func BackupTask(runner *jobRunner, job *types.RecurringJob, si *types.SettingsInfo) Task {
+	return &backupTask{runner: runner, job: job, backupTarget: si.BackupTarget}
+}
+
+type backupTask struct {
+	sync.Mutex
+
+	backupTarget string
+
+	runner *jobRunner
+	job    *types.RecurringJob
+
+	count  int
+	cached []*types.BackupInfo
+
+	countSnapshots  int
+	cachedSnapshots []*types.SnapshotInfo
+}
+
+func (bt *backupTask) Run() error {
+	// skip if another backup is in progress for the volume
+	select {
+	case <-bt.runner.guardCh:
+		defer func() {
+			bt.runner.guardCh <- struct{}{}
+		}()
+	default:
+		logrus.Warnf("cannot run backup job '%s': another backup is running for volume '%s'", bt.job.Name, bt.runner.volume.Name)
+		return nil
+	}
+
+	name := snapName(bt.job.Name)
+	if _, err := bt.runner.ctrl.SnapshotOps().Create(snapName(bt.job.Name), map[string]string{JobName: bt.job.Name, BackupJob: bt.job.Name}); err != nil {
+		return errors.Wrapf(err, "error running recurring job: backup '%s', volume '%s'", name, bt.runner.volume.Name)
+	}
+
+	if err := bt.runner.ctrl.BackupOps().Backup(name, bt.backupTarget); err != nil {
+		return errors.Wrapf(err, "unable to run backup, volume '%s', job '%s', backupTarget '%s'", bt.runner.volume.Name, bt.job.Name, bt.backupTarget)
+	}
+
+	return nil
+}
+
+func (bt *backupTask) filterSnapshots(l []*types.SnapshotInfo) []*types.SnapshotInfo {
+	r := []*types.SnapshotInfo{}
+	for _, s := range l {
+		if !s.Removed && s.Labels[JobName] == bt.job.Name && s.Labels[BackupJob] == bt.job.Name {
+			r = append(r, s)
+		}
+	}
+	return r
+}
+
+func (bt *backupTask) filterBackups(l []*types.BackupInfo) []*types.BackupInfo {
+	r := []*types.BackupInfo{}
+	for _, b := range l {
+		if strings.HasPrefix(b.SnapshotName, bt.job.Name+"-") {
+			r = append(r, b)
+		}
+	}
+	return r
+}
+
+func (bt *backupTask) listSnapshots() ([]*types.SnapshotInfo, error) {
+	ss, err := bt.runner.ctrl.SnapshotOps().List()
+	if err != nil {
+		return nil, errors.Wrapf(err, "error listing snapshots, volume '%s'", bt.runner.volume.Name)
+	}
+	ss = bt.filterSnapshots(ss)
+	sort.Slice(ss, func(i, j int) bool { return ss[i].Created < ss[j].Created })
+	return ss, nil
+}
+
+func (bt *backupTask) listBackups() ([]*types.BackupInfo, error) {
+	backupOps := backups.New(bt.backupTarget)
+	bs, err := backupOps.List(bt.runner.volume.Name)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error listing backups, volume '%s'", bt.runner.volume.Name)
+	}
+	bs = bt.filterBackups(bs)
+	sort.Slice(bs, func(i, j int) bool { return bs[i].Created < bs[j].Created })
+	return bs, nil
+}
+
+func (bt *backupTask) Cleanup() error {
+	if err := bt.cleanupBackupSnapshots(); err != nil {
+		return err
+	}
+	return bt.cleanupBackups()
+}
+
+func (bt *backupTask) cleanupBackups() error {
+	bt.Lock()
+	defer bt.Unlock()
+
+	if bt.job.Retain == 0 {
+		return nil
+	}
+
+	bt.count++
+	for bt.count > bt.job.Retain {
+		if len(bt.cached) == 0 {
+			bs, err := bt.listBackups()
+			if err != nil {
+				return errors.Wrapf(err, "error cleaning up snapshots, recurring job '%s', volume '%s'", bt.job.Name, bt.runner.volume.Name)
+			}
+			bt.cached = bs
+			bt.count = len(bs)
+		}
+		for bt.count > bt.job.Retain && len(bt.cached) > 0 {
+			toRm := bt.cached[0]
+			logrus.Infof("recurring job cleanup: backup '%s', volume '%s'", toRm.URL, bt.runner.volume.Name)
+			if err := bt.runner.ctrl.BackupOps().DeleteBackup(toRm.URL); err != nil {
+				return errors.Wrapf(err, "deleting backup '%s', volume '%s'", toRm.Name, bt.runner.volume.Name)
+			}
+			bt.cached = bt.cached[1:]
+			bt.count--
+		}
+	}
+	return nil
+}
+
+func (bt *backupTask) cleanupBackupSnapshots() error {
+	bt.Lock()
+	defer bt.Unlock()
+
+	bt.countSnapshots++
+	for bt.countSnapshots > retainBackupSnapshots {
+		if len(bt.cachedSnapshots) == 0 {
+			ss, err := bt.listSnapshots()
+			if err != nil {
+				return errors.Wrapf(err, "error cleaning up snapshots, recurring job '%s', volume '%s'", bt.job.Name, bt.runner.volume.Name)
+			}
+			bt.cachedSnapshots = ss
+			bt.countSnapshots = len(ss)
+		}
+		for bt.countSnapshots > retainBackupSnapshots && len(bt.cachedSnapshots) > 0 {
+			toRm := bt.cachedSnapshots[0]
+			logrus.Infof("recurring job cleanup: backup snapshot '%s', volume '%s'", toRm.Name, bt.runner.volume.Name)
+			if err := bt.runner.ctrl.SnapshotOps().Delete(toRm.Name); err != nil {
+				return errors.Wrapf(err, "deleting snapshot '%s', volume '%s'", toRm.Name, bt.runner.volume.Name)
+			}
+			bt.cachedSnapshots = bt.cachedSnapshots[1:]
+			bt.countSnapshots--
+		}
+	}
+	return nil
 }

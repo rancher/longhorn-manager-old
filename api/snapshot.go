@@ -215,7 +215,7 @@ func (sh *SnapshotHandlers) Backup(w http.ResponseWriter, req *http.Request) err
 		return errors.Wrapf(err, "error getting VolumeBackupOps for volume '%s'", volName)
 	}
 
-	if err := backups.Backup(input.Name, backupTarget); err != nil {
+	if err := backups.StartBackup(input.Name, backupTarget); err != nil {
 		return errors.Wrapf(err, "error creating backup: snapshot '%s', volume '%s', dest '%s'", input.Name, volName, backupTarget)
 	}
 	logrus.Debugf("success: started backup: snapshot '%s', volume '%s', dest '%s'", input.Name, volName, backupTarget)

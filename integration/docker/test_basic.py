@@ -188,6 +188,27 @@ def test_recurring_snapshot_live_update(clients):
     assert len(volume.snapshotList()) == 5
 
 
+def test_recurring_snapshot_live_update_retain(clients):
+    for host_id, client in clients.iteritems():
+        break
+
+    volume = client.create_volume(name=VOLUME_NAME, size=SIZE,
+                                  numberOfReplicas=2)
+
+    volume = volume.attach(hostId=host_id)
+
+    snap3s = {"name": "snap3s", "cron": "@every 3s", "task": "snapshot",
+              "retain": 2}
+    snap5s = {"name": "snap5s", "cron": "@every 5s", "task": "snapshot",
+              "retain": 1}
+    volume.recurringUpdate(jobs=[snap3s, snap5s])
+
+    time.sleep(15)
+
+    retained = filter(lambda s: s["removed"] is False, volume.snapshotList())
+    assert len(retained) == 3
+
+
 def test_snapshot(clients):
     for host_id, client in clients.iteritems():
         break

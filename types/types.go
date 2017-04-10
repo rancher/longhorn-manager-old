@@ -68,7 +68,9 @@ type SnapshotOps interface {
 
 type VolumeBackupOps interface {
 	Backup(snapName, backupTarget string) error
+	StartBackup(snapName, backupTarget string) error
 	Restore(backup string) error
+	DeleteBackup(backup string) error
 }
 
 type GetManagerBackupOps func(backupTarget string) ManagerBackupOps
@@ -101,7 +103,7 @@ type Controller interface {
 	RemoveReplica(replica *ReplicaInfo) error
 
 	SnapshotOps() SnapshotOps
-	Backups() VolumeBackupOps
+	BackupOps() VolumeBackupOps
 }
 
 type Orchestrator interface {
@@ -212,7 +214,8 @@ const (
 )
 
 type RecurringJob struct {
-	Name string `json:"name,omitempty"`
-	Cron string `json:"cron,omitempty"`
-	Task string `json:"task,omitempty"`
+	Name   string `json:"name,omitempty"`
+	Cron   string `json:"cron,omitempty"`
+	Task   string `json:"task,omitempty"`
+	Retain int    `json:"retain,omitempty"`
 }

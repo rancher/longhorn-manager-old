@@ -111,7 +111,7 @@ func (man *volumeManager) createFromBackup(volume *types.VolumeInfo, backup *typ
 		defer man.cleanupFailedCreate(vol)
 		return nil, errors.Wrapf(err, "failed to attach to restore the backup, volume '%s', backup '%+v'", vol.Name, backup)
 	}
-	if err := man.getController(vol).Backups().Restore(backup.URL); err != nil {
+	if err := man.getController(vol).BackupOps().Restore(backup.URL); err != nil {
 		defer man.cleanupFailedCreate(vol)
 		return nil, errors.Wrapf(err, "failed to restore the backup, volume '%s', backup '%+v'", vol.Name, backup)
 	}
@@ -608,7 +608,7 @@ func (man *volumeManager) VolumeBackupOps(name string) (types.VolumeBackupOps, e
 	if err != nil {
 		return nil, err
 	}
-	return controller.Backups(), nil
+	return controller.BackupOps(), nil
 }
 
 func (man *volumeManager) Settings() types.Settings {

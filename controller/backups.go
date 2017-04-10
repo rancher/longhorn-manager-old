@@ -62,8 +62,20 @@ func (c *controller) runBackup(backupTarget, snapName string) func() error {
 	}
 }
 
-func (c *controller) Backups() types.VolumeBackupOps {
+func (c *controller) BackupOps() types.VolumeBackupOps {
 	return c
+}
+
+func (c *controller) StartBackup(snapName, backupTarget string) error {
+	snap, err := c.Get(snapName)
+	if err != nil {
+		return errors.Wrapf(err, "error getting snapshot '%s', volume '%s'", snapName, c.name)
+	}
+	if snap == nil {
+		return errors.Errorf("could not find snapshot '%s' to backup, volume '%s'", snapName, c.name)
+	}
+	backupRequests <- c.runBackup(backupTarget, snapName)
+	return nil
 }
 
 func (c *controller) Backup(snapName, backupTarget string) error {
@@ -74,8 +86,7 @@ func (c *controller) Backup(snapName, backupTarget string) error {
 	if snap == nil {
 		return errors.Errorf("could not find snapshot '%s' to backup, volume '%s'", snapName, c.name)
 	}
-	backupRequests <- c.runBackup(backupTarget, snapName)
-	return nil
+	return c.runBackup(backupTarget, snapName)()
 }
 
 func CurrentBackup() *types.BackupInfo {
@@ -89,6 +100,15 @@ func (c *controller) Restore(backup string) error {
 	bs, err := cmd.CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "error restoring backup '%s' \n%s", backup, string(bs))
+	}
+	return nil
+}
+
+func (c *controller) DeleteBackup(backup string) error {
+	cmd := exec.Command("longhorn", "--url", c.url, "backup", "rm", backup)
+	bs, err := cmd.CombinedOutput()
+	if err != nil {
+		return errors.Wrapf(err, "error deleting backup '%s' \n%s", backup, string(bs))
 	}
 	return nil
 }
