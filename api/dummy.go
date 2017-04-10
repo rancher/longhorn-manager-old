@@ -30,11 +30,11 @@ func (d *dummyVolumeManager) Get(name string) (*types.VolumeInfo, error) {
 		replicas[index] = &types.ReplicaInfo{
 			InstanceInfo: types.InstanceInfo{
 				ID:      "inst" + index,
+				Name:    "replica-" + index,
 				HostID:  "host" + index,
 				Address: util.ReplicaAddress("replica-"+index, name),
 				Running: true,
 			},
-			Name: "replica-" + index,
 			Mode: types.ReplicaModeRW,
 		}
 	}

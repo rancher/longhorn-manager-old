@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	replicaNamePrefix = "replica"
-	volumeProperty    = "volume"
+	volumeProperty = "volume"
 )
 
 var (
@@ -95,14 +94,6 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 
 func volumeStackExternalID(name string) string {
 	return fmt.Sprintf("system://%s?name=%s", "rancher-longhorn", name)
-}
-
-func replicaName(index string) string {
-	return "replica-" + index
-}
-
-func replicaIndex(name string) string {
-	return name[len(replicaNamePrefix)+1:]
 }
 
 func stackBuffer(t *template.Template, volume *types.VolumeInfo) *bytes.Buffer {
@@ -240,14 +231,14 @@ func (orc *cattleOrc) getReplicas(volumeName string, stack *client.Stack) (map[s
 		if err != nil {
 			return nil, err
 		}
-		replicas[replicaIndex(cnt.Name)] = &types.ReplicaInfo{
+		replicas[cnt.Name] = &types.ReplicaInfo{
 			InstanceInfo: types.InstanceInfo{
 				ID:      cnt.Id,
+				Name:    cnt.Name,
 				Running: cnt.State == "running",
 				HostID:  hostID,
 				Address: util.ReplicaAddress(cnt.Name, volumeName),
 			},
-			Name:         cnt.Name,
 			BadTimestamp: ts,
 		}
 	}
@@ -287,6 +278,7 @@ func (orc *cattleOrc) getController(volumeName string, stack *client.Stack) (*ty
 		return &types.ControllerInfo{
 			InstanceInfo: types.InstanceInfo{
 				ID:      cnt.Id,
+				Name:    cnt.Name,
 				Running: cnt.State == "running",
 				HostID:  hostID,
 				Address: util.ControllerAddress(volumeName),
@@ -391,7 +383,7 @@ func (orc *cattleOrc) unMarkBadReplica(volumeName string, replica *types.Replica
 	return errors.Wrapf(err, "error updating metadata for replica '%s', volume '%s'", replica.Name, volumeName)
 }
 
-func (orc *cattleOrc) CreateController(volumeName string, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
+func (orc *cattleOrc) CreateController(volumeName, controllerName string, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
 	stack, err := orc.getStack(volumeName)
 	if err != nil {
 		return nil, err
@@ -412,7 +404,7 @@ func (orc *cattleOrc) CreateController(volumeName string, replicas map[string]*t
 	}
 	volume.Replicas = replicas
 
-	cnt, err := orc.rancher.Container.Create(orc.controllerContainer(volume))
+	cnt, err := orc.rancher.Container.Create(orc.controllerContainer(volume, controllerName))
 	if err != nil {
 		return nil, errors.Wrapf(err, "error creating controller container, volume '%s'", volume.Name)
 	}
@@ -450,7 +442,7 @@ func withStartOnCreate(cnt *client.Container) *client.Container {
 	return cnt
 }
 
-func (orc *cattleOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, error) {
+func (orc *cattleOrc) CreateReplica(volumeName, replicaName string) (*types.ReplicaInfo, error) {
 	stack, err := orc.getStack(volumeName)
 	if err != nil {
 		return nil, err
@@ -462,9 +454,8 @@ func (orc *cattleOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, erro
 	if err != nil {
 		return nil, err
 	}
-	index := util.RandomID()
 	cnt, err := orc.rancher.Container.Create(
-		withStartOnCreate(orc.replicaContainer(volume, &types.ReplicaInfo{Name: replicaName(index)})),
+		withStartOnCreate(orc.replicaContainer(volume, replicaName)),
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error creating replica container, volume '%s'", volume.Name)
@@ -486,7 +477,7 @@ func (orc *cattleOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, erro
 	if err != nil {
 		return nil, err
 	}
-	replica := replicas[index]
+	replica := replicas[replicaName]
 
 	if err := orc.dragon.WaitForReplica(volumeName, replica.Name); err != nil {
 		if cnt, err := orc.rancher.Container.ById(replica.ID); err != nil {

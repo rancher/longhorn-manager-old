@@ -112,8 +112,8 @@ type Orchestrator interface {
 	MarkBadReplica(volumeName string, replica *ReplicaInfo) error // find replica by Address
 	UpdateVolume(volume *VolumeInfo) error
 
-	CreateController(volumeName string, replicas map[string]*ReplicaInfo) (*ControllerInfo, error)
-	CreateReplica(volumeName string) (*ReplicaInfo, error)
+	CreateController(volumeName, controllerName string, replicas map[string]*ReplicaInfo) (*ControllerInfo, error)
+	CreateReplica(volumeName, replicaName string) (*ReplicaInfo, error)
 
 	StartInstance(instanceID string) error
 	StopInstance(instanceID string) error
@@ -154,6 +154,7 @@ type VolumeInfo struct {
 
 type InstanceInfo struct {
 	ID      string
+	Name    string
 	HostID  string
 	Address string
 	Running bool
@@ -166,7 +167,6 @@ type ControllerInfo struct {
 type ReplicaInfo struct {
 	InstanceInfo
 
-	Name         string
 	Mode         ReplicaMode
 	BadTimestamp *time.Time
 }

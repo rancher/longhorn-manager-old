@@ -11,9 +11,9 @@ func dataDir(volume *types.VolumeInfo) string {
 	return fmt.Sprintf("/volume/%s", volume.Name)
 }
 
-func (orc *cattleOrc) replicaContainer(volume *types.VolumeInfo, replica *types.ReplicaInfo) *client.Container {
+func (orc *cattleOrc) replicaContainer(volume *types.VolumeInfo, replicaName string) *client.Container {
 	return &client.Container{
-		Name:       replica.Name,
+		Name:       replicaName,
 		ImageUuid:  fmt.Sprintf("docker:%s", volume.LonghornImage),
 		EntryPoint: []string{"longhorn"},
 		Command: []string{
@@ -36,14 +36,14 @@ func (orc *cattleOrc) replicaContainer(volume *types.VolumeInfo, replica *types.
 	}
 }
 
-func (orc *cattleOrc) controllerContainer(volume *types.VolumeInfo) *client.Container {
+func (orc *cattleOrc) controllerContainer(volume *types.VolumeInfo, controllerName string) *client.Container {
 	command := []string{"launch", "controller", "--listen=0.0.0.0:9501", "--frontend=tgt"}
 	for _, replica := range volume.Replicas {
 		command = append(command, "--replica="+util.ReplicaAddress(replica.Name, volume.Name))
 	}
 	command = append(command, volume.Name)
 	return &client.Container{
-		Name:       "controller-" + util.RandomID(),
+		Name:       controllerName,
 		ImageUuid:  fmt.Sprintf("docker:%s", volume.LonghornImage),
 		Command:    command,
 		Privileged: true,

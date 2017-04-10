@@ -31,6 +31,14 @@ type volumeManager struct {
 	settings types.Settings
 }
 
+func (man *volumeManager) GetControllerName(volumeName string) string {
+	return volumeName + "-controller"
+}
+
+func (man *volumeManager) GetReplicaName(volumeName string) string {
+	return volumeName + "-replica-" + util.RandomID()
+}
+
 func New(orc types.Orchestrator, monitor types.BeginMonitoring, getController types.GetController, getBackups types.GetManagerBackupOps) types.VolumeManager {
 	return &volumeManager{
 		monitors:       map[string]types.Monitor{},
@@ -55,7 +63,7 @@ func (man *volumeManager) doCreate(volume *types.VolumeInfo) (*types.VolumeInfo,
 
 	replicas := map[string]*types.ReplicaInfo{}
 	for i := 0; i < vol.NumberOfReplicas; i++ {
-		replica, err := man.orc.CreateReplica(vol.Name)
+		replica, err := man.orc.CreateReplica(vol.Name, man.GetReplicaName(vol.Name))
 		if err != nil {
 			return nil, errors.Wrapf(err, "error creating replica '%s', volume '%s'", replica.Name, vol.Name)
 		}
@@ -339,7 +347,7 @@ func (man *volumeManager) doAttach(volume *types.VolumeInfo) error {
 		return errs
 	}
 
-	controller, err := man.orc.CreateController(volume.Name, replicas)
+	controller, err := man.orc.CreateController(volume.Name, man.GetControllerName(volume.Name), replicas)
 	if err != nil {
 		return errors.Wrapf(err, "failed to start the controller for volume '%s'", volume.Name)
 	}
@@ -406,7 +414,7 @@ func (man *volumeManager) doDetach(volume *types.VolumeInfo) error {
 }
 
 func (man *volumeManager) createAndAddReplicaToController(volumeName string, ctrl types.Controller) error {
-	replica, err := man.orc.CreateReplica(volumeName)
+	replica, err := man.orc.CreateReplica(volumeName, man.GetReplicaName(volumeName))
 	if err != nil {
 		return errors.Wrapf(err, "failed to create a replica for volume '%s'", volumeName)
 	}

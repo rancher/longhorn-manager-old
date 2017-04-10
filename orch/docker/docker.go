@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -212,16 +211,15 @@ func (d *dockerOrc) MarkBadReplica(volumeName string, replica *types.ReplicaInfo
 	return nil
 }
 
-func (d *dockerOrc) CreateController(volumeName string, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
+func (d *dockerOrc) CreateController(volumeName, controllerName string, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
 	volume, err := d.getVolume(volumeName)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create replica")
 	}
-	return d.createController(volume, replicas)
+	return d.createController(volume, controllerName, replicas)
 }
 
-func (d *dockerOrc) createController(volume *types.VolumeInfo, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
-	controllerName := volume.Name + "-controller"
+func (d *dockerOrc) createController(volume *types.VolumeInfo, controllerName string, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
 	cmd := []string{
 		"launch", "controller",
 		"--listen", "0.0.0.0:9501",
@@ -270,6 +268,7 @@ func (d *dockerOrc) createController(volume *types.VolumeInfo, replicas map[stri
 	return &types.ControllerInfo{
 		InstanceInfo: types.InstanceInfo{
 			ID:      inspectJSON.ID,
+			Name:    controllerName,
 			HostID:  d.GetCurrentHostID(),
 			Address: address,
 			Running: inspectJSON.State.Running,
@@ -281,12 +280,12 @@ func (d *dockerOrc) getDeviceName(volumeName string) string {
 	return filepath.Join("/dev/longhorn/", volumeName)
 }
 
-func (d *dockerOrc) CreateReplica(volumeName string) (*types.ReplicaInfo, error) {
+func (d *dockerOrc) CreateReplica(volumeName, replicaName string) (*types.ReplicaInfo, error) {
 	volume, err := d.getVolume(volumeName)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create replica")
 	}
-	return d.createReplica(volume, volumeName+"-replica-"+util.RandomID())
+	return d.createReplica(volume, replicaName)
 }
 
 func (d *dockerOrc) createReplica(volume *types.VolumeInfo, replicaName string) (*types.ReplicaInfo, error) {
@@ -325,15 +324,11 @@ func (d *dockerOrc) createReplica(volume *types.VolumeInfo, replicaName string) 
 	return &types.ReplicaInfo{
 		InstanceInfo: types.InstanceInfo{
 			ID:      inspectJSON.ID,
+			Name:    replicaName,
 			HostID:  d.GetCurrentHostID(),
 			Address: inspectJSON.NetworkSettings.IPAddress,
 			Running: inspectJSON.State.Running,
 		},
-
-		// It's weird that Docker put a forward slash to the container name
-		// So it become "/replica-test-1"
-		Name: strings.TrimPrefix(inspectJSON.Name, "/"),
-		//TODO: Mode
 	}, nil
 }
 

@@ -88,13 +88,15 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 		replica1.Name: replica1,
 		replica2.Name: replica2,
 	}
-	controller, err := s.d.createController(volume, replicas)
+	controllerName := "controller-test"
+	controller, err := s.d.createController(volume, controllerName, replicas)
 	c.Assert(err, IsNil)
 	c.Assert(controller.ID, NotNil)
 	s.containerBin[controller.ID] = struct{}{}
 
 	c.Assert(controller.HostID, Equals, s.d.GetCurrentHostID())
 	c.Assert(controller.Running, Equals, true)
+	c.Assert(controller.Name, Equals, controllerName)
 
 	err = s.d.StopInstance(controller.ID)
 	c.Assert(err, IsNil)
