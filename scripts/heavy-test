@@ -7,6 +7,11 @@ mount --bind /host/dev /dev
 
 source ./scripts/common
 
+# Removing any existing testing containers, e.g. from scripts/server
+cleanup_orc_test
+
+trap cleanup_orc_test EXIT
+
 start_etcd
 etcd_ip=$(get_container_ip $ETCD_SERVER)
 wait_for_etcd $etcd_ip
