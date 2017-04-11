@@ -71,7 +71,7 @@ type SnapshotOps interface {
 type VolumeBackupOps interface {
 	Backup(snapName, backupTarget string) error
 	StartBackup(snapName, backupTarget string) error
-	CurrentBackup() *BackupInfo
+	LatestBackupStatus() *BackupStatusInfo
 	Restore(backup string) error
 	DeleteBackup(backup string) error
 }
@@ -205,6 +205,14 @@ type BackupInfo struct {
 	VolumeName      string `json:"volumeName,omitempty"`
 	VolumeSize      string `json:"volumeSize,omitempty"`
 	VolumeCreated   string `json:"volumeCreated,omitempty"`
+}
+
+type BackupStatusInfo struct {
+	InProgress   bool   `json:"inProgress"`
+	Err          error  `json:"err"`
+	Snapshot     string `json:"snapshot"`
+	BackupTarget string `json:"backupTarget"`
+	Started      string `json:"started"`
 }
 
 type BackupVolumeInfo struct {

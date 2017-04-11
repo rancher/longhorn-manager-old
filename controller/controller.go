@@ -24,20 +24,17 @@ type req struct {
 	result chan *controller
 }
 
-func ctrlGet(volume *types.VolumeInfo) *req {
+func ctrlReq(volume *types.VolumeInfo) *req {
 	return &req{volume: volume, result: make(chan *controller)}
-}
-
-func ctrlRm(volume *types.VolumeInfo) *req {
-	return &req{volume: volume, result: nil}
 }
 
 func holdControllers() {
 	cs := map[string]*controller{}
 
 	for r := range reqCh {
-		if r.result == nil {
+		if r.volume.Controller == nil || !r.volume.Controller.Running {
 			delete(cs, r.volume.Name)
+			close(r.result)
 			continue
 		}
 		c := cs[r.volume.Name]
@@ -55,7 +52,8 @@ type controller struct {
 	name string
 	url  string
 
-	currentBackup *types.BackupInfo
+	backupStatus     *types.BackupStatusInfo
+	backupStatusLock sync.Mutex
 }
 
 type volumeInfo struct {
@@ -68,7 +66,7 @@ func Get(volume *types.VolumeInfo) types.Controller {
 	if volume == nil || volume.Controller == nil || !volume.Controller.Running {
 		return nil
 	}
-	req := ctrlGet(volume)
+	req := ctrlReq(volume)
 	reqCh <- req
 	return <-req.result
 }

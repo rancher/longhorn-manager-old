@@ -75,7 +75,7 @@ func (s *Server) UpdateRecurring(rw http.ResponseWriter, req *http.Request) erro
 	return s.GetVolume(rw, req)
 }
 
-func (s *Server) GetCurrentBackup(rw http.ResponseWriter, req *http.Request) error {
+func (s *Server) LatestBackupStatus(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
 	name := mux.Vars(req)["name"]
 
@@ -84,15 +84,14 @@ func (s *Server) GetCurrentBackup(rw http.ResponseWriter, req *http.Request) err
 		return errors.Wrapf(err, "unable to get VolumeBackupOps for volume '%s'", name)
 	}
 
-	currentBackup := backupOps.CurrentBackup()
+	backupStatus := backupOps.LatestBackupStatus()
 
-	if currentBackup == nil {
-		rw.WriteHeader(http.StatusNotFound)
+	if backupStatus == nil {
 		apiContext.Write(&Empty{})
 		return nil
 	}
 
-	apiContext.Write(toBackupResource(currentBackup))
+	apiContext.Write(toBackupStatusRes(backupStatus))
 	return nil
 }
 

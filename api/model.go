@@ -79,13 +79,16 @@ type Replica struct {
 }
 
 type AttachInput struct {
-	client.Resource
-
 	HostID string `json:"hostId,omitempty"`
 }
 
 type Empty struct {
 	client.Resource
+}
+
+type BackupStatus struct {
+	client.Resource
+	types.BackupStatusInfo
 }
 
 type SnapshotInput struct {
@@ -114,6 +117,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("backup", Backup{})
 	schemas.AddType("backupInput", BackupInput{})
 	schemas.AddType("recurringJob", types.RecurringJob{})
+	schemas.AddType("backupStatus", BackupStatus{})
 
 	hostSchema(schemas.AddType("host", Host{}))
 	volumeSchema(schemas.AddType("volume", Volume{}))
@@ -186,8 +190,8 @@ func volumeSchema(volume *client.Schema) {
 		"recurringUpdate": {
 			Input: "recurringInput",
 		},
-		"getCurrentBackup": {
-			Output: "backup",
+		"latestBackupStatus": {
+			Output: "backupStatus",
 		},
 	}
 	volume.ResourceFields["controller"] = client.Field{
@@ -330,7 +334,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["snapshotRevert"] = struct{}{}
 		actions["snapshotBackup"] = struct{}{}
 		actions["recurringUpdate"] = struct{}{}
-		actions["getCurrentBackup"] = struct{}{}
+		actions["latestBackupStatus"] = struct{}{}
 	case types.VolumeStateDegraded:
 		actions["detach"] = struct{}{}
 		actions["snapshotPurge"] = struct{}{}
@@ -341,7 +345,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["snapshotRevert"] = struct{}{}
 		actions["snapshotBackup"] = struct{}{}
 		actions["recurringUpdate"] = struct{}{}
-		actions["getCurrentBackup"] = struct{}{}
+		actions["latestBackupStatus"] = struct{}{}
 	case types.VolumeStateCreated:
 		actions["recurringUpdate"] = struct{}{}
 	case types.VolumeStateFaulted:
@@ -365,6 +369,16 @@ func toSnapshotResource(s *types.SnapshotInfo) *Snapshot {
 			Type: "snapshot",
 		},
 		SnapshotInfo: *s,
+	}
+}
+
+func toBackupStatusRes(bs *types.BackupStatusInfo) *BackupStatus {
+	return &BackupStatus{
+		Resource: client.Resource{
+			Id:   bs.Snapshot,
+			Type: "backupStatus",
+		},
+		BackupStatusInfo: *bs,
 	}
 }
 

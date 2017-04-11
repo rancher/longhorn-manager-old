@@ -5,56 +5,48 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
 	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-orc/util"
 	"os/exec"
+	"time"
 )
 
-var (
-	backupRequests = make(chan func() error, 100) // 10 is probably enough, so just in case
-)
+func (c *controller) runBackup(backupTarget, snapName string) {
+	c.Lock()
+	defer c.Unlock()
 
-func init() {
-	go backupExecutor()
-}
+	func() {
+		c.backupStatusLock.Lock()
+		defer c.backupStatusLock.Unlock()
 
-func backupExecutor() {
-	for f := range backupRequests {
-		func() {
-			defer func() {
-				if e := recover(); e != nil {
-					logrus.Errorf("PANIC: %+v", e)
-				} else {
-					logrus.Debug("backupExecutor: recover() returned <nil>")
-				}
-			}()
-			if err := f(); err != nil {
-				logrus.Errorf("%+v", errors.Wrap(err, "Error creating a backup"))
-			}
-		}()
-	}
-}
-
-func (c *controller) runBackup(backupTarget, snapName string) func() error {
-	return func() error {
-		c.Lock()
-		c.currentBackup = &types.BackupInfo{VolumeName: c.name, SnapshotName: snapName, URL: backupTarget + "/INCOMPLETE"}
-		c.Unlock()
-		defer func() {
-			c.Lock()
-			c.currentBackup = nil
-			c.Unlock()
-		}()
-
-		var stdout, stderr bytes.Buffer
-		cmd := exec.Command("longhorn", "--url", c.url, "backup", "create", "--dest", backupTarget, snapName)
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-		err := cmd.Run()
-		if err != nil {
-			return errors.Wrapf(err, "error creating backup for snapshot '%s', backupTarget '%s': %s",
-				snapName, backupTarget, stderr.String())
+		c.backupStatus = &types.BackupStatusInfo{
+			InProgress:   true,
+			Err:          nil,
+			Snapshot:     snapName,
+			BackupTarget: backupTarget,
+			Started:      util.FormatTimeZ(time.Now()),
 		}
+	}()
+	defer func() {
+		c.backupStatusLock.Lock()
+		defer c.backupStatusLock.Unlock()
+
+		c.backupStatus.InProgress = false
+	}()
+
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command("longhorn", "--url", c.url, "backup", "create", "--dest", backupTarget, snapName)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	func() {
+		c.backupStatusLock.Lock()
+		defer c.backupStatusLock.Unlock()
+
+		c.backupStatus.Err = errors.Wrapf(err, "error creating backup for snapshot '%s', backupTarget '%s': %s",
+			snapName, backupTarget, &stderr)
+	}()
+	if err == nil {
 		logrus.Infof("completed backup: volume '%s', snapshot '%s', backupTarget '%s'", c.name, snapName, backupTarget)
-		return nil
 	}
 }
 
@@ -70,7 +62,7 @@ func (c *controller) StartBackup(snapName, backupTarget string) error {
 	if snap == nil {
 		return errors.Errorf("could not find snapshot '%s' to backup, volume '%s'", snapName, c.name)
 	}
-	backupRequests <- c.runBackup(backupTarget, snapName)
+	go c.runBackup(backupTarget, snapName)
 	return nil
 }
 
@@ -82,13 +74,19 @@ func (c *controller) Backup(snapName, backupTarget string) error {
 	if snap == nil {
 		return errors.Errorf("could not find snapshot '%s' to backup, volume '%s'", snapName, c.name)
 	}
-	return c.runBackup(backupTarget, snapName)()
+	c.runBackup(backupTarget, snapName)
+
+	c.backupStatusLock.Lock()
+	defer c.backupStatusLock.Unlock()
+
+	return c.backupStatus.Err
 }
 
-func (c *controller) CurrentBackup() *types.BackupInfo {
-	c.Lock()
-	defer c.Unlock()
-	return c.currentBackup
+func (c *controller) LatestBackupStatus() *types.BackupStatusInfo {
+	c.backupStatusLock.Lock()
+	defer c.backupStatusLock.Unlock()
+
+	return c.backupStatus
 }
 
 func (c *controller) Restore(backup string) error {
