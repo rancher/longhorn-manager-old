@@ -118,9 +118,9 @@ type Orchestrator interface {
 	CreateController(volumeName, controllerName string, replicas map[string]*ReplicaInfo) (*ControllerInfo, error)
 	CreateReplica(volumeName, replicaName string) (*ReplicaInfo, error)
 
-	StartInstance(instanceID string) error
-	StopInstance(instanceID string) error
-	RemoveInstance(instanceID string) error
+	StartInstance(instance *InstanceInfo) error
+	StopInstance(instance *InstanceInfo) error
+	RemoveInstance(instance *InstanceInfo) error
 
 	ListHosts() (map[string]*HostInfo, error)
 	GetHost(id string) (*HostInfo, error)

@@ -73,10 +73,10 @@ func (man *volumeManager) doCreate(volume *types.VolumeInfo) (*types.VolumeInfo,
 	vol.Replicas = replicas
 	if err := man.orc.UpdateVolume(vol); err != nil {
 		for _, replica := range vol.Replicas {
-			if err := man.orc.StopInstance(replica.ID); err != nil {
+			if err := man.orc.StopInstance(&replica.InstanceInfo); err != nil {
 				logrus.Errorf("Fail to stop replica %v as cleanup for creation failure", replica.Name)
 			}
-			if err := man.orc.RemoveInstance(replica.ID); err != nil {
+			if err := man.orc.RemoveInstance(&replica.InstanceInfo); err != nil {
 				logrus.Errorf("Fail to remove replica %v as cleanup for creation failure", replica.Name)
 			}
 		}
@@ -167,7 +167,7 @@ func (man *volumeManager) Delete(name string) error {
 	}
 
 	for _, replica := range volume.Replicas {
-		if err := man.orc.RemoveInstance(replica.ID); err != nil {
+		if err := man.orc.RemoveInstance(&replica.InstanceInfo); err != nil {
 			return errors.Wrapf(err, "error removing replica container %s(%s), volume '%s'", replica.Name, replica.ID, volume.Name)
 		}
 	}
@@ -294,7 +294,7 @@ func (man *volumeManager) doAttach(volume *types.VolumeInfo) error {
 			wg.Add(1)
 			go func(replica *types.ReplicaInfo) {
 				defer wg.Done()
-				if err := man.orc.StopInstance(replica.ID); err != nil {
+				if err := man.orc.StopInstance(&replica.InstanceInfo); err != nil {
 					errCh <- errors.Wrapf(err, "failed to stop replica '%s' for volume '%s'", replica.Name, volume.Name)
 				}
 			}(replica)
@@ -330,7 +330,7 @@ func (man *volumeManager) doAttach(volume *types.VolumeInfo) error {
 		wg.Add(1)
 		go func(replica *types.ReplicaInfo) {
 			defer wg.Done()
-			if err := man.orc.StartInstance(replica.ID); err != nil {
+			if err := man.orc.StartInstance(&replica.InstanceInfo); err != nil {
 				errCh <- errors.Wrapf(err, "failed to start replica '%s' for volume '%s'", replica.Name, volume.Name)
 			}
 		}(replica)
@@ -376,7 +376,7 @@ func (man *volumeManager) doDetach(volume *types.VolumeInfo) error {
 	errCh := make(chan error)
 	wg := &sync.WaitGroup{}
 	if volume.Controller != nil && volume.Controller.Running {
-		if err := man.orc.StopInstance(volume.Controller.ID); err != nil {
+		if err := man.orc.StopInstance(&volume.Controller.InstanceInfo); err != nil {
 			return errors.Wrapf(err, "error stopping the controller id='%s', volume '%s'", volume.Controller.ID, volume.Name)
 		}
 	}
@@ -384,7 +384,7 @@ func (man *volumeManager) doDetach(volume *types.VolumeInfo) error {
 		wg.Add(1)
 		go func(replica *types.ReplicaInfo) {
 			defer wg.Done()
-			if err := man.orc.StopInstance(replica.ID); err != nil {
+			if err := man.orc.StopInstance(&replica.InstanceInfo); err != nil {
 				errCh <- errors.Wrapf(err, "failed to stop replica '%s' for volume '%s'", replica.Name, volume.Name)
 			}
 		}(replica)
@@ -402,7 +402,7 @@ func (man *volumeManager) doDetach(volume *types.VolumeInfo) error {
 		return errs
 	}
 	if volume.Controller != nil {
-		if err := man.orc.RemoveInstance(volume.Controller.ID); err != nil {
+		if err := man.orc.RemoveInstance(&volume.Controller.InstanceInfo); err != nil {
 			return errors.Wrapf(err, "error removing the controller id='%s', volume '%s'", volume.Controller.ID, volume.Name)
 		}
 		volume.Controller = nil
@@ -424,7 +424,7 @@ func (man *volumeManager) createAndAddReplicaToController(volumeName string, ctr
 		defer man.addingReplicasCount(volumeName, -1)
 		if err := ctrl.AddReplica(replica); err != nil {
 			logrus.Errorf("%+v", errors.Wrapf(err, "failed to add replica '%s' to volume '%s'", replica.Name, volumeName))
-			if err := man.orc.RemoveInstance(replica.ID); err != nil {
+			if err := man.orc.RemoveInstance(&replica.InstanceInfo); err != nil {
 				logrus.Errorf("%+v", errors.Wrapf(err, "failed to remove stale replica '%s' of volume '%s'", replica.Name, volumeName))
 			}
 		}
@@ -548,7 +548,7 @@ func (man *volumeManager) Cleanup(v *types.VolumeInfo) error {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					err := man.orc.StopInstance(replica.ID)
+					err := man.orc.StopInstance(&replica.InstanceInfo)
 					errCh <- errors.Wrapf(err, "error stopping bad replica '%s', volume '%s'", replica.Name, volume.Name)
 				}()
 			}
@@ -556,7 +556,7 @@ func (man *volumeManager) Cleanup(v *types.VolumeInfo) error {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					err := man.orc.RemoveInstance(replica.ID)
+					err := man.orc.RemoveInstance(&replica.InstanceInfo)
 					errCh <- errors.Wrapf(err, "error removing old bad replica '%s', volume '%s'", replica.Name, volume.Name)
 				}()
 			}

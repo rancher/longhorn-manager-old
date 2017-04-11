@@ -453,20 +453,21 @@ func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo
 	}, nil
 }
 
-func (d *dockerOrc) StartInstance(instanceID string) error {
-	data, err := d.prepareStartInstance(instanceID)
+func (d *dockerOrc) StartInstance(instance *types.InstanceInfo) error {
+	data, err := d.prepareStartInstance(instance.ID)
 	if err != nil {
-		return errors.Wrapf(err, "Fail to start instance %v", instanceID)
+		return errors.Wrapf(err, "Fail to start instance %v", instance.ID)
 	}
 	schedule := &types.ScheduleItem{
 		Action: types.ScheduleActionStartInstance,
 		Instance: &types.ScheduleInstance{
-			ID: instanceID,
+			ID:     instance.ID,
+			HostID: instance.HostID,
 		},
 		Data: data,
 	}
 	if _, err := d.ProcessSchedule(schedule); err != nil {
-		return errors.Wrapf(err, "Fail to start instance %v", instanceID)
+		return errors.Wrapf(err, "Fail to start instance %v", instance.ID)
 	}
 	return nil
 }
@@ -493,20 +494,21 @@ func (d *dockerOrc) startInstance(instanceID string) error {
 	return d.cli.ContainerStart(context.Background(), instanceID, dTypes.ContainerStartOptions{})
 }
 
-func (d *dockerOrc) StopInstance(instanceID string) error {
-	data, err := d.prepareStopInstance(instanceID)
+func (d *dockerOrc) StopInstance(instance *types.InstanceInfo) error {
+	data, err := d.prepareStopInstance(instance.ID)
 	if err != nil {
-		return errors.Wrapf(err, "Fail to stop instance %v", instanceID)
+		return errors.Wrapf(err, "Fail to stop instance %v", instance.ID)
 	}
 	schedule := &types.ScheduleItem{
 		Action: types.ScheduleActionStopInstance,
 		Instance: &types.ScheduleInstance{
-			ID: instanceID,
+			ID:     instance.ID,
+			HostID: instance.HostID,
 		},
 		Data: data,
 	}
 	if _, err := d.ProcessSchedule(schedule); err != nil {
-		return errors.Wrapf(err, "Fail to stop instance %v", instanceID)
+		return errors.Wrapf(err, "Fail to stop instance %v", instance.ID)
 	}
 	return nil
 }
@@ -519,20 +521,21 @@ func (d *dockerOrc) stopInstance(instanceID string) error {
 	return d.cli.ContainerStop(context.Background(), instanceID, &ContainerStopTimeout)
 }
 
-func (d *dockerOrc) RemoveInstance(instanceID string) error {
-	data, err := d.prepareRemoveInstance(instanceID)
+func (d *dockerOrc) RemoveInstance(instance *types.InstanceInfo) error {
+	data, err := d.prepareRemoveInstance(instance.ID)
 	if err != nil {
-		return errors.Wrapf(err, "Fail to remove instance %v", instanceID)
+		return errors.Wrapf(err, "Fail to remove instance %v", instance.ID)
 	}
 	schedule := &types.ScheduleItem{
 		Action: types.ScheduleActionDeleteInstance,
 		Instance: &types.ScheduleInstance{
-			ID: instanceID,
+			ID:     instance.ID,
+			HostID: instance.HostID,
 		},
 		Data: data,
 	}
 	if _, err := d.ProcessSchedule(schedule); err != nil {
-		return errors.Wrapf(err, "Fail to remove instance %v", instanceID)
+		return errors.Wrapf(err, "Fail to remove instance %v", instance.ID)
 	}
 	return nil
 }

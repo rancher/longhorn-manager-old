@@ -491,7 +491,8 @@ func (orc *cattleOrc) CreateReplica(volumeName, replicaName string) (*types.Repl
 	return replica, nil
 }
 
-func (orc *cattleOrc) StartInstance(instanceID string) error {
+func (orc *cattleOrc) StartInstance(instance *types.InstanceInfo) error {
+	instanceID := instance.ID
 	var cnt *client.Container
 	if err := util.Backoff(30*time.Second, "timed out starting", func() (bool, error) {
 		var err error
@@ -517,7 +518,8 @@ func (orc *cattleOrc) StartInstance(instanceID string) error {
 	return nil
 }
 
-func (orc *cattleOrc) StopInstance(instanceID string) error {
+func (orc *cattleOrc) StopInstance(instance *types.InstanceInfo) error {
+	instanceID := instance.ID
 	var cnt *client.Container
 	err := util.Backoff(30*time.Second, "timed out stopping", func() (bool, error) {
 		var err error
@@ -536,7 +538,8 @@ func (orc *cattleOrc) StopInstance(instanceID string) error {
 	return errors.Wrapf(err, "error waiting to stop container '%s'", instanceID)
 }
 
-func (orc *cattleOrc) RemoveInstance(instanceID string) error {
+func (orc *cattleOrc) RemoveInstance(instance *types.InstanceInfo) error {
+	instanceID := instance.ID
 	cnt, err := orc.rancher.Container.ById(instanceID)
 	if err != nil {
 		return errors.Wrapf(err, "error getting container '%s'", instanceID)
