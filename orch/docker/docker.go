@@ -1,11 +1,13 @@
 package docker
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -27,6 +29,8 @@ import (
 )
 
 const (
+	OrcName = "docker"
+
 	cfgDirectory = "/var/lib/rancher/longhorn/"
 	hostUUIDFile = cfgDirectory + ".physical_host_uuid"
 )
@@ -192,6 +196,7 @@ func (d *dockerOrc) DeleteVolume(volumeName string) error {
 }
 
 func (d *dockerOrc) GetVolume(volumeName string) (*types.VolumeInfo, error) {
+	//TODO Update instances address and status
 	return d.getVolume(volumeName)
 }
 
@@ -211,28 +216,106 @@ func (d *dockerOrc) MarkBadReplica(volumeName string, replica *types.ReplicaInfo
 	return nil
 }
 
-func (d *dockerOrc) CreateController(volumeName, controllerName string, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
-	volume, err := d.getVolume(volumeName)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create replica")
-	}
-	return d.createController(volume, controllerName, replicas)
+type dockerScheduleData struct {
+	InstanceID       string
+	InstanceName     string
+	VolumeName       string
+	VolumeSize       string
+	LonghornImage    string
+	ReplicaAddresses []string
 }
 
-func (d *dockerOrc) createController(volume *types.VolumeInfo, controllerName string, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
+func (d *dockerOrc) ProcessSchedule(item *types.ScheduleItem) (*types.InstanceInfo, error) {
+	var data dockerScheduleData
+
+	if item.Data == nil {
+		return nil, errors.Errorf("cannot find required item.Data %+v", item)
+	}
+	if item.Data.Orchestrator != OrcName {
+		return nil, errors.Errorf("received request for the wrong orchestrator %v", item.Data.Orchestrator)
+	}
+	if err := json.Unmarshal(item.Data.Data, &data); err != nil {
+		return nil, errors.Wrap(err, "fail to parse schedule data")
+	}
+	switch item.Action {
+	case types.ScheduleActionCreateController:
+		return d.createController(&data)
+	case types.ScheduleActionCreateReplica:
+		return d.createReplica(&data)
+	case types.ScheduleActionStartInstance:
+		return nil, d.startInstance(data.InstanceID)
+	case types.ScheduleActionStopInstance:
+		return nil, d.stopInstance(data.InstanceID)
+	case types.ScheduleActionDeleteInstance:
+		return nil, d.removeInstance(data.InstanceID)
+	}
+	return nil, errors.Errorf("Cannot find specified action %v", item.Action)
+}
+
+func (d *dockerOrc) CreateController(volumeName, controllerName string, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
+	data, err := d.prepareCreateController(volumeName, controllerName, replicas)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Fail to create controller for %v", volumeName)
+	}
+	schedule := &types.ScheduleItem{
+		Action: types.ScheduleActionCreateController,
+		Instance: &types.ScheduleInstance{
+			ID: controllerName,
+		},
+		Data: data,
+	}
+	instance, err := d.ProcessSchedule(schedule)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Fail to create controller for %v", volumeName)
+	}
+	return &types.ControllerInfo{
+		InstanceInfo: *instance,
+	}, nil
+}
+
+func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, replicas map[string]*types.ReplicaInfo) (*types.ScheduleData, error) {
+	volume, err := d.getVolume(volumeName)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create controller")
+	}
+	if volume == nil {
+		return nil, errors.Wrapf(err, "unable to find volume %v", volumeName)
+	}
+
+	data := &dockerScheduleData{
+		InstanceName:     controllerName,
+		VolumeName:       volumeName,
+		LonghornImage:    volume.LonghornImage,
+		ReplicaAddresses: []string{},
+	}
+	for _, replica := range replicas {
+		data.ReplicaAddresses = append(data.ReplicaAddresses, "tcp://"+replica.Address+":9502")
+	}
+
+	bData, err := json.Marshal(data)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to marshall %+v", data)
+	}
+	return &types.ScheduleData{
+		Orchestrator: OrcName,
+		Data:         bData,
+	}, nil
+}
+
+func (d *dockerOrc) createController(data *dockerScheduleData) (*types.InstanceInfo, error) {
 	cmd := []string{
 		"launch", "controller",
 		"--listen", "0.0.0.0:9501",
 		"--frontend", "tgt",
 	}
-	for _, replica := range replicas {
-		cmd = append(cmd, "--replica", "tcp://"+replica.Address+":9502")
+	for _, address := range data.ReplicaAddresses {
+		cmd = append(cmd, "--replica", address)
 	}
-	cmd = append(cmd, volume.Name)
+	cmd = append(cmd, data.VolumeName)
 
 	createBody, err := d.cli.ContainerCreate(context.Background(),
 		&dContainer.Config{
-			Image: volume.LonghornImage,
+			Image: data.LonghornImage,
 			Cmd:   cmd,
 		},
 		&dContainer.HostConfig{
@@ -241,13 +324,13 @@ func (d *dockerOrc) createController(volume *types.VolumeInfo, controllerName st
 				"/proc:/host/proc",
 			},
 			Privileged: true,
-		}, nil, controllerName)
+		}, nil, data.InstanceName)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create controller container")
 	}
-	if err := d.StartInstance(createBody.ID); err != nil {
-		logrus.Errorf("fail to start %v, cleaning up", controllerName)
-		d.RemoveInstance(createBody.ID)
+	if err := d.startInstance(createBody.ID); err != nil {
+		logrus.Errorf("fail to start %v, cleaning up", data.InstanceName)
+		d.removeInstance(createBody.ID)
 		return nil, errors.Wrap(err, "fail to start controller container")
 	}
 	inspectJSON, err := d.cli.ContainerInspect(context.Background(), createBody.ID)
@@ -261,18 +344,16 @@ func (d *dockerOrc) createController(volume *types.VolumeInfo, controllerName st
 		return nil, errors.Wrapf(err, "fail to wait for api endpoint at %v", url)
 	}
 
-	if err := util.WaitForDevice(d.getDeviceName(volume.Name), WaitDeviceTimeout); err != nil {
+	if err := util.WaitForDevice(d.getDeviceName(data.VolumeName), WaitDeviceTimeout); err != nil {
 		return nil, errors.Wrap(err, "fail to wait for device")
 	}
 
-	return &types.ControllerInfo{
-		InstanceInfo: types.InstanceInfo{
-			ID:      inspectJSON.ID,
-			Name:    controllerName,
-			HostID:  d.GetCurrentHostID(),
-			Address: address,
-			Running: inspectJSON.State.Running,
-		},
+	return &types.InstanceInfo{
+		ID:      inspectJSON.ID,
+		Name:    strings.TrimPrefix(inspectJSON.Name, "/"),
+		HostID:  d.GetCurrentHostID(),
+		Address: address,
+		Running: inspectJSON.State.Running,
 	}, nil
 }
 
@@ -281,18 +362,58 @@ func (d *dockerOrc) getDeviceName(volumeName string) string {
 }
 
 func (d *dockerOrc) CreateReplica(volumeName, replicaName string) (*types.ReplicaInfo, error) {
+	data, err := d.prepareCreateReplica(volumeName, replicaName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Fail to create replica for %v", volumeName)
+	}
+	schedule := &types.ScheduleItem{
+		Action: types.ScheduleActionCreateReplica,
+		Instance: &types.ScheduleInstance{
+			ID: replicaName,
+		},
+		Data: data,
+	}
+	instance, err := d.ProcessSchedule(schedule)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Fail to create replica for %v", volumeName)
+	}
+	return &types.ReplicaInfo{
+		InstanceInfo: *instance,
+	}, nil
+}
+
+func (d *dockerOrc) prepareCreateReplica(volumeName, replicaName string) (*types.ScheduleData, error) {
 	volume, err := d.getVolume(volumeName)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create replica")
 	}
-	return d.createReplica(volume, replicaName)
+	if volume == nil {
+		return nil, errors.Wrapf(err, "unable to find volume %v", volumeName)
+	}
+	if volume.Size == 0 {
+		return nil, errors.Wrap(err, "invalid volume size 0")
+	}
+	data := &dockerScheduleData{
+		VolumeName:    volume.Name,
+		VolumeSize:    strconv.FormatInt(volume.Size, 10),
+		InstanceName:  replicaName,
+		LonghornImage: volume.LonghornImage,
+	}
+	bData, err := json.Marshal(data)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to marshall %+v", data)
+	}
+	return &types.ScheduleData{
+		Orchestrator: OrcName,
+		Data:         bData,
+	}, nil
 }
 
-func (d *dockerOrc) createReplica(volume *types.VolumeInfo, replicaName string) (*types.ReplicaInfo, error) {
+func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo, error) {
 	cmd := []string{
 		"launch", "replica",
 		"--listen", "0.0.0.0:9502",
-		"--size", strconv.FormatInt(volume.Size, 10),
+		"--size", data.VolumeSize,
 		"/volume",
 	}
 	createBody, err := d.cli.ContainerCreate(context.Background(),
@@ -300,7 +421,7 @@ func (d *dockerOrc) createReplica(volume *types.VolumeInfo, replicaName string) 
 			ExposedPorts: dNat.PortSet{
 				"9502-9504": struct{}{},
 			},
-			Image: volume.LonghornImage,
+			Image: data.LonghornImage,
 			Volumes: map[string]struct{}{
 				"/volume": {},
 			},
@@ -308,39 +429,119 @@ func (d *dockerOrc) createReplica(volume *types.VolumeInfo, replicaName string) 
 		},
 		&dContainer.HostConfig{
 			Privileged: true,
-		}, nil, replicaName)
+		}, nil, data.InstanceName)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create replica container")
 	}
-	if err := d.StartInstance(createBody.ID); err != nil {
-		logrus.Errorf("fail to start %v, cleaning up", replicaName)
-		d.RemoveInstance(createBody.ID)
+	if err := d.startInstance(createBody.ID); err != nil {
+		logrus.Errorf("fail to start %v, cleaning up", data.InstanceName)
+		d.removeInstance(createBody.ID)
 		return nil, errors.Wrap(err, "fail to start replica container")
 	}
 	inspectJSON, err := d.cli.ContainerInspect(context.Background(), createBody.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to inspect replica container")
 	}
-	return &types.ReplicaInfo{
-		InstanceInfo: types.InstanceInfo{
-			ID:      inspectJSON.ID,
-			Name:    replicaName,
-			HostID:  d.GetCurrentHostID(),
-			Address: inspectJSON.NetworkSettings.IPAddress,
-			Running: inspectJSON.State.Running,
-		},
+	return &types.InstanceInfo{
+		// It's weird that Docker put a forward slash to the container name
+		// So it become "/replica-1"
+		ID:      inspectJSON.ID,
+		Name:    strings.TrimPrefix(inspectJSON.Name, "/"),
+		HostID:  d.GetCurrentHostID(),
+		Address: inspectJSON.NetworkSettings.IPAddress,
+		Running: inspectJSON.State.Running,
 	}, nil
 }
 
 func (d *dockerOrc) StartInstance(instanceID string) error {
+	data, err := d.prepareStartInstance(instanceID)
+	if err != nil {
+		return errors.Wrapf(err, "Fail to start instance %v", instanceID)
+	}
+	schedule := &types.ScheduleItem{
+		Action: types.ScheduleActionStartInstance,
+		Instance: &types.ScheduleInstance{
+			ID: instanceID,
+		},
+		Data: data,
+	}
+	if _, err := d.ProcessSchedule(schedule); err != nil {
+		return errors.Wrapf(err, "Fail to start instance %v", instanceID)
+	}
+	return nil
+}
+
+func (d *dockerOrc) prepareInstanceScheduleData(instanceID string) (*types.ScheduleData, error) {
+	data := &dockerScheduleData{
+		InstanceID: instanceID,
+	}
+	bData, err := json.Marshal(data)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to marshall %+v", data)
+	}
+	return &types.ScheduleData{
+		Orchestrator: OrcName,
+		Data:         bData,
+	}, nil
+}
+
+func (d *dockerOrc) prepareStartInstance(instanceID string) (*types.ScheduleData, error) {
+	return d.prepareInstanceScheduleData(instanceID)
+}
+
+func (d *dockerOrc) startInstance(instanceID string) error {
 	return d.cli.ContainerStart(context.Background(), instanceID, dTypes.ContainerStartOptions{})
 }
 
 func (d *dockerOrc) StopInstance(instanceID string) error {
+	data, err := d.prepareStopInstance(instanceID)
+	if err != nil {
+		return errors.Wrapf(err, "Fail to stop instance %v", instanceID)
+	}
+	schedule := &types.ScheduleItem{
+		Action: types.ScheduleActionStopInstance,
+		Instance: &types.ScheduleInstance{
+			ID: instanceID,
+		},
+		Data: data,
+	}
+	if _, err := d.ProcessSchedule(schedule); err != nil {
+		return errors.Wrapf(err, "Fail to stop instance %v", instanceID)
+	}
+	return nil
+}
+
+func (d *dockerOrc) prepareStopInstance(instanceID string) (*types.ScheduleData, error) {
+	return d.prepareInstanceScheduleData(instanceID)
+}
+
+func (d *dockerOrc) stopInstance(instanceID string) error {
 	return d.cli.ContainerStop(context.Background(), instanceID, &ContainerStopTimeout)
 }
 
 func (d *dockerOrc) RemoveInstance(instanceID string) error {
+	data, err := d.prepareRemoveInstance(instanceID)
+	if err != nil {
+		return errors.Wrapf(err, "Fail to remove instance %v", instanceID)
+	}
+	schedule := &types.ScheduleItem{
+		Action: types.ScheduleActionDeleteInstance,
+		Instance: &types.ScheduleInstance{
+			ID: instanceID,
+		},
+		Data: data,
+	}
+	if _, err := d.ProcessSchedule(schedule); err != nil {
+		return errors.Wrapf(err, "Fail to remove instance %v", instanceID)
+	}
+	return nil
+}
+
+func (d *dockerOrc) prepareRemoveInstance(instanceID string) (*types.ScheduleData, error) {
+	return d.prepareInstanceScheduleData(instanceID)
+}
+
+func (d *dockerOrc) removeInstance(instanceID string) error {
 	return d.cli.ContainerRemove(context.Background(), instanceID, dTypes.ContainerRemoveOptions{RemoveVolumes: true})
 }
 

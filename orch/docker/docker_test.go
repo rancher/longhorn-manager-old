@@ -2,6 +2,7 @@ package docker
 
 import (
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/rancher/longhorn-orc/types"
@@ -49,8 +50,8 @@ func (s *TestSuite) SetUpTest(c *C) {
 
 func (s *TestSuite) Cleanup() {
 	for id := range s.containerBin {
-		s.d.StopInstance(id)
-		s.d.RemoveInstance(id)
+		s.d.stopInstance(id)
+		s.d.removeInstance(id)
 	}
 }
 
@@ -62,34 +63,50 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 		Size:          8 * 1024 * 1024, // 8M
 		LonghornImage: s.longhornImage,
 	}
-	replica1Name := "replica-test-1"
-	replica1, err := s.d.createReplica(volume, replica1Name)
+	replica1Data := &dockerScheduleData{
+		VolumeName:    volume.Name,
+		VolumeSize:    strconv.FormatInt(volume.Size, 10),
+		InstanceName:  "replica-test-1",
+		LonghornImage: volume.LonghornImage,
+	}
+	replica1, err := s.d.createReplica(replica1Data)
 	c.Assert(err, IsNil)
 	c.Assert(replica1.ID, NotNil)
 	s.containerBin[replica1.ID] = struct{}{}
 
 	c.Assert(replica1.HostID, Equals, s.d.GetCurrentHostID())
 	c.Assert(replica1.Running, Equals, true)
-	c.Assert(replica1.Name, Equals, replica1Name)
+	c.Assert(replica1.Name, Equals, replica1Data.InstanceName)
 
-	err = s.d.StopInstance(replica1.ID)
+	err = s.d.stopInstance(replica1.ID)
 	c.Assert(err, IsNil)
 
-	err = s.d.StartInstance(replica1.ID)
+	err = s.d.startInstance(replica1.ID)
 	c.Assert(err, IsNil)
 
-	replica2Name := "replica-test-2"
-	replica2, err := s.d.createReplica(volume, replica2Name)
+	replica2Data := &dockerScheduleData{
+		VolumeName:    volume.Name,
+		VolumeSize:    strconv.FormatInt(volume.Size, 10),
+		InstanceName:  "replica-test-2",
+		LonghornImage: volume.LonghornImage,
+	}
+	replica2, err := s.d.createReplica(replica2Data)
 	c.Assert(err, IsNil)
 	c.Assert(replica2.ID, NotNil)
 	s.containerBin[replica2.ID] = struct{}{}
 
-	replicas := map[string]*types.ReplicaInfo{
-		replica1.Name: replica1,
-		replica2.Name: replica2,
-	}
 	controllerName := "controller-test"
-	controller, err := s.d.createController(volume, controllerName, replicas)
+
+	data := &dockerScheduleData{
+		VolumeName:    volume.Name,
+		InstanceName:  controllerName,
+		LonghornImage: volume.LonghornImage,
+		ReplicaAddresses: []string{
+			"tcp://" + replica1.Address + ":9502",
+			"tcp://" + replica2.Address + ":9502",
+		},
+	}
+	controller, err := s.d.createController(data)
 	c.Assert(err, IsNil)
 	c.Assert(controller.ID, NotNil)
 	s.containerBin[controller.ID] = struct{}{}
@@ -98,20 +115,20 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	c.Assert(controller.Running, Equals, true)
 	c.Assert(controller.Name, Equals, controllerName)
 
-	err = s.d.StopInstance(controller.ID)
+	err = s.d.stopInstance(controller.ID)
 	c.Assert(err, IsNil)
-	err = s.d.StopInstance(replica1.ID)
+	err = s.d.stopInstance(replica1.ID)
 	c.Assert(err, IsNil)
-	err = s.d.StopInstance(replica2.ID)
+	err = s.d.stopInstance(replica2.ID)
 	c.Assert(err, IsNil)
 
-	err = s.d.RemoveInstance(controller.ID)
+	err = s.d.removeInstance(controller.ID)
 	c.Assert(err, IsNil)
 	delete(s.containerBin, controller.ID)
-	err = s.d.RemoveInstance(replica1.ID)
+	err = s.d.removeInstance(replica1.ID)
 	c.Assert(err, IsNil)
 	delete(s.containerBin, replica1.ID)
-	err = s.d.RemoveInstance(replica2.ID)
+	err = s.d.removeInstance(replica2.ID)
 	c.Assert(err, IsNil)
 	delete(s.containerBin, replica2.ID)
 }
