@@ -71,6 +71,12 @@ func Get(volume *types.VolumeInfo) types.Controller {
 	return <-req.result
 }
 
+func Cleanup(volume *types.VolumeInfo) {
+	volume = util.CopyVolumeProperties(volume)
+	volume.Controller = nil
+	reqCh <- ctrlReq(volume)
+}
+
 func (c *controller) Name() string {
 	return c.name
 }

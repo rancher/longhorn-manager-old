@@ -3,6 +3,7 @@ package manager
 import (
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
+	"github.com/rancher/longhorn-orc/controller"
 	"github.com/rancher/longhorn-orc/types"
 	"time"
 )
@@ -14,6 +15,7 @@ var (
 )
 
 type monitorChan struct {
+	volume    *types.VolumeInfo
 	cronCh    chan<- types.Event
 	monitorCh chan<- types.Event
 	cleanupCh chan<- types.Event
@@ -23,6 +25,7 @@ func (mc *monitorChan) Close() error {
 	defer func() {
 		recover()
 	}()
+	defer controller.Cleanup(mc.volume)
 	defer close(mc.cronCh)
 	defer close(mc.monitorCh)
 	defer close(mc.cleanupCh)
@@ -41,7 +44,7 @@ func Monitor(getController types.GetController) types.BeginMonitoring {
 		go cleanup(volume, man, cleanupCh)
 		cronCh := make(chan types.Event)
 		go RunJobs(volume, getController(volume), man.Settings(), cronCh)
-		return &monitorChan{cronCh: cronCh, monitorCh: monitorCh, cleanupCh: cleanupCh}
+		return &monitorChan{volume: volume, cronCh: cronCh, monitorCh: monitorCh, cleanupCh: cleanupCh}
 	}
 }
 
