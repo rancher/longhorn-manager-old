@@ -236,7 +236,7 @@ func (bt *backupTask) Run() error {
 	}
 
 	name := snapName(bt.job.Name)
-	if _, err := bt.runner.ctrl.SnapshotOps().Create(snapName(bt.job.Name), map[string]string{JobName: bt.job.Name, BackupJob: bt.job.Name}); err != nil {
+	if _, err := bt.runner.ctrl.SnapshotOps().Create(name, map[string]string{JobName: bt.job.Name, BackupJob: bt.job.Name}); err != nil {
 		return errors.Wrapf(err, "error running recurring job: backup '%s', volume '%s'", name, bt.runner.volume.Name)
 	}
 
