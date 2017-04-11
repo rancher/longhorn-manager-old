@@ -13,9 +13,49 @@ import (
 	"github.com/rancher/longhorn-orc/util"
 )
 
+func init() {
+	go holdControllers()
+}
+
+var reqCh = make(chan *req)
+
+type req struct {
+	volume *types.VolumeInfo
+	result chan *controller
+}
+
+func ctrlGet(volume *types.VolumeInfo) *req {
+	return &req{volume: volume, result: make(chan *controller)}
+}
+
+func ctrlRm(volume *types.VolumeInfo) *req {
+	return &req{volume: volume, result: nil}
+}
+
+func holdControllers() {
+	cs := map[string]*controller{}
+
+	for r := range reqCh {
+		if r.result == nil {
+			delete(cs, r.volume.Name)
+			continue
+		}
+		c := cs[r.volume.Name]
+		if c == nil || c.url != r.volume.Controller.Address {
+			c = &controller{name: r.volume.Name, url: r.volume.Controller.Address}
+			cs[r.volume.Name] = c
+		}
+		r.result <- c
+	}
+}
+
 type controller struct {
+	sync.Mutex
+
 	name string
 	url  string
+
+	currentBackup *types.BackupInfo
 }
 
 type volumeInfo struct {
@@ -24,15 +64,13 @@ type volumeInfo struct {
 	Endpoint     string `json:"endpoint"`
 }
 
-func New(volume *types.VolumeInfo) types.Controller {
+func Get(volume *types.VolumeInfo) types.Controller {
 	if volume == nil || volume.Controller == nil || !volume.Controller.Running {
 		return nil
 	}
-	url := volume.Controller.Address
-	return &controller{
-		name: volume.Name,
-		url:  url,
-	}
+	req := ctrlGet(volume)
+	reqCh <- req
+	return <-req.result
 }
 
 func (c *controller) Name() string {
@@ -60,19 +98,6 @@ func parseReplica(s string) (*types.ReplicaInfo, error) {
 		},
 		Mode: mode,
 	}, nil
-}
-
-func trimChain(s string) string {
-	if strings.HasPrefix(s, "[") && strings.HasSuffix(s, "]") {
-		s = strings.TrimPrefix(s, "[")
-		s = strings.TrimSuffix(s, "]")
-		fields := strings.Fields(s)
-		if len(fields) > 0 && strings.HasPrefix(fields[0], "volume-head-") {
-			s = s[len(fields[0]):]
-			s = strings.TrimSpace(s)
-		}
-	}
-	return s
 }
 
 func (c *controller) GetReplicaStates() ([]*types.ReplicaInfo, error) {

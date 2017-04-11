@@ -69,6 +69,7 @@ type SnapshotOps interface {
 type VolumeBackupOps interface {
 	Backup(snapName, backupTarget string) error
 	StartBackup(snapName, backupTarget string) error
+	CurrentBackup() *BackupInfo
 	Restore(backup string) error
 	DeleteBackup(backup string) error
 }

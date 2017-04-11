@@ -6,7 +6,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/rancher/longhorn-orc/controller"
 	"github.com/rancher/longhorn-orc/types"
 	"io"
 	"os/exec"
@@ -49,9 +48,6 @@ func parseBackupsList(stdout io.Reader, volumeName string) ([]*types.BackupInfo,
 		return nil, errors.Wrapf(err, "error parsing backups: \n%s", buffer)
 	}
 	backups := []*types.BackupInfo{}
-	if currentBackup := controller.CurrentBackup(); currentBackup != nil {
-		backups = append(backups, currentBackup)
-	}
 	volume := data[volumeName]
 	for _, v := range data[volumeName].Backups {
 		backup, err := parseBackup(v)

@@ -46,6 +46,7 @@ func (s *Server) GetVolume(rw http.ResponseWriter, req *http.Request) error {
 
 	if v == nil {
 		rw.WriteHeader(http.StatusNotFound)
+		apiContext.Write(&Empty{})
 		return nil
 	}
 
@@ -72,6 +73,27 @@ func (s *Server) UpdateRecurring(rw http.ResponseWriter, req *http.Request) erro
 	}
 
 	return s.GetVolume(rw, req)
+}
+
+func (s *Server) GetCurrentBackup(rw http.ResponseWriter, req *http.Request) error {
+	apiContext := api.GetApiContext(req)
+	name := mux.Vars(req)["name"]
+
+	backupOps, err := s.man.VolumeBackupOps(name)
+	if err != nil {
+		return errors.Wrapf(err, "unable to get VolumeBackupOps for volume '%s'", name)
+	}
+
+	currentBackup := backupOps.CurrentBackup()
+
+	if currentBackup == nil {
+		rw.WriteHeader(http.StatusNotFound)
+		apiContext.Write(&Empty{})
+		return nil
+	}
+
+	apiContext.Write(toBackupResource(currentBackup))
+	return nil
 }
 
 func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {

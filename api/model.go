@@ -186,6 +186,9 @@ func volumeSchema(volume *client.Schema) {
 		"recurringUpdate": {
 			Input: "recurringInput",
 		},
+		"getCurrentBackup": {
+			Output: "backup",
+		},
 	}
 	volume.ResourceFields["controller"] = client.Field{
 		Type:     "struct",
@@ -327,6 +330,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["snapshotRevert"] = struct{}{}
 		actions["snapshotBackup"] = struct{}{}
 		actions["recurringUpdate"] = struct{}{}
+		actions["getCurrentBackup"] = struct{}{}
 	case types.VolumeStateDegraded:
 		actions["detach"] = struct{}{}
 		actions["snapshotPurge"] = struct{}{}
@@ -337,6 +341,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["snapshotRevert"] = struct{}{}
 		actions["snapshotBackup"] = struct{}{}
 		actions["recurringUpdate"] = struct{}{}
+		actions["getCurrentBackup"] = struct{}{}
 	case types.VolumeStateCreated:
 		actions["recurringUpdate"] = struct{}{}
 	case types.VolumeStateFaulted:

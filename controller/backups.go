@@ -6,14 +6,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rancher/longhorn-orc/types"
 	"os/exec"
-	"sync"
 )
 
 var (
 	backupRequests = make(chan func() error, 100) // 10 is probably enough, so just in case
-
-	currentBackupLock = &sync.Mutex{}
-	currentBackup     *types.BackupInfo
 )
 
 func init() {
@@ -39,13 +35,13 @@ func backupExecutor() {
 
 func (c *controller) runBackup(backupTarget, snapName string) func() error {
 	return func() error {
-		currentBackupLock.Lock()
-		currentBackup = &types.BackupInfo{VolumeName: c.name, SnapshotName: snapName, URL: backupTarget + "/INCOMPLETE"}
-		currentBackupLock.Unlock()
+		c.Lock()
+		c.currentBackup = &types.BackupInfo{VolumeName: c.name, SnapshotName: snapName, URL: backupTarget + "/INCOMPLETE"}
+		c.Unlock()
 		defer func() {
-			currentBackupLock.Lock()
-			currentBackup = nil
-			currentBackupLock.Unlock()
+			c.Lock()
+			c.currentBackup = nil
+			c.Unlock()
 		}()
 
 		var stdout, stderr bytes.Buffer
@@ -89,10 +85,10 @@ func (c *controller) Backup(snapName, backupTarget string) error {
 	return c.runBackup(backupTarget, snapName)()
 }
 
-func CurrentBackup() *types.BackupInfo {
-	currentBackupLock.Lock()
-	defer currentBackupLock.Unlock()
-	return currentBackup
+func (c *controller) CurrentBackup() *types.BackupInfo {
+	c.Lock()
+	defer c.Unlock()
+	return c.currentBackup
 }
 
 func (c *controller) Restore(backup string) error {

@@ -117,7 +117,7 @@ func RunManager(c *cli.Context) error {
 		return err
 	}
 
-	man := manager.New(orc, manager.Monitor(controller.New), controller.New, backups.New)
+	man := manager.New(orc, manager.Monitor(controller.Get), controller.Get, backups.New)
 	if err := man.Start(); err != nil {
 		return err
 	}
