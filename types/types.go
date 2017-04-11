@@ -50,6 +50,8 @@ type VolumeManager interface {
 	VolumeBackupOps(name string) (VolumeBackupOps, error)
 	Settings() Settings
 	ManagerBackupOps(backupTarget string) ManagerBackupOps
+
+	ProcessSchedule(spec *ScheduleSpec, item *ScheduleItem) (*InstanceInfo, error)
 }
 
 type Settings interface {
@@ -124,6 +126,8 @@ type Orchestrator interface {
 
 	ListHosts() (map[string]*HostInfo, error)
 	GetHost(id string) (*HostInfo, error)
+
+	Scheduler() Scheduler // return nil if not supported
 
 	ServiceLocator
 	Settings

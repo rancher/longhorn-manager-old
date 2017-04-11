@@ -24,6 +24,7 @@ import (
 
 	"github.com/rancher/longhorn-orc/api"
 	"github.com/rancher/longhorn-orc/orch"
+	"github.com/rancher/longhorn-orc/scheduler"
 	"github.com/rancher/longhorn-orc/types"
 	"github.com/rancher/longhorn-orc/util"
 )
@@ -50,6 +51,8 @@ type dockerOrc struct {
 
 	kapi eCli.KeysAPI
 	cli  *dCli.Client
+
+	scheduler types.Scheduler
 }
 
 type dockerOrcConfig struct {
@@ -91,6 +94,7 @@ func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
 
 		kapi: eCli.NewKeysAPI(etcdc),
 	}
+	docker.scheduler = scheduler.NewOrcScheduler(docker)
 
 	//Set Docker API to compatible with 1.12
 	os.Setenv("DOCKER_API_VERSION", "1.24")
@@ -228,14 +232,14 @@ type dockerScheduleData struct {
 func (d *dockerOrc) ProcessSchedule(item *types.ScheduleItem) (*types.InstanceInfo, error) {
 	var data dockerScheduleData
 
-	if item.Data == nil {
-		return nil, errors.Errorf("cannot find required item.Data %+v", item)
-	}
 	if item.Data.Orchestrator != OrcName {
 		return nil, errors.Errorf("received request for the wrong orchestrator %v", item.Data.Orchestrator)
 	}
 	if err := json.Unmarshal(item.Data.Data, &data); err != nil {
 		return nil, errors.Wrap(err, "fail to parse schedule data")
+	}
+	if data.InstanceID == "" {
+		return nil, errors.Errorf("empty instance ID")
 	}
 	switch item.Action {
 	case types.ScheduleActionCreateController:
@@ -259,12 +263,13 @@ func (d *dockerOrc) CreateController(volumeName, controllerName string, replicas
 	}
 	schedule := &types.ScheduleItem{
 		Action: types.ScheduleActionCreateController,
-		Instance: &types.ScheduleInstance{
-			ID: controllerName,
+		Instance: types.ScheduleInstance{
+			ID:     controllerName,
+			HostID: d.GetCurrentHostID(),
 		},
-		Data: data,
+		Data: *data,
 	}
-	instance, err := d.ProcessSchedule(schedule)
+	instance, err := d.scheduler.Schedule(schedule)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Fail to create controller for %v", volumeName)
 	}
@@ -283,6 +288,7 @@ func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, r
 	}
 
 	data := &dockerScheduleData{
+		InstanceID:       controllerName,
 		InstanceName:     controllerName,
 		VolumeName:       volumeName,
 		LonghornImage:    volume.LonghornImage,
@@ -361,12 +367,12 @@ func (d *dockerOrc) CreateReplica(volumeName, replicaName string) (*types.Replic
 	}
 	schedule := &types.ScheduleItem{
 		Action: types.ScheduleActionCreateReplica,
-		Instance: &types.ScheduleInstance{
+		Instance: types.ScheduleInstance{
 			ID: replicaName,
 		},
-		Data: data,
+		Data: *data,
 	}
-	instance, err := d.ProcessSchedule(schedule)
+	instance, err := d.scheduler.Schedule(schedule)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Fail to create replica for %v", volumeName)
 	}
@@ -389,6 +395,7 @@ func (d *dockerOrc) prepareCreateReplica(volumeName, replicaName string) (*types
 	data := &dockerScheduleData{
 		VolumeName:    volume.Name,
 		VolumeSize:    strconv.FormatInt(volume.Size, 10),
+		InstanceID:    replicaName,
 		InstanceName:  replicaName,
 		LonghornImage: volume.LonghornImage,
 	}
@@ -458,19 +465,23 @@ func (d *dockerOrc) StartInstance(instance *types.InstanceInfo) error {
 	}
 	schedule := &types.ScheduleItem{
 		Action: types.ScheduleActionStartInstance,
-		Instance: &types.ScheduleInstance{
+		Instance: types.ScheduleInstance{
 			ID:     instance.ID,
 			HostID: instance.HostID,
 		},
-		Data: data,
+		Data: *data,
 	}
-	if _, err := d.ProcessSchedule(schedule); err != nil {
+	if _, err := d.scheduler.Schedule(schedule); err != nil {
 		return errors.Wrapf(err, "Fail to start instance %v", instance.ID)
 	}
 	return nil
 }
 
 func (d *dockerOrc) prepareInstanceScheduleData(instanceID string) (*types.ScheduleData, error) {
+	if instanceID == "" {
+		return nil, errors.Errorf("instance ID required for schedule")
+	}
+
 	data := &dockerScheduleData{
 		InstanceID: instanceID,
 	}
@@ -503,13 +514,13 @@ func (d *dockerOrc) StopInstance(instance *types.InstanceInfo) error {
 	}
 	schedule := &types.ScheduleItem{
 		Action: types.ScheduleActionStopInstance,
-		Instance: &types.ScheduleInstance{
+		Instance: types.ScheduleInstance{
 			ID:     instance.ID,
 			HostID: instance.HostID,
 		},
-		Data: data,
+		Data: *data,
 	}
-	if _, err := d.ProcessSchedule(schedule); err != nil {
+	if _, err := d.scheduler.Schedule(schedule); err != nil {
 		return errors.Wrapf(err, "Fail to stop instance %v", instance.ID)
 	}
 	return nil
@@ -534,13 +545,13 @@ func (d *dockerOrc) RemoveInstance(instance *types.InstanceInfo) error {
 	}
 	schedule := &types.ScheduleItem{
 		Action: types.ScheduleActionDeleteInstance,
-		Instance: &types.ScheduleInstance{
+		Instance: types.ScheduleInstance{
 			ID:     instance.ID,
 			HostID: instance.HostID,
 		},
-		Data: data,
+		Data: *data,
 	}
-	if _, err := d.ProcessSchedule(schedule); err != nil {
+	if _, err := d.scheduler.Schedule(schedule); err != nil {
 		return errors.Wrapf(err, "Fail to remove instance %v", instance.ID)
 	}
 	return nil
@@ -578,4 +589,8 @@ func (d *dockerOrc) GetSettings() (*types.SettingsInfo, error) {
 
 func (d *dockerOrc) SetSettings(settings *types.SettingsInfo) error {
 	return d.setSettings(settings)
+}
+
+func (d *dockerOrc) Scheduler() types.Scheduler {
+	return d.scheduler
 }

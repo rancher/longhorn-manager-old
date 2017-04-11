@@ -178,3 +178,7 @@ func (d *dummyVolumeManager) ListHosts() (map[string]*types.HostInfo, error) {
 func (d *dummyVolumeManager) GetHost(id string) (*types.HostInfo, error) {
 	return nil, nil
 }
+
+func (d *dummyVolumeManager) ProcessSchedule(spec *types.ScheduleSpec, item *types.ScheduleItem) (*types.InstanceInfo, error) {
+	return nil, nil
+}

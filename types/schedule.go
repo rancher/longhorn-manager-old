@@ -9,23 +9,29 @@ const (
 )
 
 type Scheduler interface {
-	Init(ops ScheduleOps)
 	Schedule(item *ScheduleItem) (*InstanceInfo, error)
-	Process(item *ScheduleItem) (*InstanceInfo, error)
+	Process(spec *ScheduleSpec, item *ScheduleItem) (*InstanceInfo, error)
 }
 
 type ScheduleOps interface {
+	ListHosts() (map[string]*HostInfo, error)
+	GetHost(id string) (*HostInfo, error)
+	GetCurrentHostID() string
 	ProcessSchedule(item *ScheduleItem) (*InstanceInfo, error)
 }
 
 type ScheduleItem struct {
 	Action   string
-	Instance *ScheduleInstance
-	Data     *ScheduleData
+	Instance ScheduleInstance
+	Data     ScheduleData
 }
 
 type ScheduleInstance struct {
 	ID     string
+	HostID string
+}
+
+type ScheduleSpec struct {
 	HostID string
 }
 

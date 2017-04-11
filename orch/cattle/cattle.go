@@ -598,3 +598,7 @@ func (orc *cattleOrc) UpdateVolume(volume *types.VolumeInfo) error {
 
 	return errors.Wrapf(err, "error updating metadata for volume '%s'", volume.Name)
 }
+
+func (orc *cattleOrc) Scheduler() types.Scheduler {
+	return nil
+}

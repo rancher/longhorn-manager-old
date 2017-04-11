@@ -619,3 +619,11 @@ func (man *volumeManager) Settings() types.Settings {
 func (man *volumeManager) ManagerBackupOps(backupTarget string) types.ManagerBackupOps {
 	return man.getBackups(backupTarget)
 }
+
+func (man *volumeManager) ProcessSchedule(spec *types.ScheduleSpec, item *types.ScheduleItem) (*types.InstanceInfo, error) {
+	scheduler := man.orc.Scheduler()
+	if scheduler == nil {
+		return nil, errors.Errorf("No scheduler found for the orchestrator")
+	}
+	return scheduler.Process(spec, item)
+}

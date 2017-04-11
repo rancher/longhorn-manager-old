@@ -77,5 +77,8 @@ func Handler(s *Server) http.Handler {
 	r.Methods("GET").Path("/v1/hosts").Handler(f(schemas, s.ListHost))
 	r.Methods("GET").Path("/v1/hosts/{id}").Handler(f(schemas, s.GetHost))
 
+	// Internal API
+	r.Methods("POST").Path("/v1/schedule").Handler(f(schemas, s.Schedule))
+
 	return r
 }
