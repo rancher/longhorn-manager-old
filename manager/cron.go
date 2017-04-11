@@ -182,7 +182,7 @@ func (st *snapshotTask) Cleanup() error {
 	}
 
 	st.count++
-	for st.count > st.job.Retain {
+	for st.cached == nil || st.count > st.job.Retain {
 		if len(st.cached) == 0 {
 			ss, err := st.listSnapshots()
 			if err != nil {
@@ -304,7 +304,7 @@ func (bt *backupTask) cleanupBackups() error {
 	}
 
 	bt.count++
-	for bt.count > bt.job.Retain {
+	for bt.cached == nil || bt.count > bt.job.Retain {
 		if len(bt.cached) == 0 {
 			bs, err := bt.listBackups()
 			if err != nil {
@@ -331,7 +331,7 @@ func (bt *backupTask) cleanupBackupSnapshots() error {
 	defer bt.Unlock()
 
 	bt.countSnapshots++
-	for bt.countSnapshots > retainBackupSnapshots {
+	for bt.cachedSnapshots == nil || bt.countSnapshots > retainBackupSnapshots {
 		if len(bt.cachedSnapshots) == 0 {
 			ss, err := bt.listSnapshots()
 			if err != nil {
