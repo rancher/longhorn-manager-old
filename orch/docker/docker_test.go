@@ -56,6 +56,8 @@ func (s *TestSuite) Cleanup() {
 }
 
 func (s *TestSuite) TestCreateVolume(c *C) {
+	var instance *types.InstanceInfo
+
 	defer s.Cleanup()
 
 	volume := &types.VolumeInfo{
@@ -78,11 +80,17 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	c.Assert(replica1.Running, Equals, true)
 	c.Assert(replica1.Name, Equals, replica1Data.InstanceName)
 
-	err = s.d.stopInstance(replica1.ID)
+	instance, err = s.d.stopInstance(replica1.ID)
 	c.Assert(err, IsNil)
+	c.Assert(instance.ID, Equals, replica1.ID)
+	c.Assert(instance.Name, Equals, replica1.Name)
+	c.Assert(instance.Running, Equals, false)
 
-	err = s.d.startInstance(replica1.ID)
+	instance, err = s.d.startInstance(replica1.ID)
 	c.Assert(err, IsNil)
+	c.Assert(instance.ID, Equals, replica1.ID)
+	c.Assert(instance.Name, Equals, replica1.Name)
+	c.Assert(instance.Running, Equals, true)
 
 	replica2Data := &dockerScheduleData{
 		VolumeName:    volume.Name,
@@ -115,20 +123,36 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	c.Assert(controller.Running, Equals, true)
 	c.Assert(controller.Name, Equals, controllerName)
 
-	err = s.d.stopInstance(controller.ID)
+	instance, err = s.d.stopInstance(controller.ID)
 	c.Assert(err, IsNil)
-	err = s.d.stopInstance(replica1.ID)
-	c.Assert(err, IsNil)
-	err = s.d.stopInstance(replica2.ID)
-	c.Assert(err, IsNil)
+	c.Assert(instance.ID, Equals, controller.ID)
+	c.Assert(instance.Name, Equals, controller.Name)
+	c.Assert(instance.Running, Equals, false)
 
-	err = s.d.removeInstance(controller.ID)
+	instance, err = s.d.stopInstance(replica1.ID)
 	c.Assert(err, IsNil)
+	c.Assert(instance.ID, Equals, replica1.ID)
+	c.Assert(instance.Name, Equals, replica1.Name)
+	c.Assert(instance.Running, Equals, false)
+
+	instance, err = s.d.stopInstance(replica2.ID)
+	c.Assert(err, IsNil)
+	c.Assert(instance.ID, Equals, replica2.ID)
+	c.Assert(instance.Name, Equals, replica2.Name)
+	c.Assert(instance.Running, Equals, false)
+
+	instance, err = s.d.removeInstance(controller.ID)
+	c.Assert(err, IsNil)
+	c.Assert(instance.ID, Equals, controller.ID)
 	delete(s.containerBin, controller.ID)
-	err = s.d.removeInstance(replica1.ID)
+
+	instance, err = s.d.removeInstance(replica1.ID)
 	c.Assert(err, IsNil)
+	c.Assert(instance.ID, Equals, replica1.ID)
 	delete(s.containerBin, replica1.ID)
-	err = s.d.removeInstance(replica2.ID)
+
+	instance, err = s.d.removeInstance(replica2.ID)
 	c.Assert(err, IsNil)
+	c.Assert(instance.ID, Equals, replica2.ID)
 	delete(s.containerBin, replica2.ID)
 }
