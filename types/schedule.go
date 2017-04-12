@@ -27,9 +27,10 @@ type ScheduleItem struct {
 }
 
 type ScheduleInstance struct {
-	ID     string
-	Type   InstanceType
-	HostID string
+	ID         string
+	Type       InstanceType
+	HostID     string
+	VolumeName string
 }
 
 type ScheduleSpec struct {

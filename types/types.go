@@ -168,12 +168,13 @@ type VolumeInfo struct {
 }
 
 type InstanceInfo struct {
-	ID      string
-	Type    InstanceType
-	Name    string
-	HostID  string
-	Address string
-	Running bool
+	ID         string
+	Type       InstanceType
+	Name       string
+	HostID     string
+	Address    string
+	Running    bool
+	VolumeName string
 }
 
 type ControllerInfo struct {
