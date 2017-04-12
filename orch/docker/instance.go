@@ -96,7 +96,11 @@ func (d *dockerOrc) ProcessSchedule(item *types.ScheduleItem) (*types.InstanceIn
 }
 
 func (d *dockerOrc) CreateController(volumeName, controllerName string, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
-	data, err := d.prepareCreateController(volumeName, controllerName, replicas)
+	replicaNames := []string{}
+	for name := range replicas {
+		replicaNames = append(replicaNames, name)
+	}
+	data, err := d.prepareCreateController(volumeName, controllerName, replicaNames)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Fail to create controller for %v", volumeName)
 	}
@@ -119,7 +123,7 @@ func (d *dockerOrc) CreateController(volumeName, controllerName string, replicas
 	}, nil
 }
 
-func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, replicas map[string]*types.ReplicaInfo) (*types.ScheduleData, error) {
+func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, replicaNames []string) (*types.ScheduleData, error) {
 	volume, err := d.getVolume(volumeName)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create controller")
@@ -134,7 +138,11 @@ func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, r
 		LonghornImage:    volume.LonghornImage,
 		ReplicaAddresses: []string{},
 	}
-	for _, replica := range replicas {
+	for _, name := range replicaNames {
+		replica := volume.Replicas[name]
+		if replica == nil {
+			return nil, errors.Errorf("cannot find replica %v", name)
+		}
 		data.ReplicaAddresses = append(data.ReplicaAddresses, "tcp://"+replica.Address+":9502")
 	}
 
