@@ -69,7 +69,7 @@ func (s *OrcScheduler) ScheduleProcess(spec *types.ScheduleSpec, item *types.Sch
 	if err != nil {
 		return nil, errors.Wrapf(err, "Fail to schedule on host %v(%v %v)", host.UUID, host.Name, host.Address)
 	}
-	logrus.Debugf("Scheduled %v to %v(%v)", item.Instance.ID, host.UUID, host.Address)
+	logrus.Debugf("Scheduled %v %v to %v(%v)", item.Action, item.Instance.ID, host.UUID, host.Address)
 	return ret, nil
 }
 

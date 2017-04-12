@@ -143,6 +143,9 @@ func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, r
 		if replica == nil {
 			return nil, errors.Errorf("cannot find replica %v", name)
 		}
+		if replica.Address == "" {
+			return nil, errors.Errorf("invalid empty address of replica %v", name)
+		}
 		data.ReplicaAddresses = append(data.ReplicaAddresses, "tcp://"+replica.Address+":9502")
 	}
 
@@ -273,7 +276,7 @@ func (d *dockerOrc) prepareCreateReplica(volumeName, replicaName string) (*types
 	}, nil
 }
 
-func (d *dockerOrc) createReplica(data *dockerScheduleData) (instance *types.InstanceInfo, err error) {
+func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo, error) {
 	cmd := []string{
 		"launch", "replica",
 		"--listen", "0.0.0.0:9502",
@@ -298,18 +301,18 @@ func (d *dockerOrc) createReplica(data *dockerScheduleData) (instance *types.Ins
 		return nil, errors.Wrapf(err, "fail to create replica for %v", data.VolumeName)
 	}
 
-	instance = &types.InstanceInfo{
+	input := &types.InstanceInfo{
 		ID:         createBody.ID,
 		HostID:     d.GetCurrentHostID(),
 		Name:       data.InstanceName,
 		Type:       types.InstanceTypeReplica,
 		VolumeName: data.VolumeName,
 	}
-	instance, err = d.startInstance(instance)
+	instance, err := d.startInstance(input)
 	if err != nil {
 		logrus.Errorf("fail to start replica %v of %v, cleaning up: %v", data.InstanceName, data.VolumeName, err)
-		d.removeInstance(instance)
-		return nil, errors.Wrapf(err, "fail to create replica for %v", instance.VolumeName)
+		d.removeInstance(input)
+		return nil, errors.Wrapf(err, "fail to create replica for %v", input.VolumeName)
 	}
 
 	return instance, nil
@@ -466,14 +469,17 @@ func (d *dockerOrc) updateInstanceMetadata(instance *types.InstanceInfo) (err er
 			return errors.Errorf("unable to update instance metadata: metadata conflict: %+v %+v",
 				controller, instance)
 		}
-		volume.Controller = &types.ControllerInfo{
-			*instance,
-		}
+		volume.Controller = &types.ControllerInfo{*instance}
 	} else if instance.Type == types.InstanceTypeReplica {
 		replica := volume.Replicas[instance.Name]
-		if replica != nil && (replica.ID != instance.ID || replica.HostID != instance.HostID) {
-			return errors.Errorf("unable to update instance metadata: replica %v metadata conflict: %+v %+v",
-				instance.Name, replica, instance)
+		if replica != nil {
+			if replica.ID != instance.ID || replica.HostID != instance.HostID {
+				return errors.Errorf("unable to update instance metadata: replica %v metadata conflict: %+v %+v",
+					instance.Name, replica, instance)
+			}
+			replica.InstanceInfo = *instance
+		} else {
+			replica = &types.ReplicaInfo{InstanceInfo: *instance}
 		}
 		if volume.Replicas == nil {
 			volume.Replicas = make(map[string]*types.ReplicaInfo)

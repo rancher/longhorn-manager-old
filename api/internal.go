@@ -28,7 +28,7 @@ func (s *Server) Schedule(rw http.ResponseWriter, req *http.Request) error {
 		return errors.Wrap(err, "error read scheduleInput")
 	}
 
-	logrus.Debugf("Schedule request for %+v", input.Item.Instance)
+	logrus.Debugf("Schedule request for %v %+v", input.Item.Action, input.Item.Instance)
 	instance, err := s.man.ProcessSchedule(&input.Spec, &input.Item)
 	if err != nil {
 		return errors.Wrapf(err, "fail to execute %v %+v",

@@ -61,33 +61,13 @@ func (man *volumeManager) doCreate(volume *types.VolumeInfo) (*types.VolumeInfo,
 		return nil, errors.Wrapf(err, "failed to create volume '%s'", volume.Name)
 	}
 
-	replicas := map[string]*types.ReplicaInfo{}
 	for i := 0; i < vol.NumberOfReplicas; i++ {
 		replicaName := man.GetReplicaName(vol.Name)
-		replica, err := man.orc.CreateReplica(vol.Name, replicaName)
-		if err != nil {
+		if _, err := man.orc.CreateReplica(vol.Name, replicaName); err != nil {
 			return nil, errors.Wrapf(err, "error creating replica '%s', volume '%s'", replicaName, vol.Name)
 		}
-		replicas[replica.Name] = replica
 	}
-	vol.Replicas = replicas
-	if err := man.orc.UpdateVolume(vol); err != nil {
-		for _, replica := range vol.Replicas {
-			if err := man.orc.StopInstance(&replica.InstanceInfo); err != nil {
-				logrus.Errorf("Fail to stop replica %v as cleanup for creation failure", replica.Name)
-			}
-			if err := man.orc.RemoveInstance(&replica.InstanceInfo); err != nil {
-				logrus.Errorf("Fail to remove replica %v as cleanup for creation failure", replica.Name)
-			}
-		}
-		return nil, err
-	}
-
-	//TODO need to call to Get() and get a consistent return
-	state := volumeState(vol)
-	vol.State = state
-
-	return vol, nil
+	return man.Get(volume.Name)
 }
 
 func (man *volumeManager) cleanupFailedCreate(vol *types.VolumeInfo) {
@@ -354,11 +334,6 @@ func (man *volumeManager) doAttach(volume *types.VolumeInfo) error {
 	}
 
 	volume.Controller = controller
-
-	if err := man.orc.UpdateVolume(volume); err != nil {
-		//TODO rollback
-		return err
-	}
 	man.startMonitoring(volume)
 	return nil
 }
@@ -406,10 +381,6 @@ func (man *volumeManager) doDetach(volume *types.VolumeInfo) error {
 			return errors.Wrapf(err, "error removing the controller id='%s', volume '%s'", volume.Controller.ID, volume.Name)
 		}
 		volume.Controller = nil
-	}
-	if err := man.orc.UpdateVolume(volume); err != nil {
-		//TODO rollback
-		return err
 	}
 	return nil
 }
