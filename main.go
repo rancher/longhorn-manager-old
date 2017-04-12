@@ -101,8 +101,6 @@ func RunManager(c *cli.Context) error {
 		return err
 	}
 
-	//man := api.DummyVolumeManager()
-	//sl := api.DummyServiceLocator("localhost-ID")
 	proxy := api.Proxy()
 
 	s := api.NewServer(man, orc, proxy)
