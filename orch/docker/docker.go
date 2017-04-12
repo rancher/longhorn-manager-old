@@ -217,6 +217,20 @@ func (d *dockerOrc) ListVolumes() ([]*types.VolumeInfo, error) {
 }
 
 func (d *dockerOrc) MarkBadReplica(volumeName string, replica *types.ReplicaInfo) error {
+	v, err := d.getVolume(volumeName)
+	if err != nil {
+		return errors.Wrap(err, "fail to mark bad replica, cannot get volume")
+	}
+	for k, r := range v.Replicas {
+		if r.Name == replica.Name {
+			r.BadTimestamp = time.Now().UTC()
+			v.Replicas[k] = r
+			break
+		}
+	}
+	if err := d.UpdateVolume(v); err != nil {
+		return errors.Wrap(err, "fail to mark bad replica, cannot update volume")
+	}
 	return nil
 }
 
