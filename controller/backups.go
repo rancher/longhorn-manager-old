@@ -90,19 +90,15 @@ func (c *controller) LatestBackupStatus() *types.BackupStatusInfo {
 }
 
 func (c *controller) Restore(backup string) error {
-	cmd := exec.Command("longhorn", "--url", c.url, "backup", "restore", backup)
-	bs, err := cmd.CombinedOutput()
-	if err != nil {
-		return errors.Wrapf(err, "error restoring backup '%s' \n%s", backup, string(bs))
+	if _, err := util.Execute("longhorn", "--url", c.url, "backup", "restore", backup); err != nil {
+		return errors.Wrapf(err, "error restoring backup '%s'", backup)
 	}
 	return nil
 }
 
 func (c *controller) DeleteBackup(backup string) error {
-	cmd := exec.Command("longhorn", "--url", c.url, "backup", "rm", backup)
-	bs, err := cmd.CombinedOutput()
-	if err != nil {
-		return errors.Wrapf(err, "error deleting backup '%s' \n%s", backup, string(bs))
+	if _, err := util.Execute("longhorn", "--url", c.url, "backup", "rm", backup); err != nil {
+		return errors.Wrapf(err, "error deleting backup '%s'", backup)
 	}
 	return nil
 }

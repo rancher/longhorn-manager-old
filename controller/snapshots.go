@@ -1,38 +1,39 @@
 package controller
 
 import (
-	"bytes"
 	"encoding/json"
-	"github.com/Sirupsen/logrus"
-	"github.com/pkg/errors"
-	"github.com/rancher/longhorn-orc/types"
 	"os/exec"
 	"strings"
+	"time"
+
+	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
+
+	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-orc/util"
 )
 
-const VolumeHeadName = "volume-head"
+const (
+	VolumeHeadName = "volume-head"
+	purgeTimeout   = 15 * time.Minute
+)
 
 func (c *controller) SnapshotOps() types.SnapshotOps {
 	return c
 }
 
 func (c *controller) Create(name string, labels map[string]string) (string, error) {
-	var stdout, stderr bytes.Buffer
-
 	args := []string{"--url", c.url, "snapshot", "create"}
 	for k, v := range labels {
 		args = append(args, "--label", k+"="+v)
 	}
 	args = append(args, name)
 
-	cmd := exec.Command("longhorn", args...)
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
+	output, err := util.Execute("longhorn", args...)
 	if err != nil {
-		return "", errors.Wrapf(err, "error creating snapshot '%s': %s", name, stderr.String())
+		return "", errors.Wrapf(err, "error creating snapshot '%s'", name)
 	}
-	return strings.TrimSpace(stdout.String()), nil
+	return strings.TrimSpace(output), nil
 }
 
 func (c *controller) list() (map[string]*types.SnapshotInfo, error) {
@@ -78,27 +79,24 @@ func (c *controller) Get(name string) (*types.SnapshotInfo, error) {
 }
 
 func (c *controller) Delete(name string) error {
-	cmd := exec.Command("longhorn", "--url", c.url, "snapshot", "rm", name)
-	err := cmd.Run()
-	if err != nil {
+	if _, err := util.Execute("longhorn", "--url", c.url,
+		"snapshot", "rm", name); err != nil {
 		return errors.Wrapf(err, "error deleting snapshot '%s'", name)
 	}
 	return nil
 }
 
 func (c *controller) Revert(name string) error {
-	cmd := exec.Command("longhorn", "--url", c.url, "snapshot", "revert", name)
-	err := cmd.Run()
-	if err != nil {
+	if _, err := util.Execute("longhorn", "--url", c.url,
+		"snapshot", "revert", name); err != nil {
 		return errors.Wrapf(err, "error reverting to snapshot '%s'", name)
 	}
 	return nil
 }
 
 func (c *controller) Purge() error {
-	cmd := exec.Command("longhorn", "--url", c.url, "snapshot", "purge")
-	err := cmd.Run()
-	if err != nil {
+	if _, err := util.ExecuteWithTimeout(purgeTimeout, "longhorn", "--url", c.url,
+		"snapshot", "purge"); err != nil {
 		return errors.Wrapf(err, "error purging snapshots")
 	}
 	return nil

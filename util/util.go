@@ -6,19 +6,26 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/go-units"
 	"github.com/pkg/errors"
-	"github.com/rancher/longhorn-orc/types"
 	"github.com/satori/go.uuid"
+
+	"github.com/rancher/longhorn-orc/types"
 )
 
 const (
 	VolumeStackPrefix     = "volume-"
 	ControllerServiceName = "controller"
 	ReplicaServiceName    = "replica"
+)
+
+var (
+	cmdTimeout = time.Minute // one minute by default
 )
 
 type MetadataConfig struct {
@@ -171,4 +178,37 @@ func WaitForAPI(url string, timeout int) error {
 
 func Now() string {
 	return time.Now().UTC().Format(time.RFC3339)
+}
+
+func Execute(binary string, args ...string) (string, error) {
+	return ExecuteWithTimeout(cmdTimeout, binary, args...)
+}
+
+func ExecuteWithTimeout(timeout time.Duration, binary string, args ...string) (string, error) {
+	var output []byte
+	var err error
+	cmd := exec.Command(binary, args...)
+	done := make(chan struct{})
+
+	go func() {
+		output, err = cmd.CombinedOutput()
+		done <- struct{}{}
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(cmdTimeout):
+		if cmd.Process != nil {
+			if err := cmd.Process.Kill(); err != nil {
+				logrus.Warnf("Problem killing process pid=%v: %s", cmd.Process.Pid, err)
+			}
+
+		}
+		return "", fmt.Errorf("Timeout executing: %v %v, output %v, error %v", binary, args, string(output), err)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("Failed to execute: %v %v, output %v, error %v", binary, args, string(output), err)
+	}
+	return string(output), nil
 }

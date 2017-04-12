@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"bytes"
 	"encoding/json"
 	"os/exec"
 	"strings"
@@ -139,13 +138,17 @@ func (c *controller) GetReplicaStates() ([]*types.ReplicaInfo, error) {
 }
 
 func (c *controller) AddReplica(replica *types.ReplicaInfo) error {
-	err := exec.Command("longhorn", "--url", c.url, "add", replica.Address).Run()
-	return errors.Wrapf(err, "failed to add replica address='%s' to controller '%s'", replica.Address, c.name)
+	if _, err := util.Execute("longhorn", "--url", c.url, "add", replica.Address); err != nil {
+		return errors.Wrapf(err, "failed to add replica address='%s' to controller '%s'", replica.Address, c.name)
+	}
+	return nil
 }
 
 func (c *controller) RemoveReplica(replica *types.ReplicaInfo) error {
-	err := exec.Command("longhorn", "--url", c.url, "rm", replica.Address).Run()
-	return errors.Wrapf(err, "failed to rm replica address='%s' from controller '%s'", replica.Address, c.name)
+	if _, err := util.Execute("longhorn", "--url", c.url, "rm", replica.Address); err != nil {
+		return errors.Wrapf(err, "failed to rm replica address='%s' from controller '%s'", replica.Address, c.name)
+	}
+	return nil
 }
 
 func (c *controller) Endpoint() string {
@@ -159,19 +162,14 @@ func (c *controller) Endpoint() string {
 }
 
 func (c *controller) info() (*volumeInfo, error) {
-	var stdout, stderr bytes.Buffer
-
-	cmd := exec.Command("longhorn", "--url", c.url, "info")
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
+	output, err := util.Execute("longhorn", "--url", c.url, "info")
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot get volume info: %v", stderr.String())
+		return nil, errors.Wrapf(err, "cannot get volume info")
 	}
 
 	info := &volumeInfo{}
-	if err := json.Unmarshal(stdout.Bytes(), info); err != nil {
-		return nil, errors.Wrapf(err, "cannot decode volume info: %v", stdout.String())
+	if err := json.Unmarshal([]byte(output), info); err != nil {
+		return nil, errors.Wrapf(err, "cannot decode volume info: %v", output)
 	}
 	return info, nil
 }
