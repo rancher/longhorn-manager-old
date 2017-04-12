@@ -12,7 +12,6 @@ import (
 	"github.com/rancher/longhorn-manager/controller"
 	"github.com/rancher/longhorn-manager/manager"
 	"github.com/rancher/longhorn-manager/orch"
-	"github.com/rancher/longhorn-manager/orch/cattle"
 	"github.com/rancher/longhorn-manager/orch/docker"
 	"github.com/rancher/longhorn-manager/types"
 	"github.com/rancher/longhorn-manager/util/daemon"
@@ -42,8 +41,8 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "orchestrator",
-			Usage: "Choose orchestrator: docker, cattle",
-			Value: "cattle",
+			Usage: "Choose orchestrator: docker",
+			Value: "docker",
 		},
 
 		cli.StringFlag{
@@ -64,28 +63,6 @@ func main() {
 		cli.StringFlag{
 			Name:  "docker-network",
 			Usage: "use specified docker network",
-		},
-
-		// Cattle
-		cli.StringFlag{
-			Name:   "cattle-url",
-			Usage:  "The URL endpoint to communicate with cattle server",
-			EnvVar: "CATTLE_URL",
-		},
-		cli.StringFlag{
-			Name:   "cattle-access-key",
-			Usage:  "The access key required to authenticate with cattle server",
-			EnvVar: "CATTLE_ACCESS_KEY",
-		},
-		cli.StringFlag{
-			Name:   "cattle-secret-key",
-			Usage:  "The secret key required to authenticate with cattle server",
-			EnvVar: "CATTLE_SECRET_KEY",
-		},
-		cli.StringFlag{
-			Name:  "metadata-url",
-			Usage: "set the metadata url",
-			Value: RancherMetadataURL,
 		},
 	}
 
@@ -110,9 +87,7 @@ func RunManager(c *cli.Context) error {
 	}
 
 	orcName := c.String("orchestrator")
-	if orcName == "cattle" {
-		orc, err = cattle.New(c)
-	} else if orcName == "docker" {
+	if orcName == "docker" {
 		orc, err = docker.New(c)
 	} else {
 		err = fmt.Errorf("Invalid orchestrator %v", orcName)
