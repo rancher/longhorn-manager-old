@@ -6,4 +6,4 @@ dist/
 .bash_history
 tmp/
 .venv/
-longhorn-orc
+longhorn-manager

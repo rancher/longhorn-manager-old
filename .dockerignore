@@ -3,4 +3,4 @@
 ./dist
 ./.trash-cache
 ./integration/.venv
-./longhorn-orc
+./longhorn-manager
