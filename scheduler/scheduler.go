@@ -24,7 +24,7 @@ func randomHostID(m map[string]*types.HostInfo) string {
 	return ""
 }
 
-func (s *OrcScheduler) Schedule(item *types.ScheduleItem) (*types.InstanceInfo, error) {
+func (s *OrcScheduler) Schedule(item *types.ScheduleItem, policy *types.SchedulePolicy) (*types.InstanceInfo, error) {
 	if item.Instance.ID == "" || item.Instance.Type == types.InstanceTypeNone {
 		return nil, errors.Errorf("instance ID and type required for scheduling")
 	}
@@ -39,18 +39,35 @@ func (s *OrcScheduler) Schedule(item *types.ScheduleItem) (*types.InstanceInfo, 
 		return nil, errors.Wrap(err, "fail to schedule")
 	}
 
-	availableHosts := hosts
-	for len(availableHosts) != 0 {
-		hostID := randomHostID(availableHosts)
+	normalPriorityList := []string{}
+	lowPriorityList := []string{}
 
-		ret, err := s.ScheduleProcess(&types.ScheduleSpec{HostID: hostID}, item)
+	for id := range hosts {
+		if policy != nil {
+			if policy.Binding == types.SchedulePolicyBindingSoftAntiAffinity {
+				if _, ok := policy.HostIDMap[id]; ok {
+					lowPriorityList = append(lowPriorityList, id)
+				} else {
+					normalPriorityList = append(normalPriorityList, id)
+				}
+			} else {
+				return nil, errors.Errorf("Unsupported schedule policy binding %v", policy.Binding)
+			}
+		} else {
+			normalPriorityList = append(normalPriorityList, id)
+		}
+	}
+
+	priorityList := append(normalPriorityList, lowPriorityList...)
+
+	for _, id := range priorityList {
+		ret, err := s.ScheduleProcess(&types.ScheduleSpec{HostID: id}, item)
 		if err == nil {
 			return ret, nil
 		}
 
-		logrus.Warnf("Fail to schedule %+v, trying on another one: %v", item.Instance, err)
-		delete(availableHosts, hostID)
-
+		logrus.Warnf("Fail to schedule %+v on host %v, trying on another one: %v",
+			hosts[id], item.Instance, err)
 	}
 	return nil, errors.Errorf("unable to find suitable host for scheduling")
 }

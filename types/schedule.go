@@ -8,8 +8,14 @@ const (
 	ScheduleActionStopInstance     = "stop"
 )
 
+type SchedulePolicyBinding string
+
+const (
+	SchedulePolicyBindingSoftAntiAffinity = "soft.anti-affinity"
+)
+
 type Scheduler interface {
-	Schedule(item *ScheduleItem) (*InstanceInfo, error)
+	Schedule(item *ScheduleItem, policy *SchedulePolicy) (*InstanceInfo, error)
 	Process(spec *ScheduleSpec, item *ScheduleItem) (*InstanceInfo, error)
 }
 
@@ -40,4 +46,9 @@ type ScheduleSpec struct {
 type ScheduleData struct {
 	Orchestrator string
 	Data         []byte
+}
+
+type SchedulePolicy struct {
+	Binding   SchedulePolicyBinding
+	HostIDMap map[string]struct{}
 }

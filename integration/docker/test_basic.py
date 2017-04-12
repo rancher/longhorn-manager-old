@@ -111,7 +111,7 @@ def test_hosts_and_settings(clients):
     assert setting["value"] == old_target
 
 
-def test_volume(clients):
+def test_volume_basic(clients):
     # get a random client
     for host_id, client in clients.iteritems():
         break
@@ -121,6 +121,17 @@ def test_volume(clients):
     assert volume["name"] == VOLUME_NAME
     assert volume["size"] == SIZE
     assert volume["numberOfReplicas"] == 2
+
+    # soft anti-affinity should work, and we have 3 nodes
+    assert len(volume["replicas"]) == 2
+    hosts = {}
+    for replica in volume["replicas"]:
+        id = replica["hostId"]
+        assert id != ""
+        assert id not in hosts
+        hosts[id] = True
+    assert len(hosts) == 2
+
     assert volume["state"] == "detached"
     assert volume["created"] != ""
 

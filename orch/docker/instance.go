@@ -114,7 +114,7 @@ func (d *dockerOrc) CreateController(volumeName, controllerName string, replicas
 		},
 		Data: *data,
 	}
-	instance, err := d.scheduler.Schedule(schedule)
+	instance, err := d.scheduler.Schedule(schedule, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Fail to create controller for %v", volumeName)
 	}
@@ -224,10 +224,19 @@ func (d *dockerOrc) getDeviceName(volumeName string) string {
 }
 
 func (d *dockerOrc) CreateReplica(volumeName, replicaName string) (*types.ReplicaInfo, error) {
-	data, err := d.prepareCreateReplica(volumeName, replicaName)
+	volume, err := d.getVolume(volumeName)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create replica")
+	}
+	if volume == nil {
+		return nil, errors.Wrapf(err, "unable to find volume %v", volumeName)
+	}
+
+	data, err := d.prepareCreateReplica(volume, replicaName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Fail to create replica for %v", volumeName)
 	}
+
 	schedule := &types.ScheduleItem{
 		Action: types.ScheduleActionCreateReplica,
 		Instance: types.ScheduleInstance{
@@ -237,7 +246,10 @@ func (d *dockerOrc) CreateReplica(volumeName, replicaName string) (*types.Replic
 		},
 		Data: *data,
 	}
-	instance, err := d.scheduler.Schedule(schedule)
+
+	policy := d.prepareCreateReplicaPolicy(volume)
+
+	instance, err := d.scheduler.Schedule(schedule, policy)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Fail to create replica for %v", volumeName)
 	}
@@ -246,16 +258,22 @@ func (d *dockerOrc) CreateReplica(volumeName, replicaName string) (*types.Replic
 	}, nil
 }
 
-func (d *dockerOrc) prepareCreateReplica(volumeName, replicaName string) (*types.ScheduleData, error) {
-	volume, err := d.getVolume(volumeName)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create replica")
+func (d *dockerOrc) prepareCreateReplicaPolicy(volume *types.VolumeInfo) *types.SchedulePolicy {
+	policy := &types.SchedulePolicy{
+		Binding:   types.SchedulePolicyBindingSoftAntiAffinity,
+		HostIDMap: map[string]struct{}{},
 	}
-	if volume == nil {
-		return nil, errors.Wrapf(err, "unable to find volume %v", volumeName)
+	for _, replica := range volume.Replicas {
+		if replica.BadTimestamp.IsZero() {
+			policy.HostIDMap[replica.HostID] = struct{}{}
+		}
 	}
+	return policy
+}
+
+func (d *dockerOrc) prepareCreateReplica(volume *types.VolumeInfo, replicaName string) (*types.ScheduleData, error) {
 	if volume.Size == 0 {
-		return nil, errors.Wrap(err, "invalid volume size 0")
+		return nil, errors.Errorf("invalid volume size 0")
 	}
 	data := &dockerScheduleData{
 		VolumeName:    volume.Name,
@@ -360,7 +378,7 @@ func (d *dockerOrc) StartInstance(instance *types.InstanceInfo) error {
 			Orchestrator: OrcName,
 		},
 	}
-	if _, err := d.scheduler.Schedule(schedule); err != nil {
+	if _, err := d.scheduler.Schedule(schedule, nil); err != nil {
 		return errors.Wrapf(err, "Fail to start instance %v", instance.ID)
 	}
 	return nil
@@ -389,7 +407,7 @@ func (d *dockerOrc) StopInstance(instance *types.InstanceInfo) error {
 			Orchestrator: OrcName,
 		},
 	}
-	if _, err := d.scheduler.Schedule(schedule); err != nil {
+	if _, err := d.scheduler.Schedule(schedule, nil); err != nil {
 		return errors.Wrapf(err, "Fail to stop instance %v", instance.ID)
 	}
 	return nil
@@ -419,7 +437,7 @@ func (d *dockerOrc) RemoveInstance(instance *types.InstanceInfo) error {
 			Orchestrator: OrcName,
 		},
 	}
-	if _, err := d.scheduler.Schedule(schedule); err != nil {
+	if _, err := d.scheduler.Schedule(schedule, nil); err != nil {
 		return errors.Wrapf(err, "Fail to remove instance %v", instance.ID)
 	}
 	return nil
