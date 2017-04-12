@@ -440,7 +440,9 @@ func (d *dockerOrc) removeInstance(instance *types.InstanceInfo) (*types.Instanc
 }
 
 func (d *dockerOrc) removeContainer(id string) error {
-	return d.cli.ContainerRemove(context.Background(), id, dTypes.ContainerRemoveOptions{RemoveVolumes: true})
+	return d.cli.ContainerRemove(context.Background(), id, dTypes.ContainerRemoveOptions{
+		RemoveVolumes: true,
+	})
 }
 
 func (d *dockerOrc) updateInstanceMetadata(instance *types.InstanceInfo) (err error) {

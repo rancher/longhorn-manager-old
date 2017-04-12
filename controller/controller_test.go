@@ -18,6 +18,6 @@ func TestParseReplica(t *testing.T) {
 	assert.Nil(err)
 	assert.Nil(err1)
 	assert.NotNil(replica)
-	assert.Equal("tcp://replica-79VrD86STQ.volume-qq:9502", replica.Address)
+	assert.Equal("replica-79VrD86STQ.volume-qq", replica.Address)
 	assert.Equal(types.ReplicaModeRW, replica.Mode)
 }
