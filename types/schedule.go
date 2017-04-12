@@ -37,5 +37,5 @@ type ScheduleSpec struct {
 
 type ScheduleData struct {
 	Orchestrator string
-	Data         []byte // encoded orchestrator specific data
+	Data         []byte
 }
