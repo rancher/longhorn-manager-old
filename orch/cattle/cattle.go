@@ -239,7 +239,7 @@ func (orc *cattleOrc) getReplicas(volumeName string, stack *client.Stack) (map[s
 				HostID:  hostID,
 				Address: util.ReplicaAddress(cnt.Name, volumeName),
 			},
-			BadTimestamp: ts,
+			BadTimestamp: *ts,
 		}
 	}
 
@@ -396,7 +396,7 @@ func (orc *cattleOrc) CreateController(volumeName, controllerName string, replic
 		return nil, err
 	}
 	for _, replica := range replicas {
-		if replica.BadTimestamp != nil {
+		if !replica.BadTimestamp.IsZero() {
 			if err := orc.unMarkBadReplica(volumeName, replica, stack); err != nil {
 				return nil, errors.Wrapf(err, "error unmarking bad replica '%s', volume '%s'", replica.Name, volumeName)
 			}

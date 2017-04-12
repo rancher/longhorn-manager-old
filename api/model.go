@@ -269,8 +269,8 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 			mode = string(r.Mode)
 		}
 		badTimestamp := ""
-		if r.BadTimestamp != nil {
-			badTimestamp = util.FormatTimeZ(*r.BadTimestamp)
+		if !r.BadTimestamp.IsZero() {
+			badTimestamp = util.FormatTimeZ(r.BadTimestamp)
 		}
 		replicas = append(replicas, Replica{
 			Instance: Instance{
