@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	sockFile           = "/var/run/longhorn/volume-manager.sock"
-	RancherMetadataURL = "http://rancher-metadata/2016-07-29"
+	sockFile = "/var/run/longhorn/volume-manager.sock"
 )
 
 var VERSION = "0.1.0"
