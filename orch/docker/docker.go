@@ -187,7 +187,6 @@ func (d *dockerOrc) DeleteVolume(volumeName string) error {
 }
 
 func (d *dockerOrc) GetVolume(volumeName string) (*types.VolumeInfo, error) {
-	//TODO Update instances address and status
 	return d.getVolume(volumeName)
 }
 

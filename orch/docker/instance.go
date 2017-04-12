@@ -38,7 +38,11 @@ type dockerScheduleData struct {
 }
 
 func (d *dockerOrc) ProcessSchedule(item *types.ScheduleItem) (*types.InstanceInfo, error) {
-	var data dockerScheduleData
+	var (
+		data     dockerScheduleData
+		instance *types.InstanceInfo
+		err      error
+	)
 
 	if item.Data.Orchestrator != OrcName {
 		return nil, errors.Errorf("received request for the wrong orchestrator %v", item.Data.Orchestrator)
@@ -51,7 +55,7 @@ func (d *dockerOrc) ProcessSchedule(item *types.ScheduleItem) (*types.InstanceIn
 	if item.Instance.ID == "" {
 		return nil, errors.Errorf("empty instance ID")
 	}
-	instance := &types.InstanceInfo{
+	input := &types.InstanceInfo{
 		ID:         item.Instance.ID,
 		HostID:     item.Instance.HostID,
 		Type:       item.Instance.Type,
@@ -59,17 +63,36 @@ func (d *dockerOrc) ProcessSchedule(item *types.ScheduleItem) (*types.InstanceIn
 	}
 	switch item.Action {
 	case types.ScheduleActionCreateController:
-		return d.createController(&data)
+		instance, err = d.createController(&data)
 	case types.ScheduleActionCreateReplica:
-		return d.createReplica(&data)
+		instance, err = d.createReplica(&data)
 	case types.ScheduleActionStartInstance:
-		return d.startInstance(instance)
+		instance, err = d.startInstance(input)
 	case types.ScheduleActionStopInstance:
-		return d.stopInstance(instance)
+		instance, err = d.stopInstance(input)
 	case types.ScheduleActionDeleteInstance:
-		return d.removeInstance(instance)
+		instance, err = d.removeInstance(input)
+	default:
+		return nil, errors.Errorf("cannot find specified action %v", item.Action)
 	}
-	return nil, errors.Errorf("Cannot find specified action %v", item.Action)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to process schedule")
+	}
+	if item.Action == types.ScheduleActionDeleteInstance {
+		err = d.removeInstanceMetadata(instance)
+	} else {
+		err = d.updateInstanceMetadata(instance)
+	}
+	if err != nil {
+		if item.Action == types.ScheduleActionCreateController ||
+			item.Action == types.ScheduleActionCreateReplica {
+			logrus.Warnf("failed to update instance metadata for %+v, cleaning up", instance)
+			d.removeInstance(instance)
+		}
+
+		return nil, errors.Wrapf(err, "failed to update instance metadata for %+v", instance)
+	}
+	return instance, nil
 }
 
 func (d *dockerOrc) CreateController(volumeName, controllerName string, replicas map[string]*types.ReplicaInfo) (*types.ControllerInfo, error) {
@@ -182,7 +205,7 @@ func (d *dockerOrc) createController(data *dockerScheduleData) (instance *types.
 	}
 
 	if err := util.WaitForDevice(d.getDeviceName(data.VolumeName), WaitDeviceTimeout); err != nil {
-		return instance, errors.Wrap(err, "fail to wait for device")
+		return instance, errors.Wrapf(err, "fail to create controller for %v", instance.VolumeName)
 	}
 
 	return instance, nil
@@ -242,7 +265,7 @@ func (d *dockerOrc) prepareCreateReplica(volumeName, replicaName string) (*types
 	}, nil
 }
 
-func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo, error) {
+func (d *dockerOrc) createReplica(data *dockerScheduleData) (instance *types.InstanceInfo, err error) {
 	cmd := []string{
 		"launch", "replica",
 		"--listen", "0.0.0.0:9502",
@@ -264,10 +287,10 @@ func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo
 			Privileged: true,
 		}, nil, data.InstanceName)
 	if err != nil {
-		return nil, errors.Wrap(err, "fail to create replica container")
+		return nil, errors.Wrapf(err, "fail to create replica for %v", data.VolumeName)
 	}
 
-	instance := &types.InstanceInfo{
+	instance = &types.InstanceInfo{
 		ID:         createBody.ID,
 		HostID:     d.GetCurrentHostID(),
 		Name:       data.InstanceName,
@@ -276,10 +299,11 @@ func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo
 	}
 	instance, err = d.startInstance(instance)
 	if err != nil {
-		logrus.Errorf("fail to start %v, cleaning up", instance.Name)
+		logrus.Errorf("fail to start replica %v of %v, cleaning up: %v", data.InstanceName, data.VolumeName, err)
 		d.removeInstance(instance)
-		return nil, errors.Wrap(err, "fail to start replica container")
+		return nil, errors.Wrapf(err, "fail to create replica for %v", instance.VolumeName)
 	}
+
 	return instance, nil
 }
 
@@ -397,15 +421,119 @@ func (d *dockerOrc) removeInstance(instance *types.InstanceInfo) (*types.Instanc
 	if err := d.removeContainer(instance.ID); err != nil {
 		return nil, errors.Wrapf(err, "Fail to remove instance %v", instance.ID)
 	}
-	return &types.InstanceInfo{
+	ret := &types.InstanceInfo{
 		ID:         instance.ID,
 		Name:       instance.Name,
 		HostID:     instance.HostID,
 		Type:       instance.Type,
 		VolumeName: instance.VolumeName,
-	}, nil
+	}
+	return ret, nil
 }
 
 func (d *dockerOrc) removeContainer(id string) error {
 	return d.cli.ContainerRemove(context.Background(), id, dTypes.ContainerRemoveOptions{RemoveVolumes: true})
+}
+
+func (d *dockerOrc) updateInstanceMetadata(instance *types.InstanceInfo) (err error) {
+	if instance.ID == "" ||
+		instance.Name == "" ||
+		instance.HostID == "" ||
+		instance.Type == types.InstanceTypeNone ||
+		instance.VolumeName == "" {
+		return errors.Errorf("invalid instance to update metadata: %+v", instance)
+	}
+
+	volume, err := d.getVolume(instance.VolumeName)
+	if err != nil {
+		return errors.Wrapf(err, "fail to update instance metadata: %+v", instance)
+	}
+	if volume == nil {
+		return errors.Errorf("fail to find volume %v", instance.VolumeName)
+	}
+
+	if instance.Type == types.InstanceTypeController {
+		controller := volume.Controller
+		if controller != nil && (controller.ID != instance.ID || controller.HostID != instance.HostID) {
+			return errors.Errorf("unable to update instance metadata: metadata conflict: %+v %+v",
+				controller, instance)
+		}
+		volume.Controller = &types.ControllerInfo{
+			*instance,
+		}
+	} else if instance.Type == types.InstanceTypeReplica {
+		replica := volume.Replicas[instance.Name]
+		if replica != nil && (replica.ID != instance.ID || replica.HostID != instance.HostID) {
+			return errors.Errorf("unable to update instance metadata: replica %v metadata conflict: %+v %+v",
+				instance.Name, replica, instance)
+		}
+		if volume.Replicas == nil {
+			volume.Replicas = make(map[string]*types.ReplicaInfo)
+		}
+		volume.Replicas[instance.Name] = replica
+	}
+	if err := d.setVolume(volume); err != nil {
+		return errors.Wrap(err, "fail to update instance metadata")
+	}
+
+	return nil
+}
+
+func (d *dockerOrc) removeInstanceMetadata(instance *types.InstanceInfo) (err error) {
+	if instance.ID == "" ||
+		instance.HostID == "" ||
+		instance.Type == types.InstanceTypeNone ||
+		instance.VolumeName == "" {
+		return errors.Errorf("invalid instance to update metadata for %+v", instance)
+	}
+
+	volume, err := d.getVolume(instance.VolumeName)
+	if err != nil {
+		return errors.Wrapf(err, "fail to update instance metadata for %+v", instance)
+	}
+	if volume == nil {
+		return errors.Errorf("fail to find volume %v", instance.VolumeName)
+	}
+
+	if instance.Type == types.InstanceTypeController {
+		controller := volume.Controller
+		if controller == nil {
+			return errors.Errorf("unable to remove instance metadata: unable to find controller for volume %v",
+				instance.VolumeName)
+		}
+		if controller.ID != instance.ID || controller.HostID != instance.HostID {
+			return errors.Errorf("unable to remove instance metadata: metadata conflict: %+v %+v",
+				controller, instance)
+		}
+		volume.Controller = nil
+	} else if instance.Type == types.InstanceTypeReplica {
+		var replica *types.ReplicaInfo
+		if instance.Name != "" {
+			replica = volume.Replicas[instance.Name]
+		} else {
+			for _, v := range volume.Replicas {
+				// In case we have same instance ID in different host
+				if v.ID == instance.ID && v.HostID == instance.HostID {
+					replica = v
+					break
+				}
+			}
+		}
+		if replica == nil {
+			return errors.Errorf("unable to remove instance metadata: unable to find replica as %+v",
+				instance)
+		}
+
+		if replica.ID != instance.ID || replica.HostID != instance.HostID {
+			return errors.Errorf("unable to remove instance metadata: metadata conflict: %+v %+v",
+				replica, instance)
+		}
+		delete(volume.Replicas, replica.Name)
+	}
+
+	if err := d.setVolume(volume); err != nil {
+		return errors.Wrap(err, "fail to remove instance metadata")
+	}
+
+	return nil
 }

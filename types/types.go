@@ -159,7 +159,7 @@ type VolumeInfo struct {
 	NumberOfReplicas    int
 	StaleReplicaTimeout time.Duration
 	Controller          *ControllerInfo
-	Replicas            map[string]*ReplicaInfo
+	Replicas            map[string]*ReplicaInfo //key is replicaName
 	State               VolumeState
 	LonghornImage       string
 	Endpoint            string
