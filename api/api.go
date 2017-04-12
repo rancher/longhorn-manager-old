@@ -58,6 +58,7 @@ func Handler(s *Server) http.Handler {
 		"snapshotBackup":     s.fwd.Handler(HostIDFromVolume(s.man), s.snapshots.Backup),
 		"recurringUpdate":    s.fwd.Handler(HostIDFromVolume(s.man), s.UpdateRecurring),
 		"latestBackupStatus": s.fwd.Handler(HostIDFromVolume(s.man), s.LatestBackupStatus),
+		"replicaRemove":      s.fwd.Handler(HostIDFromVolume(s.man), s.ReplicaRemove),
 	}
 	for name, action := range volumeActions {
 		r.Methods("POST").Path("/v1/volumes/{name}").Queries("action", name).Handler(f(schemas, action))

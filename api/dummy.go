@@ -182,3 +182,7 @@ func (d *dummyVolumeManager) GetHost(id string) (*types.HostInfo, error) {
 func (d *dummyVolumeManager) ProcessSchedule(spec *types.ScheduleSpec, item *types.ScheduleItem) (*types.InstanceInfo, error) {
 	return nil, nil
 }
+
+func (d *dummyVolumeManager) ReplicaRemove(volumeName, replicaName string) error {
+	return nil
+}

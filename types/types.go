@@ -46,6 +46,7 @@ type VolumeManager interface {
 	Attach(name string) error
 	Detach(name string) error
 	UpdateRecurring(name string, jobs []*RecurringJob) error
+	ReplicaRemove(volumeName, replicaName string) error
 
 	ListHosts() (map[string]*HostInfo, error)
 	GetHost(id string) (*HostInfo, error)

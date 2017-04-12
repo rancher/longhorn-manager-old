@@ -601,3 +601,23 @@ func (man *volumeManager) ProcessSchedule(spec *types.ScheduleSpec, item *types.
 	}
 	return scheduler.Process(spec, item)
 }
+
+func (man *volumeManager) ReplicaRemove(volumeName, replicaName string) error {
+	volume, err := man.Get(volumeName)
+	if err != nil {
+		return errors.Wrapf(err, "fail to remove replica %v of volume %v", replicaName, volumeName)
+	}
+	replica := volume.Replicas[replicaName]
+	if replica == nil {
+		return errors.Errorf("cannot find replica %v of volume %v", replicaName, volumeName)
+	}
+	if replica.Running {
+		if err := man.orc.StopInstance(&replica.InstanceInfo); err != nil {
+			logrus.Warnf("cannot stop replica %v of volume %v, push on", replicaName, volumeName)
+		}
+	}
+	if err := man.orc.RemoveInstance(&replica.InstanceInfo); err != nil {
+		return errors.Wrapf(err, "fail to remove replica %v of volume %v", replicaName, volumeName)
+	}
+	return nil
+}

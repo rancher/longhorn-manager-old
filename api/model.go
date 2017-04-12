@@ -105,6 +105,10 @@ type RecurringInput struct {
 	Jobs []types.RecurringJob `json:"jobs,omitempty"`
 }
 
+type ReplicaRemoveInput struct {
+	Name string `json:"name"`
+}
+
 func NewSchema() *client.Schemas {
 	schemas := &client.Schemas{}
 
@@ -118,6 +122,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("backupInput", BackupInput{})
 	schemas.AddType("recurringJob", types.RecurringJob{})
 	schemas.AddType("backupStatus", BackupStatus{})
+	schemas.AddType("replicaRemoveInput", ReplicaRemoveInput{})
 
 	hostSchema(schemas.AddType("host", Host{}))
 	volumeSchema(schemas.AddType("volume", Volume{}))
@@ -192,6 +197,10 @@ func volumeSchema(volume *client.Schema) {
 		},
 		"latestBackupStatus": {
 			Output: "backupStatus",
+		},
+		"replicaRemove": {
+			Input:  "replicaRemoveInput",
+			Output: "volume",
 		},
 	}
 	volume.ResourceFields["controller"] = client.Field{
@@ -324,6 +333,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 	case types.VolumeStateDetached:
 		actions["attach"] = struct{}{}
 		actions["recurringUpdate"] = struct{}{}
+		actions["replicaRemove"] = struct{}{}
 	case types.VolumeStateHealthy:
 		actions["detach"] = struct{}{}
 		actions["snapshotPurge"] = struct{}{}
@@ -335,6 +345,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["snapshotBackup"] = struct{}{}
 		actions["recurringUpdate"] = struct{}{}
 		actions["latestBackupStatus"] = struct{}{}
+		actions["replicaRemove"] = struct{}{}
 	case types.VolumeStateDegraded:
 		actions["detach"] = struct{}{}
 		actions["snapshotPurge"] = struct{}{}
@@ -346,6 +357,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["snapshotBackup"] = struct{}{}
 		actions["recurringUpdate"] = struct{}{}
 		actions["latestBackupStatus"] = struct{}{}
+		actions["replicaRemove"] = struct{}{}
 	case types.VolumeStateCreated:
 		actions["recurringUpdate"] = struct{}{}
 	case types.VolumeStateFaulted:
