@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	sockFile           = "/var/run/rancher/longhorn/volume-manager.sock"
+	sockFile           = "/var/run/longhorn/volume-manager.sock"
 	RancherMetadataURL = "http://rancher-metadata/2016-07-29"
 )
 
@@ -122,14 +122,13 @@ func RunManager(c *cli.Context) error {
 		return err
 	}
 
-	go server.NewUnixServer(sockFile).Serve(api.HandlerLocal(man))
-
 	//man := api.DummyVolumeManager()
 	//sl := api.DummyServiceLocator("localhost-ID")
 	proxy := api.Proxy()
 
 	s := api.NewServer(man, orc, proxy)
 
+	go server.NewUnixServer(sockFile).Serve(api.Handler(s))
 	go server.NewTCPServer(fmt.Sprintf(":%v", api.DefaultPort)).Serve(api.Handler(s))
 
 	return daemon.WaitForExit()
