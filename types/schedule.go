@@ -28,6 +28,7 @@ type ScheduleItem struct {
 
 type ScheduleInstance struct {
 	ID     string
+	Type   InstanceType
 	HostID string
 }
 

@@ -25,8 +25,8 @@ func randomHostID(m map[string]*types.HostInfo) string {
 }
 
 func (s *OrcScheduler) Schedule(item *types.ScheduleItem) (*types.InstanceInfo, error) {
-	if item.Instance.ID == "" {
-		return nil, errors.Errorf("instance ID required for scheduling")
+	if item.Instance.ID == "" || item.Instance.Type == types.InstanceTypeNone {
+		return nil, errors.Errorf("instance ID and type required for scheduling")
 	}
 	if item.Instance.HostID != "" {
 		return s.ScheduleProcess(&types.ScheduleSpec{
@@ -81,7 +81,7 @@ func (s *OrcScheduler) Process(spec *types.ScheduleSpec, item *types.ScheduleIte
 	if err != nil {
 		return nil, errors.Wrapf(err, "fail to process schedule request")
 	}
-	if instance == nil || instance.ID == "" {
+	if instance == nil || instance.ID == "" || instance.Type == types.InstanceTypeNone {
 		return nil, errors.Errorf("missing key fields from schedule response %+v", instance)
 	}
 	return instance, nil

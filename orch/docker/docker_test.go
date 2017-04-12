@@ -23,7 +23,8 @@ type TestSuite struct {
 	d             *dockerOrc
 	longhornImage string
 
-	containerBin map[string]struct{}
+	replicaBin    map[string]struct{}
+	controllerBin map[string]struct{}
 }
 
 var _ = Suite(&TestSuite{})
@@ -31,7 +32,8 @@ var _ = Suite(&TestSuite{})
 func (s *TestSuite) SetUpTest(c *C) {
 	var err error
 
-	s.containerBin = make(map[string]struct{})
+	s.replicaBin = make(map[string]struct{})
+	s.controllerBin = make(map[string]struct{})
 
 	etcdIP := os.Getenv(EnvEtcdServer)
 	c.Assert(etcdIP, Not(Equals), "")
@@ -49,9 +51,13 @@ func (s *TestSuite) SetUpTest(c *C) {
 }
 
 func (s *TestSuite) Cleanup() {
-	for id := range s.containerBin {
-		s.d.stopInstance(id)
-		s.d.removeInstance(id)
+	for id := range s.replicaBin {
+		s.d.stopInstance(id, types.InstanceTypeReplica)
+		s.d.removeInstance(id, types.InstanceTypeReplica)
+	}
+	for id := range s.controllerBin {
+		s.d.stopInstance(id, types.InstanceTypeController)
+		s.d.removeInstance(id, types.InstanceTypeController)
 	}
 }
 
@@ -74,19 +80,19 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	replica1, err := s.d.createReplica(replica1Data)
 	c.Assert(err, IsNil)
 	c.Assert(replica1.ID, NotNil)
-	s.containerBin[replica1.ID] = struct{}{}
+	s.replicaBin[replica1.ID] = struct{}{}
 
 	c.Assert(replica1.HostID, Equals, s.d.GetCurrentHostID())
 	c.Assert(replica1.Running, Equals, true)
 	c.Assert(replica1.Name, Equals, replica1Data.InstanceName)
 
-	instance, err = s.d.stopInstance(replica1.ID)
+	instance, err = s.d.stopInstance(replica1.ID, types.InstanceTypeReplica)
 	c.Assert(err, IsNil)
 	c.Assert(instance.ID, Equals, replica1.ID)
 	c.Assert(instance.Name, Equals, replica1.Name)
 	c.Assert(instance.Running, Equals, false)
 
-	instance, err = s.d.startInstance(replica1.ID)
+	instance, err = s.d.startInstance(replica1.ID, types.InstanceTypeReplica)
 	c.Assert(err, IsNil)
 	c.Assert(instance.ID, Equals, replica1.ID)
 	c.Assert(instance.Name, Equals, replica1.Name)
@@ -101,7 +107,7 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	replica2, err := s.d.createReplica(replica2Data)
 	c.Assert(err, IsNil)
 	c.Assert(replica2.ID, NotNil)
-	s.containerBin[replica2.ID] = struct{}{}
+	s.replicaBin[replica2.ID] = struct{}{}
 
 	controllerName := "controller-test"
 
@@ -117,42 +123,42 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	controller, err := s.d.createController(data)
 	c.Assert(err, IsNil)
 	c.Assert(controller.ID, NotNil)
-	s.containerBin[controller.ID] = struct{}{}
+	s.controllerBin[controller.ID] = struct{}{}
 
 	c.Assert(controller.HostID, Equals, s.d.GetCurrentHostID())
 	c.Assert(controller.Running, Equals, true)
 	c.Assert(controller.Name, Equals, controllerName)
 
-	instance, err = s.d.stopInstance(controller.ID)
+	instance, err = s.d.stopInstance(controller.ID, types.InstanceTypeController)
 	c.Assert(err, IsNil)
 	c.Assert(instance.ID, Equals, controller.ID)
 	c.Assert(instance.Name, Equals, controller.Name)
 	c.Assert(instance.Running, Equals, false)
 
-	instance, err = s.d.stopInstance(replica1.ID)
+	instance, err = s.d.stopInstance(replica1.ID, types.InstanceTypeReplica)
 	c.Assert(err, IsNil)
 	c.Assert(instance.ID, Equals, replica1.ID)
 	c.Assert(instance.Name, Equals, replica1.Name)
 	c.Assert(instance.Running, Equals, false)
 
-	instance, err = s.d.stopInstance(replica2.ID)
+	instance, err = s.d.stopInstance(replica2.ID, types.InstanceTypeReplica)
 	c.Assert(err, IsNil)
 	c.Assert(instance.ID, Equals, replica2.ID)
 	c.Assert(instance.Name, Equals, replica2.Name)
 	c.Assert(instance.Running, Equals, false)
 
-	instance, err = s.d.removeInstance(controller.ID)
+	instance, err = s.d.removeInstance(controller.ID, types.InstanceTypeController)
 	c.Assert(err, IsNil)
 	c.Assert(instance.ID, Equals, controller.ID)
-	delete(s.containerBin, controller.ID)
+	delete(s.controllerBin, controller.ID)
 
-	instance, err = s.d.removeInstance(replica1.ID)
+	instance, err = s.d.removeInstance(replica1.ID, types.InstanceTypeReplica)
 	c.Assert(err, IsNil)
 	c.Assert(instance.ID, Equals, replica1.ID)
-	delete(s.containerBin, replica1.ID)
+	delete(s.replicaBin, replica1.ID)
 
-	instance, err = s.d.removeInstance(replica2.ID)
+	instance, err = s.d.removeInstance(replica2.ID, types.InstanceTypeReplica)
 	c.Assert(err, IsNil)
 	c.Assert(instance.ID, Equals, replica2.ID)
-	delete(s.containerBin, replica2.ID)
+	delete(s.replicaBin, replica2.ID)
 }
