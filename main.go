@@ -61,6 +61,10 @@ func main() {
 			Usage: "the prefix using with etcd server",
 			Value: "/longhorn",
 		},
+		cli.StringFlag{
+			Name:  "docker-network",
+			Usage: "use specified docker network",
+		},
 
 		// Cattle
 		cli.StringFlag{

@@ -2,6 +2,7 @@ package docker
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -180,7 +181,8 @@ func (d *dockerOrc) createController(data *dockerScheduleData) (instance *types.
 				"/dev:/host/dev",
 				"/proc:/host/proc",
 			},
-			Privileged: true,
+			Privileged:  true,
+			NetworkMode: dContainer.NetworkMode(d.Network),
 		}, nil, data.InstanceName)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create controller container")
@@ -310,7 +312,8 @@ func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo
 			Cmd: cmd,
 		},
 		&dContainer.HostConfig{
-			Privileged: true,
+			Privileged:  true,
+			NetworkMode: dContainer.NetworkMode(d.Network),
 		}, nil, data.InstanceName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fail to create replica for %v", data.VolumeName)
@@ -338,17 +341,27 @@ func (d *dockerOrc) refreshInstanceInfo(instance *types.InstanceInfo) (*types.In
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to inspect replica container")
 	}
-	return &types.InstanceInfo{
+	info := &types.InstanceInfo{
 		// It's weird that Docker put a forward slash to the container name
 		// So it become "/replica-1"
 		ID:         inspectJSON.ID,
 		Type:       instance.Type,
 		Name:       strings.TrimPrefix(inspectJSON.Name, "/"),
 		HostID:     d.GetCurrentHostID(),
-		Address:    inspectJSON.NetworkSettings.IPAddress,
 		Running:    inspectJSON.State.Running,
 		VolumeName: instance.VolumeName,
-	}, nil
+	}
+	if d.Network == "" {
+		info.Address = inspectJSON.NetworkSettings.IPAddress
+	} else {
+		info.Address = inspectJSON.NetworkSettings.Networks[d.Network].IPAddress
+	}
+	if info.Running && info.Address == "" {
+		msg := fmt.Sprintf("BUG: Cannot find IP address of %v", instance.ID)
+		logrus.Errorf(msg)
+		return nil, errors.Errorf(msg)
+	}
+	return info, nil
 }
 
 func getScheduleInstanceFromInstance(instance *types.InstanceInfo) (*types.ScheduleInstance, error) {

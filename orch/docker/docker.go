@@ -33,6 +33,7 @@ type dockerOrc struct {
 	Servers       []string //etcd servers
 	Prefix        string   //prefix in k/v store
 	LonghornImage string
+	Network       string
 
 	currentHost *types.HostInfo
 
@@ -46,6 +47,7 @@ type dockerOrcConfig struct {
 	servers []string
 	prefix  string
 	image   string
+	network string
 }
 
 func New(c *cli.Context) (types.Orchestrator, error) {
@@ -55,10 +57,12 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 	}
 	prefix := c.String("etcd-prefix")
 	image := c.String(orch.LonghornImageParam)
+	network := c.String("docker-network")
 	return newDocker(&dockerOrcConfig{
 		servers: servers,
 		prefix:  prefix,
 		image:   image,
+		network: network,
 	})
 }
 
@@ -78,6 +82,7 @@ func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
 		Servers:       cfg.servers,
 		Prefix:        cfg.prefix,
 		LonghornImage: cfg.image,
+		Network:       cfg.network,
 
 		kapi: eCli.NewKeysAPI(etcdc),
 	}
