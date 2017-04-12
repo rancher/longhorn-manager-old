@@ -118,7 +118,7 @@ func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, r
 	}, nil
 }
 
-func (d *dockerOrc) createController(data *dockerScheduleData) (*types.InstanceInfo, error) {
+func (d *dockerOrc) createController(data *dockerScheduleData) (i *types.InstanceInfo, err error) {
 	cmd := []string{
 		"launch", "controller",
 		"--listen", "0.0.0.0:9501",
@@ -144,10 +144,17 @@ func (d *dockerOrc) createController(data *dockerScheduleData) (*types.InstanceI
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create controller container")
 	}
+
+	defer func() {
+		if err != nil {
+			logrus.Errorf("fail to start controller %v of %v, cleaning up: %v",
+				data.InstanceName, data.VolumeName, err)
+			d.removeInstance(createBody.ID, types.InstanceTypeController)
+		}
+	}()
+
 	instance, err := d.startInstance(createBody.ID, types.InstanceTypeController)
 	if err != nil {
-		logrus.Errorf("fail to start %v, cleaning up", data.InstanceName)
-		d.removeInstance(createBody.ID, types.InstanceTypeController)
 		return nil, errors.Wrap(err, "fail to start controller container")
 	}
 
