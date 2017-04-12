@@ -7,7 +7,7 @@ if [ ! -x ./bin/latest_image ]; then
     ./scripts/package
 fi
 
-source ./scripts/common
+source ./scripts/common.sh
 
 image=`cat ./bin/latest_image`
 

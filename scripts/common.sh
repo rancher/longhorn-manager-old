@@ -143,7 +143,7 @@ function start_orc {
 
     docker run -d --name ${name} \
             --privileged -v /dev:/host/dev \
-            -v /var/run/docker.sock:/var/run/docker.sock ${extra} \
+            -v /var/run:/var/run ${extra} \
             --volumes-from ${ORC_TEST_PREFIX}-longhorn-binary ${image} \
             /usr/local/sbin/launch-orc -d --orchestrator docker \
             --longhorn-image $LONGHORN_IMAGE \

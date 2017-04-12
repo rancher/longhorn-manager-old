@@ -3,6 +3,6 @@ set -e
 
 cd $(dirname $0)/..
 
-source ./scripts/common
+source ./scripts/common.sh
 
 cleanup_orc_test
