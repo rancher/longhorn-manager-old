@@ -51,17 +51,22 @@ func (d *dockerOrc) ProcessSchedule(item *types.ScheduleItem) (*types.InstanceIn
 	if item.Instance.ID == "" {
 		return nil, errors.Errorf("empty instance ID")
 	}
+	instance := &types.InstanceInfo{
+		ID:     item.Instance.ID,
+		HostID: item.Instance.HostID,
+		Type:   item.Instance.Type,
+	}
 	switch item.Action {
 	case types.ScheduleActionCreateController:
 		return d.createController(&data)
 	case types.ScheduleActionCreateReplica:
 		return d.createReplica(&data)
 	case types.ScheduleActionStartInstance:
-		return d.startInstance(item.Instance.ID, item.Instance.Type)
+		return d.startInstance(instance)
 	case types.ScheduleActionStopInstance:
-		return d.stopInstance(item.Instance.ID, item.Instance.Type)
+		return d.stopInstance(instance)
 	case types.ScheduleActionDeleteInstance:
-		return d.removeInstance(item.Instance.ID, item.Instance.Type)
+		return d.removeInstance(instance)
 	}
 	return nil, errors.Errorf("Cannot find specified action %v", item.Action)
 }
@@ -118,7 +123,7 @@ func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, r
 	}, nil
 }
 
-func (d *dockerOrc) createController(data *dockerScheduleData) (i *types.InstanceInfo, err error) {
+func (d *dockerOrc) createController(data *dockerScheduleData) (instance *types.InstanceInfo, err error) {
 	cmd := []string{
 		"launch", "controller",
 		"--listen", "0.0.0.0:9501",
@@ -146,16 +151,23 @@ func (d *dockerOrc) createController(data *dockerScheduleData) (i *types.Instanc
 	}
 
 	defer func() {
-		if err != nil {
+		if err != nil && instance != nil {
 			logrus.Errorf("fail to start controller %v of %v, cleaning up: %v",
 				data.InstanceName, data.VolumeName, err)
-			d.removeInstance(createBody.ID, types.InstanceTypeController)
+			d.removeInstance(instance)
+			instance = nil
 		}
 	}()
 
-	instance, err := d.startInstance(createBody.ID, types.InstanceTypeController)
+	instance = &types.InstanceInfo{
+		ID:     createBody.ID,
+		HostID: d.GetCurrentHostID(),
+		Name:   data.InstanceName,
+		Type:   types.InstanceTypeController,
+	}
+	instance, err = d.startInstance(instance)
 	if err != nil {
-		return nil, errors.Wrap(err, "fail to start controller container")
+		return instance, errors.Wrap(err, "fail to start controller container")
 	}
 
 	//FIXME different address format for controller
@@ -163,11 +175,11 @@ func (d *dockerOrc) createController(data *dockerScheduleData) (i *types.Instanc
 
 	url := instance.Address + "/v1"
 	if err := util.WaitForAPI(url, WaitAPITimeout); err != nil {
-		return nil, errors.Wrapf(err, "fail to wait for api endpoint at %v", url)
+		return instance, errors.Wrapf(err, "fail to wait for api endpoint at %v", url)
 	}
 
 	if err := util.WaitForDevice(d.getDeviceName(data.VolumeName), WaitDeviceTimeout); err != nil {
-		return nil, errors.Wrap(err, "fail to wait for device")
+		return instance, errors.Wrap(err, "fail to wait for device")
 	}
 
 	return instance, nil
@@ -250,17 +262,24 @@ func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create replica container")
 	}
-	instance, err := d.startInstance(createBody.ID, types.InstanceTypeReplica)
+
+	instance := &types.InstanceInfo{
+		ID:     createBody.ID,
+		HostID: d.GetCurrentHostID(),
+		Name:   data.InstanceName,
+		Type:   types.InstanceTypeReplica,
+	}
+	instance, err = d.startInstance(instance)
 	if err != nil {
-		logrus.Errorf("fail to start %v, cleaning up", data.InstanceName)
-		d.removeInstance(createBody.ID, types.InstanceTypeReplica)
+		logrus.Errorf("fail to start %v, cleaning up", instance.Name)
+		d.removeInstance(instance)
 		return nil, errors.Wrap(err, "fail to start replica container")
 	}
 	return instance, nil
 }
 
-func (d *dockerOrc) generateInstanceInfo(instanceID string, instanceType types.InstanceType) (*types.InstanceInfo, error) {
-	inspectJSON, err := d.cli.ContainerInspect(context.Background(), instanceID)
+func (d *dockerOrc) refreshInstanceInfo(instance *types.InstanceInfo) (*types.InstanceInfo, error) {
+	inspectJSON, err := d.cli.ContainerInspect(context.Background(), instance.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to inspect replica container")
 	}
@@ -268,7 +287,7 @@ func (d *dockerOrc) generateInstanceInfo(instanceID string, instanceType types.I
 		// It's weird that Docker put a forward slash to the container name
 		// So it become "/replica-1"
 		ID:      inspectJSON.ID,
-		Type:    instanceType,
+		Type:    instance.Type,
 		Name:    strings.TrimPrefix(inspectJSON.Name, "/"),
 		HostID:  d.GetCurrentHostID(),
 		Address: inspectJSON.NetworkSettings.IPAddress,
@@ -298,12 +317,15 @@ func (d *dockerOrc) StartInstance(instance *types.InstanceInfo) error {
 	return nil
 }
 
-func (d *dockerOrc) startInstance(instanceID string, instanceType types.InstanceType) (*types.InstanceInfo, error) {
-	if err := d.cli.ContainerStart(context.Background(),
-		instanceID, dTypes.ContainerStartOptions{}); err != nil {
-		return nil, errors.Wrapf(err, "fail to start instance '%v' type %v", instanceID, instanceType)
+func (d *dockerOrc) startInstance(instance *types.InstanceInfo) (*types.InstanceInfo, error) {
+	if err := d.startContainer(instance.ID); err != nil {
+		return nil, errors.Wrapf(err, "fail to start instance '%v' type %v", instance.ID, instance.Type)
 	}
-	return d.generateInstanceInfo(instanceID, instanceType)
+	return d.refreshInstanceInfo(instance)
+}
+
+func (d *dockerOrc) startContainer(id string) error {
+	return d.cli.ContainerStart(context.Background(), id, dTypes.ContainerStartOptions{})
 }
 
 func (d *dockerOrc) StopInstance(instance *types.InstanceInfo) error {
@@ -328,12 +350,16 @@ func (d *dockerOrc) StopInstance(instance *types.InstanceInfo) error {
 	return nil
 }
 
-func (d *dockerOrc) stopInstance(instanceID string, instanceType types.InstanceType) (*types.InstanceInfo, error) {
+func (d *dockerOrc) stopInstance(instance *types.InstanceInfo) (*types.InstanceInfo, error) {
 	if err := d.cli.ContainerStop(context.Background(),
-		instanceID, &ContainerStopTimeout); err != nil {
-		return nil, errors.Wrapf(err, "fail to start instance '%v'", instanceID)
+		instance.ID, &ContainerStopTimeout); err != nil {
+		return nil, errors.Wrapf(err, "fail to start instance '%v'", instance.ID)
 	}
-	return d.generateInstanceInfo(instanceID, instanceType)
+	return d.refreshInstanceInfo(instance)
+}
+
+func (d *dockerOrc) stopContainer(id string) error {
+	return d.cli.ContainerStop(context.Background(), id, &ContainerStopTimeout)
 }
 
 func (d *dockerOrc) RemoveInstance(instance *types.InstanceInfo) error {
@@ -358,15 +384,18 @@ func (d *dockerOrc) RemoveInstance(instance *types.InstanceInfo) error {
 	return nil
 }
 
-func (d *dockerOrc) removeInstance(instanceID string, instanceType types.InstanceType) (*types.InstanceInfo, error) {
-	if err := d.cli.ContainerRemove(context.Background(), instanceID,
-		dTypes.ContainerRemoveOptions{RemoveVolumes: true}); err != nil {
-		if err != nil {
-			return nil, errors.Wrapf(err, "Fail to remove instance %v", instanceID)
-		}
+func (d *dockerOrc) removeInstance(instance *types.InstanceInfo) (*types.InstanceInfo, error) {
+	if err := d.removeContainer(instance.ID); err != nil {
+		return nil, errors.Wrapf(err, "Fail to remove instance %v", instance.ID)
 	}
 	return &types.InstanceInfo{
-		ID:   instanceID,
-		Type: instanceType,
+		ID:     instance.ID,
+		Name:   instance.Name,
+		HostID: instance.HostID,
+		Type:   instance.Type,
 	}, nil
+}
+
+func (d *dockerOrc) removeContainer(id string) error {
+	return d.cli.ContainerRemove(context.Background(), id, dTypes.ContainerRemoveOptions{RemoveVolumes: true})
 }
