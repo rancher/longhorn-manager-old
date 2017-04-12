@@ -301,21 +301,29 @@ func (d *dockerOrc) refreshInstanceInfo(instance *types.InstanceInfo) (*types.In
 	}, nil
 }
 
-func (d *dockerOrc) StartInstance(instance *types.InstanceInfo) error {
+func getScheduleInstanceFromInstance(instance *types.InstanceInfo) (*types.ScheduleInstance, error) {
 	if instance.ID == "" || instance.HostID == "" ||
 		instance.Type == types.InstanceTypeNone ||
 		instance.VolumeName == "" {
-		return errors.Errorf("Invalid instance info to start %+v", instance)
+		return nil, errors.Errorf("Invalid instance info for schedule %+v", instance)
 	}
 
+	return &types.ScheduleInstance{
+		ID:         instance.ID,
+		Type:       instance.Type,
+		HostID:     instance.HostID,
+		VolumeName: instance.VolumeName,
+	}, nil
+}
+
+func (d *dockerOrc) StartInstance(instance *types.InstanceInfo) error {
+	si, err := getScheduleInstanceFromInstance(instance)
+	if err != nil {
+		return errors.Wrap(err, "fail to start instance")
+	}
 	schedule := &types.ScheduleItem{
-		Action: types.ScheduleActionStartInstance,
-		Instance: types.ScheduleInstance{
-			ID:         instance.ID,
-			Type:       instance.Type,
-			HostID:     instance.HostID,
-			VolumeName: instance.VolumeName,
-		},
+		Action:   types.ScheduleActionStartInstance,
+		Instance: *si,
 		Data: types.ScheduleData{
 			Orchestrator: OrcName,
 		},
@@ -338,20 +346,13 @@ func (d *dockerOrc) startContainer(id string) error {
 }
 
 func (d *dockerOrc) StopInstance(instance *types.InstanceInfo) error {
-	if instance.ID == "" || instance.HostID == "" ||
-		instance.Type == types.InstanceTypeNone ||
-		instance.VolumeName == "" {
-		return errors.Errorf("Invalid instance info to stop %+v", instance)
+	si, err := getScheduleInstanceFromInstance(instance)
+	if err != nil {
+		return errors.Wrap(err, "fail to stop instance")
 	}
-
 	schedule := &types.ScheduleItem{
-		Action: types.ScheduleActionStopInstance,
-		Instance: types.ScheduleInstance{
-			ID:         instance.ID,
-			HostID:     instance.HostID,
-			Type:       instance.Type,
-			VolumeName: instance.VolumeName,
-		},
+		Action:   types.ScheduleActionStopInstance,
+		Instance: *si,
 		Data: types.ScheduleData{
 			Orchestrator: OrcName,
 		},
@@ -375,20 +376,13 @@ func (d *dockerOrc) stopContainer(id string) error {
 }
 
 func (d *dockerOrc) RemoveInstance(instance *types.InstanceInfo) error {
-	if instance.ID == "" || instance.HostID == "" ||
-		instance.Type == types.InstanceTypeNone ||
-		instance.VolumeName == "" {
-		return errors.Errorf("Invalid instance info to remove %+v", instance)
+	si, err := getScheduleInstanceFromInstance(instance)
+	if err != nil {
+		return errors.Wrap(err, "fail to remove instance")
 	}
-
 	schedule := &types.ScheduleItem{
-		Action: types.ScheduleActionDeleteInstance,
-		Instance: types.ScheduleInstance{
-			ID:         instance.ID,
-			HostID:     instance.HostID,
-			Type:       instance.Type,
-			VolumeName: instance.VolumeName,
-		},
+		Action:   types.ScheduleActionDeleteInstance,
+		Instance: *si,
 		Data: types.ScheduleData{
 			Orchestrator: OrcName,
 		},
