@@ -27,6 +27,19 @@ func ctrlReq(volume *types.VolumeInfo) *req {
 	return &req{volume: volume, result: make(chan *controller)}
 }
 
+func getControllerURL(address string) string {
+	return "http://" + address + ":9501"
+}
+
+func getReplicaURL(address string) string {
+	return "tcp://" + address + ":9502"
+}
+
+func getIPFromURL(url string) string {
+	// tcp, \/\/<address>, 9502
+	return strings.TrimPrefix(strings.Split(url, ":")[1], "//")
+}
+
 func holdControllers() {
 	cs := map[string]*controller{}
 
@@ -37,8 +50,9 @@ func holdControllers() {
 			continue
 		}
 		c := cs[r.volume.Name]
-		if c == nil || c.url != r.volume.Controller.Address {
-			c = &controller{name: r.volume.Name, url: r.volume.Controller.Address}
+		cURL := getControllerURL(r.volume.Controller.Address)
+		if c == nil || c.url != cURL {
+			c = &controller{name: r.volume.Name, url: cURL}
 			cs[r.volume.Name] = c
 		}
 		r.result <- c
@@ -97,7 +111,7 @@ func parseReplica(s string) (*types.ReplicaInfo, error) {
 	}
 	return &types.ReplicaInfo{
 		InstanceInfo: types.InstanceInfo{
-			Address: fields[0],
+			Address: getIPFromURL(fields[0]),
 		},
 		Mode: mode,
 	}, nil
@@ -138,15 +152,17 @@ func (c *controller) GetReplicaStates() ([]*types.ReplicaInfo, error) {
 }
 
 func (c *controller) AddReplica(replica *types.ReplicaInfo) error {
-	if _, err := util.Execute("longhorn", "--url", c.url, "add", replica.Address); err != nil {
-		return errors.Wrapf(err, "failed to add replica address='%s' to controller '%s'", replica.Address, c.name)
+	rURL := getReplicaURL(replica.Address)
+	if _, err := util.Execute("longhorn", "--url", c.url, "add", rURL); err != nil {
+		return errors.Wrapf(err, "failed to add replica address='%s' to controller '%s'", rURL, c.name)
 	}
 	return nil
 }
 
 func (c *controller) RemoveReplica(replica *types.ReplicaInfo) error {
-	if _, err := util.Execute("longhorn", "--url", c.url, "rm", replica.Address); err != nil {
-		return errors.Wrapf(err, "failed to rm replica address='%s' from controller '%s'", replica.Address, c.name)
+	rURL := getReplicaURL(replica.Address)
+	if _, err := util.Execute("longhorn", "--url", c.url, "rm", rURL); err != nil {
+		return errors.Wrapf(err, "failed to rm replica address='%s' from controller '%s'", rURL, c.name)
 	}
 	return nil
 }

@@ -110,7 +110,7 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 		VolumeName:    volume.Name,
 		InstanceName:  controllerName,
 		LonghornImage: volume.LonghornImage,
-		ReplicaAddresses: []string{
+		ReplicaURLs: []string{
 			"tcp://" + replica1.Address + ":9502",
 			"tcp://" + replica2.Address + ":9502",
 		},

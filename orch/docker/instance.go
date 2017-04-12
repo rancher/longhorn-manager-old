@@ -30,11 +30,11 @@ var (
 )
 
 type dockerScheduleData struct {
-	InstanceName     string
-	VolumeName       string
-	VolumeSize       string
-	LonghornImage    string
-	ReplicaAddresses []string
+	InstanceName  string
+	VolumeName    string
+	VolumeSize    string
+	LonghornImage string
+	ReplicaURLs   []string
 }
 
 func (d *dockerOrc) ProcessSchedule(item *types.ScheduleItem) (*types.InstanceInfo, error) {
@@ -133,10 +133,10 @@ func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, r
 	}
 
 	data := &dockerScheduleData{
-		InstanceName:     controllerName,
-		VolumeName:       volumeName,
-		LonghornImage:    volume.LonghornImage,
-		ReplicaAddresses: []string{},
+		InstanceName:  controllerName,
+		VolumeName:    volumeName,
+		LonghornImage: volume.LonghornImage,
+		ReplicaURLs:   []string{},
 	}
 	for _, name := range replicaNames {
 		replica := volume.Replicas[name]
@@ -146,7 +146,7 @@ func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, r
 		if replica.Address == "" {
 			return nil, errors.Errorf("invalid empty address of replica %v", name)
 		}
-		data.ReplicaAddresses = append(data.ReplicaAddresses, "tcp://"+replica.Address+":9502")
+		data.ReplicaURLs = append(data.ReplicaURLs, "tcp://"+replica.Address+":9502")
 	}
 
 	bData, err := json.Marshal(data)
@@ -165,8 +165,8 @@ func (d *dockerOrc) createController(data *dockerScheduleData) (instance *types.
 		"--listen", "0.0.0.0:9501",
 		"--frontend", "tgt",
 	}
-	for _, address := range data.ReplicaAddresses {
-		cmd = append(cmd, "--replica", address)
+	for _, url := range data.ReplicaURLs {
+		cmd = append(cmd, "--replica", url)
 	}
 	cmd = append(cmd, data.VolumeName)
 
@@ -207,10 +207,7 @@ func (d *dockerOrc) createController(data *dockerScheduleData) (instance *types.
 		return instance, errors.Wrap(err, "fail to start controller container")
 	}
 
-	//FIXME different address format for controller
-	instance.Address = "http://" + instance.Address + ":9501"
-
-	url := instance.Address + "/v1"
+	url := "http://" + instance.Address + ":9501/v1"
 	if err := util.WaitForAPI(url, WaitAPITimeout); err != nil {
 		return instance, errors.Wrapf(err, "fail to wait for api endpoint at %v", url)
 	}

@@ -57,11 +57,11 @@ func VolumeStackName(volumeName string) string {
 }
 
 func ControllerAddress(volumeName string) string {
-	return fmt.Sprintf("http://%s.%s.rancher.internal:9501", ControllerServiceName, VolumeStackName(volumeName))
+	return fmt.Sprintf("%s.%s.rancher.internal", ControllerServiceName, VolumeStackName(volumeName))
 }
 
 func ReplicaAddress(name, volumeName string) string {
-	return fmt.Sprintf("tcp://%s.rancher.internal:9502", name)
+	return fmt.Sprintf("%s.rancher.internal", name)
 }
 
 func ReplicaName(address, volumeName string) string {
