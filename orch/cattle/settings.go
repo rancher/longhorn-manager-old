@@ -4,7 +4,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	client "github.com/rancher/go-rancher/v2"
-	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-manager/types"
 )
 
 func (orc *cattleOrc) GetSettings() (*types.SettingsInfo, error) {

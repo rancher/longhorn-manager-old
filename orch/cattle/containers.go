@@ -3,8 +3,8 @@ package cattle
 import (
 	"fmt"
 	client "github.com/rancher/go-rancher/v2"
-	"github.com/rancher/longhorn-orc/types"
-	"github.com/rancher/longhorn-orc/util"
+	"github.com/rancher/longhorn-manager/types"
+	"github.com/rancher/longhorn-manager/util"
 )
 
 func dataDir(volume *types.VolumeInfo) string {

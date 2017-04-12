@@ -10,8 +10,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
 
-	"github.com/rancher/longhorn-orc/api"
-	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-manager/api"
+	"github.com/rancher/longhorn-manager/types"
 )
 
 type schedulerClient struct {

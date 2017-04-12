@@ -1,7 +1,7 @@
 package manager
 
 import (
-	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-manager/types"
 	"time"
 )
 

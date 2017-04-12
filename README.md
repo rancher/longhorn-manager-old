@@ -1,9 +1,7 @@
-longhorn-orc
+longhorn-manager
 ========
 
-Orc is the Longhorn herder.
-
-It's mood is high unstable now.
+Manager for Longhorn.
 
 ## Requirement
 
@@ -19,7 +17,7 @@ For using Docker orchestrator, make sure you have `iscsiadm`/`open-iscsi` instal
 
 ## Running
 
-`./bin/longhorn-orc`
+`./bin/longhorn-manager`
 
 ## Experimental Server
 

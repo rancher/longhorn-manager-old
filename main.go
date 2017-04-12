@@ -7,16 +7,16 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 
-	"github.com/rancher/longhorn-orc/api"
-	"github.com/rancher/longhorn-orc/backups"
-	"github.com/rancher/longhorn-orc/controller"
-	"github.com/rancher/longhorn-orc/manager"
-	"github.com/rancher/longhorn-orc/orch"
-	"github.com/rancher/longhorn-orc/orch/cattle"
-	"github.com/rancher/longhorn-orc/orch/docker"
-	"github.com/rancher/longhorn-orc/types"
-	"github.com/rancher/longhorn-orc/util/daemon"
-	"github.com/rancher/longhorn-orc/util/server"
+	"github.com/rancher/longhorn-manager/api"
+	"github.com/rancher/longhorn-manager/backups"
+	"github.com/rancher/longhorn-manager/controller"
+	"github.com/rancher/longhorn-manager/manager"
+	"github.com/rancher/longhorn-manager/orch"
+	"github.com/rancher/longhorn-manager/orch/cattle"
+	"github.com/rancher/longhorn-manager/orch/docker"
+	"github.com/rancher/longhorn-manager/types"
+	"github.com/rancher/longhorn-manager/util/daemon"
+	"github.com/rancher/longhorn-manager/util/server"
 )
 
 const (

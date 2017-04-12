@@ -3,7 +3,7 @@ package cattle
 import (
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
-	"github.com/rancher/longhorn-orc/util"
+	"github.com/rancher/longhorn-manager/util"
 	"net/http"
 	"time"
 )

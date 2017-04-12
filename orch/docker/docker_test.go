@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-manager/types"
 
 	. "gopkg.in/check.v1"
 )

@@ -2,7 +2,7 @@ package backups
 
 import (
 	"bytes"
-	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-manager/types"
 	"github.com/stretchr/testify/require"
 	"testing"
 )

@@ -9,8 +9,8 @@ import (
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 
-	"github.com/rancher/longhorn-orc/types"
-	"github.com/rancher/longhorn-orc/util"
+	"github.com/rancher/longhorn-manager/types"
+	"github.com/rancher/longhorn-manager/util"
 )
 
 func (s *Server) ListVolume(rw http.ResponseWriter, req *http.Request) error {

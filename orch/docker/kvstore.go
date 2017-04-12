@@ -10,7 +10,7 @@ import (
 
 	eCli "github.com/coreos/etcd/client"
 
-	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-manager/types"
 )
 
 const (
@@ -36,7 +36,7 @@ func (d *dockerOrc) setHost(host *types.HostInfo) error {
 	if _, err := d.kapi.Set(context.Background(), d.hostKey(host.UUID), string(value), nil); err != nil {
 		return err
 	}
-	logrus.Infof("Add host %v name %v longhorn-orc address %v", host.UUID, host.Name, host.Address)
+	logrus.Infof("Add host %v name %v longhorn-manager address %v", host.UUID, host.Name, host.Address)
 	return nil
 }
 

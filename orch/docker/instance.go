@@ -16,8 +16,8 @@ import (
 	dContainer "github.com/docker/docker/api/types/container"
 	dNat "github.com/docker/go-connections/nat"
 
-	"github.com/rancher/longhorn-orc/types"
-	"github.com/rancher/longhorn-orc/util"
+	"github.com/rancher/longhorn-manager/types"
+	"github.com/rancher/longhorn-manager/util"
 )
 
 const (

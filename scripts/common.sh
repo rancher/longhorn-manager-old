@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ORC_TEST_PREFIX=longhorn-orc-test
+ORC_TEST_PREFIX=longhorn-manager-test
 
 ETCD_SERVER=${ORC_TEST_PREFIX}-etcd-server
 ETCD_IMAGE=quay.io/coreos/etcd:v3.1.5
@@ -136,7 +136,7 @@ function start_orc {
     name=${ORC_TEST_PREFIX}-server-${id}
     exists=$(check_exists $name)
     if [ "$exists" == "true" ]; then
-        echo remove old longhorn-orc server
+        echo remove old longhorn-manager server
 	docker stop ${name}
 	docker rm -v ${name}
     fi

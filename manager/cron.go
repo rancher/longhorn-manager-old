@@ -3,9 +3,9 @@ package manager
 import (
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
-	"github.com/rancher/longhorn-orc/backups"
-	"github.com/rancher/longhorn-orc/types"
-	"github.com/rancher/longhorn-orc/util"
+	"github.com/rancher/longhorn-manager/backups"
+	"github.com/rancher/longhorn-manager/types"
+	"github.com/rancher/longhorn-manager/util"
 	"github.com/robfig/cron"
 	"sort"
 	"strings"

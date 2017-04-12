@@ -11,7 +11,7 @@ ENV_BACKUPSTORE_URL = "LONGHORN_ORC_TEST_BACKUPSTORE_URL"
 ORC = 'http://localhost:9500'
 
 SIZE = str(16 * 1024 * 1024)
-VOLUME_NAME = "longhorn-orc-test_vol-1.0"
+VOLUME_NAME = "longhorn-manager-test_vol-1.0"
 DEV_PATH = "/dev/longhorn/"
 
 PORT = ":9500"

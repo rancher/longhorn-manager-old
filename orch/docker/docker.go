@@ -17,11 +17,11 @@ import (
 	dTypes "github.com/docker/docker/api/types"
 	dCli "github.com/docker/docker/client"
 
-	"github.com/rancher/longhorn-orc/api"
-	"github.com/rancher/longhorn-orc/orch"
-	"github.com/rancher/longhorn-orc/scheduler"
-	"github.com/rancher/longhorn-orc/types"
-	"github.com/rancher/longhorn-orc/util"
+	"github.com/rancher/longhorn-manager/api"
+	"github.com/rancher/longhorn-manager/orch"
+	"github.com/rancher/longhorn-manager/scheduler"
+	"github.com/rancher/longhorn-manager/types"
+	"github.com/rancher/longhorn-manager/util"
 )
 
 const (

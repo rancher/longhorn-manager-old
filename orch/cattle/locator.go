@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/pkg/errors"
-	"github.com/rancher/longhorn-orc/api"
+	"github.com/rancher/longhorn-manager/api"
 )
 
 func (orc *cattleOrc) GetAddress(hostID string) (string, error) {

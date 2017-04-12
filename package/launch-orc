@@ -22,4 +22,4 @@ if [ "$orc" == "docker" ]; then
         mount --rbind /host/dev /dev
 fi
 
-exec longhorn-orc "$@"
+exec longhorn-manager "$@"

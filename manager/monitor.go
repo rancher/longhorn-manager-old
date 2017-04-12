@@ -3,8 +3,8 @@ package manager
 import (
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
-	"github.com/rancher/longhorn-orc/controller"
-	"github.com/rancher/longhorn-orc/types"
+	"github.com/rancher/longhorn-manager/controller"
+	"github.com/rancher/longhorn-manager/types"
 	"time"
 )
 
