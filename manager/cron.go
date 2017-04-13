@@ -23,30 +23,24 @@ const (
 type taskCons func(runner *jobRunner, job *types.RecurringJob, si *types.SettingsInfo) Task
 
 var tasks = map[string]taskCons{
-	types.SnapshotTask: SnapshotTask,
-	types.BackupTask:   BackupTask,
+	types.SnapshotTaskName: SnapshotTask,
+	types.BackupTaskName:   BackupTask,
 }
 
 type jobRunner struct {
 	volume   *types.VolumeInfo
 	ctrl     types.Controller
 	settings types.Settings
-
-	guardCh chan struct{}
 }
 
 func newJobRunner(volume *types.VolumeInfo, ctrl types.Controller, settings types.Settings) *jobRunner {
-	guardCh := make(chan struct{}, 1)
-	guardCh <- struct{}{}
-	return &jobRunner{volume: volume, ctrl: ctrl, guardCh: guardCh, settings: settings}
+	return &jobRunner{volume: volume, ctrl: ctrl, settings: settings}
 }
 
-type cronUpdate struct {
-	Jobs []*types.RecurringJob
-}
+type cronUpdate []*types.RecurringJob
 
 func CronUpdate(jobs []*types.RecurringJob) types.Event {
-	return &cronUpdate{Jobs: jobs}
+	return cronUpdate(jobs)
 }
 
 func RunJobs(volume *types.VolumeInfo, ctrl types.Controller, settings types.Settings, ch chan types.Event) {
@@ -63,9 +57,9 @@ func RunJobs(volume *types.VolumeInfo, ctrl types.Controller, settings types.Set
 
 	for e := range ch {
 		switch e := e.(type) {
-		case *cronUpdate:
+		case cronUpdate:
 			c.Stop()
-			c = runner.setJobs(e.Jobs)
+			c = runner.setJobs(e)
 			if c == nil {
 				return
 			}
@@ -119,15 +113,11 @@ func (runner *jobRunner) newTask(job *types.RecurringJob, task Task) func() {
 			logrus.Errorf("error running job: %+v", errors.Wrapf(err, "unable to run a task for job '%s'", job.Name))
 			return
 		}
-		if err := task.Cleanup(); err != nil {
-			logrus.Errorf("error cleaning up: %+v", errors.Wrapf(err, "unable to cleanup for job '%s'", job.Name))
-		}
 	}
 }
 
 type Task interface {
 	Run() error
-	Cleanup() error
 }
 
 type snapshotTask struct {
@@ -150,7 +140,7 @@ func (st *snapshotTask) Run() error {
 	if _, err := st.runner.ctrl.SnapshotOps().Create(name, map[string]string{JobName: st.job.Name}); err != nil {
 		return errors.Wrapf(err, "error running recurring job: snapshot '%s', volume '%s'", name, st.runner.volume.Name)
 	}
-	return nil
+	return st.cleanup()
 }
 
 func (st *snapshotTask) filterSnapshots(l []*types.SnapshotInfo) []*types.SnapshotInfo {
@@ -173,13 +163,13 @@ func (st *snapshotTask) listSnapshots() ([]*types.SnapshotInfo, error) {
 	return ss, nil
 }
 
-func (st *snapshotTask) Cleanup() error {
-	st.Lock()
-	defer st.Unlock()
-
+func (st *snapshotTask) cleanup() error {
 	if st.job.Retain == 0 {
 		return nil
 	}
+
+	st.Lock()
+	defer st.Unlock()
 
 	st.count++
 	for st.cached == nil || st.count > st.job.Retain {
@@ -227,26 +217,15 @@ type backupTask struct {
 }
 
 func (bt *backupTask) Run() error {
-	// skip if another backup is in progress for the volume
-	select {
-	case <-bt.runner.guardCh:
-		defer func() {
-			bt.runner.guardCh <- struct{}{}
-		}()
-	default:
-		logrus.Warnf("cannot run backup job '%s': another backup is running for volume '%s'", bt.job.Name, bt.runner.volume.Name)
-		return nil
-	}
-
 	name := snapName(bt.job.Name)
 	if _, err := bt.runner.ctrl.SnapshotOps().Create(name, map[string]string{JobName: bt.job.Name, BackupJob: bt.job.Name}); err != nil {
-		return errors.Wrapf(err, "error running recurring job: backup '%s', volume '%s'", name, bt.runner.volume.Name)
+		return errors.Wrapf(err, "error creating snapshot for recurring backup '%s', volume '%s'", name, bt.runner.volume.Name)
 	}
-
-	if err := bt.runner.ctrl.BackupOps().Backup(name, bt.backupTarget); err != nil {
-		return errors.Wrapf(err, "unable to run backup, volume '%s', job '%s', backupTarget '%s'", bt.runner.volume.Name, bt.job.Name, bt.backupTarget)
-	}
-
+	bt.runner.ctrl.BgTaskQueue().Put(&types.BgTask{Task: types.BackupBgTask{
+		Snapshot:     name,
+		BackupTarget: bt.backupTarget,
+		CleanupHook:  bt.cleanup,
+	}})
 	return nil
 }
 
@@ -291,20 +270,20 @@ func (bt *backupTask) listBackups() ([]*types.BackupInfo, error) {
 	return bs, nil
 }
 
-func (bt *backupTask) Cleanup() error {
+func (bt *backupTask) cleanup() error {
 	if err := bt.cleanupBackupSnapshots(); err != nil {
-		return err
+		logrus.Errorf("%+v", errors.Wrap(err, "error cleaning up backup snapshots"))
 	}
 	return bt.cleanupBackups()
 }
 
 func (bt *backupTask) cleanupBackups() error {
-	bt.Lock()
-	defer bt.Unlock()
-
 	if bt.job.Retain == 0 {
 		return nil
 	}
+
+	bt.Lock()
+	defer bt.Unlock()
 
 	bt.count++
 	for bt.cached == nil || bt.count > bt.job.Retain {
