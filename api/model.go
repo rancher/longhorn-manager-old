@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
@@ -86,9 +87,9 @@ type Empty struct {
 	client.Resource
 }
 
-type BackupStatus struct {
+type BgTask struct {
 	client.Resource
-	types.BackupStatusInfo
+	types.BgTask
 }
 
 type SnapshotInput struct {
@@ -121,7 +122,7 @@ func NewSchema() *client.Schemas {
 	schemas.AddType("backup", Backup{})
 	schemas.AddType("backupInput", BackupInput{})
 	schemas.AddType("recurringJob", types.RecurringJob{})
-	schemas.AddType("backupStatus", BackupStatus{})
+	schemas.AddType("bgTask", BgTask{})
 	schemas.AddType("replicaRemoveInput", ReplicaRemoveInput{})
 
 	hostSchema(schemas.AddType("host", Host{}))
@@ -195,9 +196,7 @@ func volumeSchema(volume *client.Schema) {
 		"recurringUpdate": {
 			Input: "recurringInput",
 		},
-		"latestBackupStatus": {
-			Output: "backupStatus",
-		},
+		"bgTaskQueue": {},
 		"replicaRemove": {
 			Input:  "replicaRemoveInput",
 			Output: "volume",
@@ -344,7 +343,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["snapshotRevert"] = struct{}{}
 		actions["snapshotBackup"] = struct{}{}
 		actions["recurringUpdate"] = struct{}{}
-		actions["latestBackupStatus"] = struct{}{}
+		actions["bgTaskQueue"] = struct{}{}
 		actions["replicaRemove"] = struct{}{}
 	case types.VolumeStateDegraded:
 		actions["detach"] = struct{}{}
@@ -356,7 +355,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		actions["snapshotRevert"] = struct{}{}
 		actions["snapshotBackup"] = struct{}{}
 		actions["recurringUpdate"] = struct{}{}
-		actions["latestBackupStatus"] = struct{}{}
+		actions["bgTaskQueue"] = struct{}{}
 		actions["replicaRemove"] = struct{}{}
 	case types.VolumeStateCreated:
 		actions["recurringUpdate"] = struct{}{}
@@ -384,14 +383,22 @@ func toSnapshotResource(s *types.SnapshotInfo) *Snapshot {
 	}
 }
 
-func toBackupStatusRes(bs *types.BackupStatusInfo) *BackupStatus {
-	return &BackupStatus{
+func toBgTaskRes(bt *types.BgTask) *BgTask {
+	return &BgTask{
 		Resource: client.Resource{
-			Id:   bs.Snapshot,
-			Type: "backupStatus",
+			Id:   fmt.Sprint(bt.Num),
+			Type: "bgTask",
 		},
-		BackupStatusInfo: *bs,
+		BgTask: *bt,
 	}
+}
+
+func toBgTaskCollection(bts []*types.BgTask) *client.GenericCollection {
+	data := []interface{}{}
+	for _, v := range bts {
+		data = append(data, toBgTaskRes(v))
+	}
+	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "bgTask"}}
 }
 
 func toSnapshotCollection(ss []*types.SnapshotInfo) *client.GenericCollection {

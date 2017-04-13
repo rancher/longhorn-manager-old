@@ -73,9 +73,7 @@ type SnapshotOps interface {
 }
 
 type VolumeBackupOps interface {
-	Backup(snapName, backupTarget string) error
 	StartBackup(snapName, backupTarget string) error
-	LatestBackupStatus() *BackupStatusInfo
 	Restore(backup string) error
 	DeleteBackup(backup string) error
 }
@@ -108,6 +106,9 @@ type Controller interface {
 	GetReplicaStates() ([]*ReplicaInfo, error)
 	AddReplica(replica *ReplicaInfo) error
 	RemoveReplica(replica *ReplicaInfo) error
+
+	BgTaskQueue() TaskQueue
+	LatestBgTasks() []*BgTask
 
 	SnapshotOps() SnapshotOps
 	BackupOps() VolumeBackupOps
@@ -213,12 +214,27 @@ type BackupInfo struct {
 	VolumeCreated   string `json:"volumeCreated,omitempty"`
 }
 
-type BackupStatusInfo struct {
-	InProgress   bool   `json:"inProgress"`
-	Err          error  `json:"err"`
+type TaskQueue interface {
+	io.Closer
+	List() []*BgTask
+	Put(*BgTask)
+	Take() *BgTask
+}
+
+type BgTask struct {
+	Num       int64       `json:"num"`
+	Err       error       `json:"err"`
+	Finished  string      `json:"finished"`
+	Started   string      `json:"started"`
+	Submitted string      `json:"submitted"`
+	Task      interface{} `json:"task"`
+}
+
+type BackupBgTask struct {
 	Snapshot     string `json:"snapshot"`
 	BackupTarget string `json:"backupTarget"`
-	Started      string `json:"started"`
+
+	CleanupHook func() error `json:"-"`
 }
 
 type BackupVolumeInfo struct {
@@ -228,8 +244,8 @@ type BackupVolumeInfo struct {
 }
 
 const (
-	SnapshotTask = "snapshot"
-	BackupTask   = "backup"
+	SnapshotTaskName = "snapshot"
+	BackupTaskName   = "backup"
 )
 
 type RecurringJob struct {

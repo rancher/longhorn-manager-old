@@ -45,14 +45,18 @@ func holdControllers() {
 
 	for r := range reqCh {
 		if r.volume.Controller == nil || !r.volume.Controller.Running {
+			c := cs[r.volume.Name]
+			if c != nil {
+				c.bgTaskQueue.Close()
+			}
 			delete(cs, r.volume.Name)
-			close(r.result)
 			continue
 		}
 		c := cs[r.volume.Name]
 		cURL := getControllerURL(r.volume.Controller.Address)
 		if c == nil || c.url != cURL {
-			c = &controller{name: r.volume.Name, url: cURL, purgeQueue: make(chan struct{}, 2)}
+			c = &controller{name: r.volume.Name, url: cURL, bgTaskQueue: TaskQueue(), purgeQueue: make(chan struct{}, 2)}
+			go c.runBgTasks()
 			cs[r.volume.Name] = c
 		}
 		r.result <- c
@@ -65,8 +69,11 @@ type controller struct {
 	name string
 	url  string
 
-	backupStatus     *types.BackupStatusInfo
-	backupStatusLock sync.Mutex
+	lastRunBgTask *types.BgTask
+	runningBgTask *types.BgTask
+	bgTaskLock    sync.Mutex
+
+	bgTaskQueue types.TaskQueue
 
 	purgeQueue chan struct{}
 }

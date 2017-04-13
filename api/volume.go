@@ -75,23 +75,16 @@ func (s *Server) UpdateRecurring(rw http.ResponseWriter, req *http.Request) erro
 	return s.GetVolume(rw, req)
 }
 
-func (s *Server) LatestBackupStatus(rw http.ResponseWriter, req *http.Request) error {
+func (s *Server) BgTaskQueue(rw http.ResponseWriter, req *http.Request) error {
 	apiContext := api.GetApiContext(req)
 	name := mux.Vars(req)["name"]
 
-	backupOps, err := s.man.VolumeBackupOps(name)
+	controller, err := s.man.Controller(name)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get VolumeBackupOps for volume '%s'", name)
 	}
 
-	backupStatus := backupOps.LatestBackupStatus()
-
-	if backupStatus == nil {
-		apiContext.Write(&Empty{})
-		return nil
-	}
-
-	apiContext.Write(toBackupStatusRes(backupStatus))
+	apiContext.Write(toBgTaskCollection(append(controller.LatestBgTasks(), controller.BgTaskQueue().List()...)))
 	return nil
 }
 
