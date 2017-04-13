@@ -8,7 +8,7 @@ ETCD_IMAGE=quay.io/coreos/etcd:v3.1.5
 NFS_SERVER=${ORC_TEST_PREFIX}-nfs-server
 NFS_IMAGE=docker.io/erezhorev/dockerized_nfs_server
 
-LONGHORN_IMAGE=rancher/longhorn:7a918a0
+LONGHORN_IMAGE=rancher/longhorn:b016f2d
 
 BACKUPSTORE_PATH=/opt/backupstore
 
