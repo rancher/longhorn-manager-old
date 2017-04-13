@@ -173,6 +173,16 @@ func volumeState(volume *types.VolumeInfo) types.VolumeState {
 	return types.VolumeStateDegraded
 }
 
+func (man *volumeManager) completeVolumeState(vol *types.VolumeInfo) *types.VolumeInfo {
+	vol.State = volumeState(vol)
+
+	vol.Endpoint = ""
+	if vol.Controller != nil && vol.Controller.Running {
+		vol.Endpoint = man.getController(vol).Endpoint()
+	}
+	return vol
+}
+
 func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
 	vol, err := man.orc.GetVolume(name)
 	if err != nil {
@@ -181,15 +191,7 @@ func (man *volumeManager) Get(name string) (*types.VolumeInfo, error) {
 	if vol == nil {
 		return nil, nil
 	}
-
-	vol.State = volumeState(vol)
-
-	vol.Endpoint = ""
-	if vol.Controller != nil && vol.Controller.Running {
-		vol.Endpoint = man.getController(vol).Endpoint()
-	}
-
-	return vol, nil
+	return man.completeVolumeState(vol), nil
 }
 
 func (man *volumeManager) List() ([]*types.VolumeInfo, error) {
@@ -197,8 +199,8 @@ func (man *volumeManager) List() ([]*types.VolumeInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, v := range volumes {
-		v.State = volumeState(v)
+	for i, v := range volumes {
+		volumes[i] = man.completeVolumeState(v)
 	}
 	return volumes, nil
 }

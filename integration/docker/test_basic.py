@@ -97,6 +97,15 @@ def test_volume_basic(clients):  # NOQA
 
     volume = volume.attach(hostId=host_id)
 
+    volumes = client.list_volume()
+    assert len(volumes) == 1
+    assert volumes[0]["name"] == volume["name"]
+    assert volumes[0]["size"] == volume["size"]
+    assert volumes[0]["numberOfReplicas"] == volume["numberOfReplicas"]
+    assert volumes[0]["state"] == volume["state"]
+    assert volumes[0]["created"] == volume["created"]
+    assert volumes[0]["endpoint"] == DEV_PATH + VOLUME_NAME
+
     volume = client.by_id_volume(VOLUME_NAME)
     assert volume["endpoint"] == DEV_PATH + VOLUME_NAME
 
