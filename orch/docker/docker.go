@@ -232,7 +232,7 @@ func (d *dockerOrc) GetSettings() (*types.SettingsInfo, error) {
 	}
 	if settings == nil {
 		return &types.SettingsInfo{
-			BackupTarget:  "vfs:///var/lib/longhorn/backups/default",
+			BackupTarget:  "",
 			LonghornImage: d.LonghornImage,
 		}, nil
 	}
