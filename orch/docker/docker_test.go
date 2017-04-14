@@ -11,10 +11,17 @@ import (
 )
 
 const (
-	TestVolumeName = "test-vol"
+	TestPrefix = "longhorn-manager-test"
 
 	EnvEtcdServer  = "LONGHORN_MANAGER_TEST_ETCD_SERVER"
 	EnvEngineImage = "LONGHORN_ENGINE_IMAGE"
+)
+
+var (
+	VolumeName     = TestPrefix + "-vol"
+	ControllerName = VolumeName + "-controller"
+	Replica1Name   = VolumeName + "-replica1"
+	Replica2Name   = VolumeName + "-replica2"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -62,14 +69,14 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	defer s.Cleanup()
 
 	volume := &types.VolumeInfo{
-		Name:        TestVolumeName,
+		Name:        VolumeName,
 		Size:        8 * 1024 * 1024, // 8M
 		EngineImage: s.engineImage,
 	}
 	replica1Data := &dockerScheduleData{
 		VolumeName:   volume.Name,
 		VolumeSize:   strconv.FormatInt(volume.Size, 10),
-		InstanceName: "replica-test-1",
+		InstanceName: Replica1Name,
 		EngineImage:  volume.EngineImage,
 	}
 	replica1, err := s.d.createReplica(replica1Data)
@@ -96,7 +103,7 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	replica2Data := &dockerScheduleData{
 		VolumeName:   volume.Name,
 		VolumeSize:   strconv.FormatInt(volume.Size, 10),
-		InstanceName: "replica-test-2",
+		InstanceName: Replica2Name,
 		EngineImage:  volume.EngineImage,
 	}
 	replica2, err := s.d.createReplica(replica2Data)
@@ -104,11 +111,9 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	c.Assert(replica2.ID, NotNil)
 	s.instanceBin[replica2.ID] = replica2
 
-	controllerName := "controller-test"
-
 	data := &dockerScheduleData{
 		VolumeName:   volume.Name,
-		InstanceName: controllerName,
+		InstanceName: ControllerName,
 		EngineImage:  volume.EngineImage,
 		ReplicaURLs: []string{
 			"tcp://" + replica1.Address + ":9502",
@@ -122,7 +127,7 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 
 	c.Assert(controller.HostID, Equals, s.d.GetCurrentHostID())
 	c.Assert(controller.Running, Equals, true)
-	c.Assert(controller.Name, Equals, controllerName)
+	c.Assert(controller.Name, Equals, ControllerName)
 
 	instance, err = s.d.stopInstance(controller)
 	c.Assert(err, IsNil)
