@@ -2,12 +2,7 @@
 
 set -e
 
-cleanup(){
-    name=$1
-    set +e
-    docker rm -vf ${name}
-    set -e
-}
+source ./common.sh
 
 network=$1
 longhorn_manager_ip=$2
