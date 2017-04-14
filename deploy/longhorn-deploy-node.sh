@@ -9,8 +9,16 @@ etcd_ip=$2
 
 if [ "$network" == "" -o "$etcd_ip" == "" ]; then
         echo usage: $(basename $0) \<network_name\> \<etcd_server_ip\>
-        exit -1
+        exit 1
 fi
+
+set +e
+iscsiadm_check=`iscsiadm --version 2>&1`
+if [ $? -ne 0 ]; then
+        echo Cannot find \`iscsiadm\` on the host, please install \`open-iscsi\` package
+        exit 1
+fi
+set -e
 
 LONGHORN_BINARY_NAME="longhorn-binary"
 LONGHORN_BINARY_IMAGE="rancher/longhorn:b016f2d"
