@@ -5,11 +5,6 @@ import (
 	"time"
 )
 
-const (
-	DefaultNumberOfReplicas    = 2
-	DefaultStaleReplicaTimeout = time.Hour * 16 * 24
-)
-
 type VolumeState string
 
 const (
