@@ -109,7 +109,7 @@ func (man *volumeManager) Create(volume *types.VolumeInfo) (*types.VolumeInfo, e
 		return nil, err
 	}
 	if vol != nil {
-		return vol, nil
+		return nil, errors.Errorf("volume %v already exists", volume.Name)
 	}
 	settings, err := man.settings.GetSettings()
 	if err != nil || settings == nil {
