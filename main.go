@@ -61,7 +61,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "docker-network",
-			Usage: "use specified docker network",
+			Usage: "use specified docker network, can be omitted for auto detection",
 		},
 	}
 

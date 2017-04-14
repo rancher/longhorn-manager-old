@@ -339,7 +339,7 @@ func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo
 func (d *dockerOrc) refreshInstanceInfo(instance *types.InstanceInfo) (*types.InstanceInfo, error) {
 	inspectJSON, err := d.cli.ContainerInspect(context.Background(), instance.ID)
 	if err != nil {
-		return nil, errors.Wrap(err, "fail to inspect replica container")
+		return nil, errors.Wrapf(err, "fail to inspect %v instance %v", instance.Type, instance.ID)
 	}
 	info := &types.InstanceInfo{
 		// It's weird that Docker put a forward slash to the container name

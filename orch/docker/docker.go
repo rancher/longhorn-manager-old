@@ -34,6 +34,7 @@ type dockerOrc struct {
 	Prefix        string   //prefix in k/v store
 	LonghornImage string
 	Network       string
+	IP            string
 
 	currentHost *types.HostInfo
 
@@ -82,7 +83,6 @@ func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
 		Servers:       cfg.servers,
 		Prefix:        cfg.prefix,
 		LonghornImage: cfg.image,
-		Network:       cfg.network,
 
 		kapi: eCli.NewKeysAPI(etcdc),
 	}
@@ -99,11 +99,14 @@ func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
 		return nil, errors.Wrap(err, "cannot pass test to get container list")
 	}
 
-	ips, err := util.GetLocalIPs()
-	if err != nil || len(ips) == 0 {
-		return nil, fmt.Errorf("unable to get ip")
+	if err = docker.updateNetwork(cfg.network); err != nil {
+		return nil, errors.Wrapf(err, "fail to detect dedicated container network: %v", cfg.network)
 	}
-	address := ips[0] + ":" + strconv.Itoa(api.DefaultPort)
+
+	logrus.Infof("Detected network is %s, IP is %s", docker.Network, docker.IP)
+
+	address := docker.IP + ":" + strconv.Itoa(api.DefaultPort)
+	logrus.Info("Local address is: ", address)
 
 	if err := docker.Register(address); err != nil {
 		return nil, err
@@ -138,6 +141,39 @@ func getCurrentHost(address string) (*types.HostInfo, error) {
 		return nil, fmt.Errorf("Fail to write host uuid file: %v", err)
 	}
 	return host, nil
+}
+
+func (d *dockerOrc) updateNetwork(userSpecifiedNetwork string) error {
+	containerID := os.Getenv("HOSTNAME")
+
+	inspectJSON, err := d.cli.ContainerInspect(context.Background(), containerID)
+	if err != nil {
+		return errors.Errorf("cannot find manager container, may not be running inside container")
+	}
+	networks := inspectJSON.NetworkSettings.Networks
+	if len(networks) == 0 {
+		return errors.Errorf("cannot find manager container's network")
+	}
+	if userSpecifiedNetwork != "" {
+		net := networks[userSpecifiedNetwork]
+		if net == nil {
+			return errors.Errorf("user specified network %v doesn't exist", userSpecifiedNetwork)
+		}
+		d.Network = userSpecifiedNetwork
+		d.IP = net.IPAddress
+		return nil
+	}
+	if len(networks) > 1 {
+		return errors.Errorf("found multiple networks for container %v, "+
+			"unable to decide which one to use, "+
+			"use --docker-network option to specify: %+v", containerID, networks)
+	}
+	// only one entry here
+	for k, v := range networks {
+		d.Network = k
+		d.IP = v.IPAddress
+	}
+	return nil
 }
 
 func (d *dockerOrc) Register(address string) error {
