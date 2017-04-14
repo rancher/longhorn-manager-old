@@ -145,7 +145,7 @@ function start_orc {
             --privileged -v /dev:/host/dev \
             -v /var/run:/var/run ${extra} \
             --volumes-from ${ORC_TEST_PREFIX}-longhorn-binary ${image} \
-            /usr/local/sbin/launch-orc -d --orchestrator docker \
+            /usr/local/sbin/launch-manager -d --orchestrator docker \
             --longhorn-image $LONGHORN_IMAGE \
             --etcd-servers http://${etcd_ip}:2379
     echo ${name} is up
