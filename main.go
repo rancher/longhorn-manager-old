@@ -47,6 +47,7 @@ func main() {
 		cli.StringFlag{
 			Name:   orch.LonghornImageParam,
 			EnvVar: "LONGHORN_IMAGE",
+			Usage:  "Specify Longhorn image",
 		},
 
 		// Docker
