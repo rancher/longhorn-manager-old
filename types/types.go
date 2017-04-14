@@ -148,8 +148,8 @@ type ServiceLocator interface {
 }
 
 type SettingsInfo struct {
-	BackupTarget  string `json:"backupTarget" mapstructure:"backupTarget"`
-	LonghornImage string `json:"longhornImage" mapstructure:"longhornImage"`
+	BackupTarget string `json:"backupTarget" mapstructure:"backupTarget"`
+	EngineImage  string `json:"engineImage" mapstructure:"engineImage"`
 }
 
 type VolumeInfo struct {
@@ -162,7 +162,7 @@ type VolumeInfo struct {
 	Controller          *ControllerInfo
 	Replicas            map[string]*ReplicaInfo //key is replicaName
 	State               VolumeState
-	LonghornImage       string
+	EngineImage         string
 	Endpoint            string
 	Created             string
 	RecurringJobs       []*RecurringJob

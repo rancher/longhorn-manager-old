@@ -21,12 +21,13 @@ wait_for_etcd $etcd_ip
 start_nfs
 nfs_ip=$(get_container_ip $NFS_SERVER)
 
-start_longhorn_binary $LONGHORN_IMAGE
+start_engine_binary
 
 image=`cat ./bin/latest_image`
 
 echo NFS backupstore at: nfs://${nfs_ip}:${BACKUPSTORE_PATH}
 
+mgr=${LONGHORN_MANAGER_NAME}-0
 # persist the host UUID and expose the port
-start_orc $image 0 $etcd_ip -p 9500:9500 \
+start_mgr $image $mgr $etcd_ip -p 9500:9500 \
         -v /var/lib/rancher/longhorn:/var/lib/rancher/longhorn

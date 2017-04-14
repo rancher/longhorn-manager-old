@@ -45,9 +45,9 @@ func main() {
 		},
 
 		cli.StringFlag{
-			Name:   orch.LonghornImageParam,
-			EnvVar: "LONGHORN_IMAGE",
-			Usage:  "Specify Longhorn image",
+			Name:   orch.EngineImageParam,
+			EnvVar: "LONGHORN_ENGINE_IMAGE",
+			Usage:  "Specify Longhorn engine image",
 		},
 
 		// Docker
@@ -82,8 +82,8 @@ func RunManager(c *cli.Context) error {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	if c.String(orch.LonghornImageParam) == "" {
-		return fmt.Errorf("Must specify %v", orch.LonghornImageParam)
+	if c.String(orch.EngineImageParam) == "" {
+		return fmt.Errorf("Must specify %v", orch.EngineImageParam)
 	}
 
 	orcName := c.String("orchestrator")

@@ -30,11 +30,11 @@ const (
 )
 
 type dockerOrc struct {
-	Servers       []string //etcd servers
-	Prefix        string   //prefix in k/v store
-	LonghornImage string
-	Network       string
-	IP            string
+	Servers     []string //etcd servers
+	Prefix      string   //prefix in k/v store
+	EngineImage string
+	Network     string
+	IP          string
 
 	currentHost *types.HostInfo
 
@@ -57,7 +57,7 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 		return nil, fmt.Errorf("Unspecified etcd servers")
 	}
 	prefix := c.String("etcd-prefix")
-	image := c.String(orch.LonghornImageParam)
+	image := c.String(orch.EngineImageParam)
 	network := c.String("docker-network")
 	return newDocker(&dockerOrcConfig{
 		servers: servers,
@@ -80,9 +80,9 @@ func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
 	}
 
 	docker := &dockerOrc{
-		Servers:       cfg.servers,
-		Prefix:        cfg.prefix,
-		LonghornImage: cfg.image,
+		Servers:     cfg.servers,
+		Prefix:      cfg.prefix,
+		EngineImage: cfg.image,
 
 		kapi: eCli.NewKeysAPI(etcdc),
 	}
@@ -268,8 +268,8 @@ func (d *dockerOrc) GetSettings() (*types.SettingsInfo, error) {
 	}
 	if settings == nil {
 		return &types.SettingsInfo{
-			BackupTarget:  "",
-			LonghornImage: d.LonghornImage,
+			BackupTarget: "",
+			EngineImage:  d.EngineImage,
 		}, nil
 	}
 	return settings, nil

@@ -21,7 +21,7 @@ type Volume struct {
 	NumberOfReplicas    int    `json:"numberOfReplicas,omitempty"`
 	StaleReplicaTimeout int    `json:"staleReplicaTimeout,omitempty"`
 	State               string `json:"state,omitempty"`
-	LonghornImage       string `json:"longhornImage,omitempty"`
+	EngineImage         string `json:"engineImage,omitempty"`
 	Endpoint            string `json:"endpoint,omitemtpy"`
 	Created             string `json:"created,omitemtpy"`
 
@@ -265,7 +265,7 @@ func toSettingResource(name, value string) *Setting {
 func toSettingCollection(settings *types.SettingsInfo) *client.GenericCollection {
 	data := []interface{}{
 		toSettingResource("backupTarget", settings.BackupTarget),
-		toSettingResource("longhornImage", settings.LonghornImage),
+		toSettingResource("engineImage", settings.EngineImage),
 	}
 	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "setting"}}
 }
@@ -317,7 +317,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		FromBackup:          v.FromBackup,
 		NumberOfReplicas:    v.NumberOfReplicas,
 		State:               string(v.State),
-		LonghornImage:       v.LonghornImage,
+		EngineImage:         v.EngineImage,
 		RecurringJobs:       v.RecurringJobs,
 		StaleReplicaTimeout: int(v.StaleReplicaTimeout / time.Minute),
 		Endpoint:            v.Endpoint,

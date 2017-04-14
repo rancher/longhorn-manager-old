@@ -13,15 +13,15 @@ import (
 const (
 	TestVolumeName = "test-vol"
 
-	EnvEtcdServer    = "LONGHORN_ORC_TEST_ETCD_SERVER"
-	EnvLonghornImage = "LONGHORN_IMAGE"
+	EnvEtcdServer  = "LONGHORN_MANAGER_TEST_ETCD_SERVER"
+	EnvEngineImage = "LONGHORN_ENGINE_IMAGE"
 )
 
 func Test(t *testing.T) { TestingT(t) }
 
 type TestSuite struct {
-	d             *dockerOrc
-	longhornImage string
+	d           *dockerOrc
+	engineImage string
 
 	// Index by instance.ID
 	instanceBin map[string]*types.InstanceInfo
@@ -37,8 +37,8 @@ func (s *TestSuite) SetUpTest(c *C) {
 	etcdIP := os.Getenv(EnvEtcdServer)
 	c.Assert(etcdIP, Not(Equals), "")
 
-	s.longhornImage = os.Getenv(EnvLonghornImage)
-	c.Assert(s.longhornImage, Not(Equals), "")
+	s.engineImage = os.Getenv(EnvEngineImage)
+	c.Assert(s.engineImage, Not(Equals), "")
 
 	cfg := &dockerOrcConfig{
 		servers: []string{"http://" + etcdIP + ":2379"},
@@ -62,15 +62,15 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	defer s.Cleanup()
 
 	volume := &types.VolumeInfo{
-		Name:          TestVolumeName,
-		Size:          8 * 1024 * 1024, // 8M
-		LonghornImage: s.longhornImage,
+		Name:        TestVolumeName,
+		Size:        8 * 1024 * 1024, // 8M
+		EngineImage: s.engineImage,
 	}
 	replica1Data := &dockerScheduleData{
-		VolumeName:    volume.Name,
-		VolumeSize:    strconv.FormatInt(volume.Size, 10),
-		InstanceName:  "replica-test-1",
-		LonghornImage: volume.LonghornImage,
+		VolumeName:   volume.Name,
+		VolumeSize:   strconv.FormatInt(volume.Size, 10),
+		InstanceName: "replica-test-1",
+		EngineImage:  volume.EngineImage,
 	}
 	replica1, err := s.d.createReplica(replica1Data)
 	c.Assert(err, IsNil)
@@ -94,10 +94,10 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	c.Assert(instance.Running, Equals, true)
 
 	replica2Data := &dockerScheduleData{
-		VolumeName:    volume.Name,
-		VolumeSize:    strconv.FormatInt(volume.Size, 10),
-		InstanceName:  "replica-test-2",
-		LonghornImage: volume.LonghornImage,
+		VolumeName:   volume.Name,
+		VolumeSize:   strconv.FormatInt(volume.Size, 10),
+		InstanceName: "replica-test-2",
+		EngineImage:  volume.EngineImage,
 	}
 	replica2, err := s.d.createReplica(replica2Data)
 	c.Assert(err, IsNil)
@@ -107,9 +107,9 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	controllerName := "controller-test"
 
 	data := &dockerScheduleData{
-		VolumeName:    volume.Name,
-		InstanceName:  controllerName,
-		LonghornImage: volume.LonghornImage,
+		VolumeName:   volume.Name,
+		InstanceName: controllerName,
+		EngineImage:  volume.EngineImage,
 		ReplicaURLs: []string{
 			"tcp://" + replica1.Address + ":9502",
 			"tcp://" + replica2.Address + ":9502",

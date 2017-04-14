@@ -20,8 +20,8 @@ if [ $? -ne 0 ]; then
 fi
 set -e
 
-LONGHORN_BINARY_NAME="longhorn-binary"
-LONGHORN_BINARY_IMAGE="rancher/longhorn:b016f2d"
+LONGHORN_ENGINE_BINARY_NAME="longhorn-engine-binary"
+LONGHORN_ENGINE_IMAGE="rancher/longhorn-engine:046b5a5"
 
 LONGHORN_MANAGER_NAME="longhorn-manager"
 LONGHORN_MANAGER_IMAGE="rancher/longhorn-manager:31b613b"
@@ -33,13 +33,13 @@ LONGHORN_UI_NAME="longhorn-ui"
 LONGHORN_UI_IMAGE="rancher/longhorn-ui:5528110"
 
 # longhorn-binary first, provides binary to longhorn-manager
-cleanup ${LONGHORN_BINARY_NAME}
+cleanup ${LONGHORN_ENGINE_BINARY_NAME}
 
-docker run --name ${LONGHORN_BINARY_NAME} \
+docker run --name ${LONGHORN_ENGINE_BINARY_NAME} \
         --network none \
-        ${LONGHORN_BINARY_IMAGE} \
+        ${LONGHORN_ENGINE_IMAGE} \
 	/bin/bash
-echo ${LONGHORN_BINARY_NAME} is ready
+echo ${LONGHORN_ENGINE_BINARY_NAME} is ready
 
 # now longhorn-manager
 cleanup ${LONGHORN_MANAGER_NAME}
@@ -52,11 +52,11 @@ docker run -d \
         -v /dev:/host/dev \
         -v /var/run:/var/run \
         -v /var/lib/rancher/longhorn:/var/lib/rancher/longhorn \
-        --volumes-from ${LONGHORN_BINARY_NAME} \
+        --volumes-from ${LONGHORN_ENGINE_BINARY_NAME} \
         ${LONGHORN_MANAGER_IMAGE} \
         launch-manager -d \
         --orchestrator docker \
-        --longhorn-image ${LONGHORN_BINARY_IMAGE} \
+        --engine-image ${LONGHORN_ENGINE_IMAGE} \
         --etcd-servers http://${etcd_ip}:2379
 echo ${LONGHORN_MANAGER_NAME} is ready
 

@@ -35,8 +35,8 @@ func (s *SettingsHandlers) Get(w http.ResponseWriter, req *http.Request) error {
 	}
 	if name == "backupTarget" {
 		apiContext.Write(toSettingResource(name, si.BackupTarget))
-	} else if name == "longhornImage" {
-		apiContext.Write(toSettingResource(name, si.LonghornImage))
+	} else if name == "engineImage" {
+		apiContext.Write(toSettingResource(name, si.EngineImage))
 	} else {
 		return errors.Errorf("invalid setting name %v", name)
 	}
@@ -61,7 +61,7 @@ func (s *SettingsHandlers) Set(w http.ResponseWriter, req *http.Request) error {
 	if name == "backupTarget" {
 		si.BackupTarget = setting.Value
 	} else if name == "longhornImage" {
-		si.LonghornImage = setting.Value
+		si.EngineImage = setting.Value
 	} else {
 		return errors.Wrapf(err, "invalid setting name %v", name)
 	}

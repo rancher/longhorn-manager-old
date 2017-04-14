@@ -37,10 +37,10 @@ def test_hosts_and_settings(clients):  # NOQA
         settingMap[setting["name"]] = setting
 
     assert settingMap["backupTarget"]["value"] == ""
-    assert settingMap["longhornImage"]["value"] != ""
+    assert settingMap["engineImage"]["value"] != ""
 
-    setting = client.by_id_setting("longhornImage")
-    assert settingMap["longhornImage"]["value"] == setting["value"]
+    setting = client.by_id_setting("engineImage")
+    assert settingMap["engineImage"]["value"] == setting["value"]
 
     setting = client.by_id_setting("backupTarget")
     assert settingMap["backupTarget"]["value"] == setting["value"]

@@ -12,9 +12,9 @@ source ./scripts/common.sh
 image=`cat ./bin/latest_image`
 
 # Removing any existing testing containers, e.g. from scripts/server
-cleanup_orc_test
+cleanup_mgr_test
 
-trap cleanup_orc_test EXIT
+trap cleanup_mgr_test EXIT
 
 start_etcd
 
@@ -24,33 +24,33 @@ wait_for_etcd $etcd_ip
 start_nfs
 nfs_ip=$(get_container_ip $NFS_SERVER)
 
-start_longhorn_binary $LONGHORN_IMAGE
+start_engine_binary
 
 image=`cat ./bin/latest_image`
 
-orc1="${ORC_TEST_PREFIX}-server-1"
-start_orc $image 1 ${etcd_ip}
-orc1_ip=$(get_container_ip ${orc1})
-wait_for_orc ${orc1_ip}
+mgr1="${LONGHORN_MANAGER_NAME}-1"
+start_mgr $image $mgr1 ${etcd_ip}
+mgr1_ip=$(get_container_ip ${mgr1})
+wait_for_mgr ${mgr1_ip}
 
-echo $orc1 is ready
+echo $mgr1 is ready
 
-orc2="${ORC_TEST_PREFIX}-server-2"
-start_orc $image 2 ${etcd_ip}
-orc2_ip=$(get_container_ip ${orc2})
-wait_for_orc ${orc2_ip}
+mgr2="${LONGHORN_MANAGER_NAME}-2"
+start_mgr $image $mgr2 ${etcd_ip}
+mgr2_ip=$(get_container_ip ${mgr2})
+wait_for_mgr ${mgr2_ip}
 
-echo $orc2 is ready
+echo $mgr2 is ready
 
-orc3="${ORC_TEST_PREFIX}-server-3"
-start_orc $image 3 ${etcd_ip}
-orc3_ip=$(get_container_ip ${orc3})
-wait_for_orc ${orc3_ip}
+mgr3="${LONGHORN_MANAGER_NAME}-3"
+start_mgr $image $mgr3 ${etcd_ip}
+mgr3_ip=$(get_container_ip ${mgr3})
+wait_for_mgr ${mgr3_ip}
 
-echo $orc3 is ready
+echo $mgr3 is ready
 
-export LONGHORN_ORC_TEST_SERVER_IPS="$orc1_ip,$orc2_ip,$orc3_ip"
-export LONGHORN_ORC_TEST_BACKUPSTORE_URL="nfs://${nfs_ip}:${BACKUPSTORE_PATH}"
+export LONGHORN_MANAGER_TEST_SERVER_IPS="$mgr1_ip,$mgr2_ip,$mgr3_ip"
+export LONGHORN_MANAGER_TEST_BACKUPSTORE_URL="nfs://${nfs_ip}:${BACKUPSTORE_PATH}"
 
 cd integration
 find -depth -name __pycache__ -o -name "*.pyc" -exec rm -rf {} \;

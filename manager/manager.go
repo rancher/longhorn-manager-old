@@ -115,10 +115,10 @@ func (man *volumeManager) Create(volume *types.VolumeInfo) (*types.VolumeInfo, e
 	if err != nil || settings == nil {
 		return nil, errors.New("create volume fail: fail to load settings")
 	}
-	if volume.LonghornImage == "" {
-		volume.LonghornImage = settings.LonghornImage
-		if volume.LonghornImage == "" {
-			return nil, errors.New("create volume fail: No LonghornImage specified")
+	if volume.EngineImage == "" {
+		volume.EngineImage = settings.EngineImage
+		if volume.EngineImage == "" {
+			return nil, errors.New("create volume fail: No EngineImage specified")
 		}
 	}
 	if volume.FromBackup != "" {

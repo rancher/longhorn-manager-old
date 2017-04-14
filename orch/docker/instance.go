@@ -31,11 +31,11 @@ var (
 )
 
 type dockerScheduleData struct {
-	InstanceName  string
-	VolumeName    string
-	VolumeSize    string
-	LonghornImage string
-	ReplicaURLs   []string
+	InstanceName string
+	VolumeName   string
+	VolumeSize   string
+	EngineImage  string
+	ReplicaURLs  []string
 }
 
 func (d *dockerOrc) ProcessSchedule(item *types.ScheduleItem) (*types.InstanceInfo, error) {
@@ -134,10 +134,10 @@ func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, r
 	}
 
 	data := &dockerScheduleData{
-		InstanceName:  controllerName,
-		VolumeName:    volumeName,
-		LonghornImage: volume.LonghornImage,
-		ReplicaURLs:   []string{},
+		InstanceName: controllerName,
+		VolumeName:   volumeName,
+		EngineImage:  volume.EngineImage,
+		ReplicaURLs:  []string{},
 	}
 	for _, name := range replicaNames {
 		replica := volume.Replicas[name]
@@ -173,7 +173,7 @@ func (d *dockerOrc) createController(data *dockerScheduleData) (instance *types.
 
 	createBody, err := d.cli.ContainerCreate(context.Background(),
 		&dContainer.Config{
-			Image: data.LonghornImage,
+			Image: data.EngineImage,
 			Cmd:   cmd,
 		},
 		&dContainer.HostConfig{
@@ -278,10 +278,10 @@ func (d *dockerOrc) prepareCreateReplica(volume *types.VolumeInfo, replicaName s
 		return nil, errors.Errorf("invalid volume size 0")
 	}
 	data := &dockerScheduleData{
-		VolumeName:    volume.Name,
-		VolumeSize:    strconv.FormatInt(volume.Size, 10),
-		InstanceName:  replicaName,
-		LonghornImage: volume.LonghornImage,
+		VolumeName:   volume.Name,
+		VolumeSize:   strconv.FormatInt(volume.Size, 10),
+		InstanceName: replicaName,
+		EngineImage:  volume.EngineImage,
 	}
 	bData, err := json.Marshal(data)
 	if err != nil {
@@ -305,7 +305,7 @@ func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo
 			ExposedPorts: dNat.PortSet{
 				"9502-9504": struct{}{},
 			},
-			Image: data.LonghornImage,
+			Image: data.EngineImage,
 			Volumes: map[string]struct{}{
 				"/volume": {},
 			},

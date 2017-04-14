@@ -1,14 +1,17 @@
 #!/bin/bash
 
-ORC_TEST_PREFIX=longhorn-manager-test
+TEST_PREFIX=longhorn-manager-test
 
-ETCD_SERVER=${ORC_TEST_PREFIX}-etcd-server
+ETCD_SERVER=${TEST_PREFIX}-etcd-server
 ETCD_IMAGE=quay.io/coreos/etcd:v3.1.5
 
-NFS_SERVER=${ORC_TEST_PREFIX}-nfs-server
+NFS_SERVER=${TEST_PREFIX}-nfs-server
 NFS_IMAGE=docker.io/erezhorev/dockerized_nfs_server
 
-LONGHORN_IMAGE=rancher/longhorn:b016f2d
+LONGHORN_ENGINE_IMAGE=rancher/longhorn-engine:046b5a5
+
+LONGHORN_ENGINE_BINARY_NAME=${TEST_PREFIX}-engine-binary
+LONGHORN_MANAGER_NAME=${TEST_PREFIX}-manager
 
 BACKUPSTORE_PATH=/opt/backupstore
 
@@ -53,11 +56,11 @@ function start_etcd {
     echo etcd server is up
 }
 
-function cleanup_orc_test {
+function cleanup_mgr_test {
     echo clean up test containers
     set +e
-    docker stop $(docker ps -f name=$ORC_TEST_PREFIX -a -q)
-    docker rm -v $(docker ps -f name=$ORC_TEST_PREFIX -a -q)
+    docker stop $(docker ps -f name=$TEST_PREFIX -a -q)
+    docker rm -v $(docker ps -f name=$TEST_PREFIX -a -q)
     set -e
 }
 
@@ -112,28 +115,26 @@ function get_container_ip {
     echo $ip
 }
 
-function start_longhorn_binary {
-    name=${ORC_TEST_PREFIX}-longhorn-binary
+function start_engine_binary {
+    name=${LONGHORN_ENGINE_BINARY_NAME}
     exists=$(check_exists $name)
 
     if [ "$exists" == "true" ]; then
-        echo longhorn binary exists
+        echo longhorn engine binary exists
         return
     fi
 
-    image=$1
-    docker run -d -it --name $name $image bash
-    echo longhorn binary is up
+    docker run --name $name ${LONGHORN_ENGINE_IMAGE} bash
+    echo longhorn engine binary is ready
 }
 
-function start_orc {
+function start_mgr {
     image=$1
-    id=$2
+    name=$2
     etcd_ip=$3
     shift 3
     extra=$@
 
-    name=${ORC_TEST_PREFIX}-server-${id}
     exists=$(check_exists $name)
     if [ "$exists" == "true" ]; then
         echo remove old longhorn-manager server
@@ -144,16 +145,16 @@ function start_orc {
     docker run -d --name ${name} \
             --privileged -v /dev:/host/dev \
             -v /var/run:/var/run ${extra} \
-            --volumes-from ${ORC_TEST_PREFIX}-longhorn-binary ${image} \
+            --volumes-from ${LONGHORN_ENGINE_BINARY_NAME} ${image} \
             /usr/local/sbin/launch-manager -d --orchestrator docker \
-            --longhorn-image $LONGHORN_IMAGE \
+            --engine-image ${LONGHORN_ENGINE_IMAGE} \
             --etcd-servers http://${etcd_ip}:2379
     echo ${name} is up
 }
 
-function wait_for_orc {
-    orc_ip=$1
-    wait_for http://${orc_ip}:9500/v1
+function wait_for_mgr {
+    mgr_ip=$1
+    wait_for http://${mgr_ip}:9500/v1
 }
 
 function start_nfs {

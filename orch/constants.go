@@ -1,5 +1,5 @@
 package orch
 
 const (
-	LonghornImageParam = "longhorn-image"
+	EngineImageParam = "engine-image"
 )

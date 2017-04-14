@@ -5,10 +5,10 @@ import pytest
 
 import cattle
 
-ENV_ORC_IPS = "LONGHORN_ORC_TEST_SERVER_IPS"
-ENV_BACKUPSTORE_URL = "LONGHORN_ORC_TEST_BACKUPSTORE_URL"
+ENV_MANAGER_IPS = "LONGHORN_MANAGER_TEST_SERVER_IPS"
+ENV_BACKUPSTORE_URL = "LONGHORN_MANAGER_TEST_BACKUPSTORE_URL"
 
-ORC = 'http://localhost:9500'
+MANAGER = 'http://localhost:9500'
 
 SIZE = str(16 * 1024 * 1024)
 VOLUME_NAME = "longhorn-manager-test_vol-1.0"
@@ -19,7 +19,7 @@ PORT = ":9500"
 
 @pytest.fixture
 def clients(request):
-    ips = get_orc_ips()
+    ips = get_mgr_ips()
     client = get_client(ips[0] + PORT)
     hosts = client.list_host()
     assert len(hosts) == len(ips)
@@ -42,8 +42,8 @@ def get_client(address):
     return c
 
 
-def get_orc_ips():
-    return string.split(os.environ[ENV_ORC_IPS], ",")
+def get_mgr_ips():
+    return string.split(os.environ[ENV_MANAGER_IPS], ",")
 
 
 def get_backupstore_url():

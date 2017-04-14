@@ -5,4 +5,4 @@ cd $(dirname $0)/..
 
 source ./scripts/common.sh
 
-cleanup_orc_test
+cleanup_mgr_test
