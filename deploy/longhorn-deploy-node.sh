@@ -29,6 +29,9 @@ LONGHORN_MANAGER_IMAGE="rancher/longhorn-manager:31b613b"
 LONGHORN_DRIVER_NAME="longhorn-driver"
 LONGHORN_DRIVER_IMAGE="imikushin/storage-longhorn:8b1bb5c"
 
+LONGHORN_UI_NAME="longhorn-ui"
+LONGHORN_UI_IMAGE="rancher/longhorn-ui:5528110"
+
 # longhorn-binary first, provides binary to longhorn-manager
 cleanup ${LONGHORN_BINARY_NAME}
 
@@ -73,9 +76,16 @@ echo ${LONGHORN_DRIVER_NAME} is ready
 
 manager_ip=$(get_container_ip ${LONGHORN_MANAGER_NAME})
 
-echo Longhorn node is up at ${manager_ip}
+host_port=8080
+
+cleanup ${LONGHORN_UI_NAME}
+docker run -d \
+        --name ${LONGHORN_UI_NAME} \
+        --network ${network} \
+        -p ${host_port}:8000/tcp \
+        -e LONGHORN_MANAGER_IP=http://${manager_ip}:9500 \
+        ${LONGHORN_UI_IMAGE}
+echo ${LONGHORN_UI_NAME} is ready
+
 echo
-echo Use following command to deploy Longhorn UI
-echo
-echo ./longhorn-deploy-ui.sh ${network} ${manager_ip}
-echo
+echo Longhorn is up at port ${host_port}
