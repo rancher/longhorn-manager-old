@@ -41,7 +41,9 @@ func (d *dockerOrc) setHost(host *types.HostInfo) error {
 }
 
 func (d *dockerOrc) getHost(id string) (*types.HostInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.hostKey(id), nil)
+	resp, err := d.kapi.Get(context.Background(), d.hostKey(id), &eCli.GetOptions{
+		Quorum: true,
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get host")
 	}
@@ -49,7 +51,9 @@ func (d *dockerOrc) getHost(id string) (*types.HostInfo, error) {
 }
 
 func (d *dockerOrc) listHosts() (map[string]*types.HostInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.key(keyHosts), nil)
+	resp, err := d.kapi.Get(context.Background(), d.key(keyHosts), &eCli.GetOptions{
+		Quorum: true,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +103,9 @@ func (d *dockerOrc) setVolume(volume *types.VolumeInfo) error {
 }
 
 func (d *dockerOrc) getVolume(id string) (*types.VolumeInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.volumeKey(id), nil)
+	resp, err := d.kapi.Get(context.Background(), d.volumeKey(id), &eCli.GetOptions{
+		Quorum: true,
+	})
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
 			return nil, nil
@@ -118,7 +124,9 @@ func (d *dockerOrc) rmVolume(id string) error {
 }
 
 func (d *dockerOrc) listVolumes() ([]*types.VolumeInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.key(keyVolumes), nil)
+	resp, err := d.kapi.Get(context.Background(), d.key(keyVolumes), &eCli.GetOptions{
+		Quorum: true,
+	})
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
 			return nil, nil
@@ -171,7 +179,9 @@ func (d *dockerOrc) setSettings(settings *types.SettingsInfo) error {
 }
 
 func (d *dockerOrc) getSettings() (*types.SettingsInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.settingsKey(), nil)
+	resp, err := d.kapi.Get(context.Background(), d.settingsKey(), &eCli.GetOptions{
+		Quorum: true,
+	})
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
 			return nil, nil

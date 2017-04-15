@@ -52,8 +52,8 @@ func (s *TestSuite) SetUpTest(c *C) {
 		prefix:  "/longhorn",
 	}
 	orc, err := newDocker(cfg)
-	s.d = orc.(*dockerOrc)
 	c.Assert(err, IsNil)
+	s.d = orc.(*dockerOrc)
 }
 
 func (s *TestSuite) Cleanup() {
