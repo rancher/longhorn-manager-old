@@ -326,9 +326,9 @@ func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo
 		Type:       types.InstanceTypeReplica,
 		VolumeName: data.VolumeName,
 	}
-	instance, err := d.startInstance(input)
+	instance, err := d.refreshInstanceInfo(input)
 	if err != nil {
-		logrus.Errorf("fail to start replica %v of %v, cleaning up: %v", data.InstanceName, data.VolumeName, err)
+		logrus.Errorf("fail to create replica %v of %v, cleaning up: %v", data.InstanceName, data.VolumeName, err)
 		d.removeInstance(input)
 		return nil, errors.Wrapf(err, "fail to create replica for %v", input.VolumeName)
 	}

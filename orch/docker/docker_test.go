@@ -52,8 +52,8 @@ func (s *TestSuite) SetUpTest(c *C) {
 		prefix:  "/longhorn",
 	}
 	orc, err := newDocker(cfg)
-	s.d = orc.(*dockerOrc)
 	c.Assert(err, IsNil)
+	s.d = orc.(*dockerOrc)
 }
 
 func (s *TestSuite) Cleanup() {
@@ -85,8 +85,14 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	s.instanceBin[replica1.ID] = replica1
 
 	c.Assert(replica1.HostID, Equals, s.d.GetCurrentHostID())
-	c.Assert(replica1.Running, Equals, true)
+	c.Assert(replica1.Running, Equals, false)
 	c.Assert(replica1.Name, Equals, replica1Data.InstanceName)
+
+	instance, err = s.d.startInstance(replica1)
+	c.Assert(err, IsNil)
+	c.Assert(instance.ID, Equals, replica1.ID)
+	c.Assert(instance.Name, Equals, replica1.Name)
+	c.Assert(instance.Running, Equals, true)
 
 	instance, err = s.d.stopInstance(replica1)
 	c.Assert(err, IsNil)
@@ -100,6 +106,8 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	c.Assert(instance.Name, Equals, replica1.Name)
 	c.Assert(instance.Running, Equals, true)
 
+	replica1 = instance
+
 	replica2Data := &dockerScheduleData{
 		VolumeName:   volume.Name,
 		VolumeSize:   strconv.FormatInt(volume.Size, 10),
@@ -110,6 +118,14 @@ func (s *TestSuite) TestCreateVolume(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(replica2.ID, NotNil)
 	s.instanceBin[replica2.ID] = replica2
+
+	instance, err = s.d.startInstance(replica2)
+	c.Assert(err, IsNil)
+	c.Assert(instance.ID, Equals, replica2.ID)
+	c.Assert(instance.Name, Equals, replica2.Name)
+	c.Assert(instance.Running, Equals, true)
+
+	replica2 = instance
 
 	data := &dockerScheduleData{
 		VolumeName:   volume.Name,

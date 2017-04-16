@@ -392,6 +392,12 @@ func (man *volumeManager) createAndAddReplicaToController(volumeName string, ctr
 	if err != nil {
 		return errors.Wrapf(err, "failed to create a replica for volume '%s'", volumeName)
 	}
+	instance, err := man.orc.StartInstance(&replica.InstanceInfo)
+	if err != nil {
+		return errors.Wrapf(err, "failed to start replica %v for volume '%s'", replica.Name, volumeName)
+	}
+	// Update replica.InstanceInfo to provide address for ctrl.AddReplica() call
+	replica.InstanceInfo = *instance
 	go func() {
 		man.addingReplicasCount(volumeName, 1)
 		defer man.addingReplicasCount(volumeName, -1)
