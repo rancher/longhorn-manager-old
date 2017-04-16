@@ -230,3 +230,18 @@ func (s *KVStore) kvGet(key string, opts *eCli.GetOptions) (*eCli.Response, erro
 func (s *KVStore) kvDelete(key string, opts *eCli.DeleteOptions) (*eCli.Response, error) {
 	return s.kapi.Delete(context.Background(), key, opts)
 }
+
+// kuNuclear is test only function, which will wipe all longhorn entries
+func (s *KVStore) kvNuclear(nuclearCode string) error {
+	if nuclearCode != "nuke key value store" {
+		return errors.Errorf("invalid nuclear code!")
+	}
+	_, err := s.kvDelete(s.key(""), &eCli.DeleteOptions{Recursive: true})
+	if err != nil {
+		if eCli.IsKeyNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
