@@ -200,6 +200,9 @@ func (st *snapshotTask) Cleanup() error {
 			st.cached = st.cached[1:]
 			st.count--
 		}
+		if err := st.runner.ctrl.SnapshotOps().Purge(); err != nil {
+			return errors.Wrapf(err, "fail to purge snapshots when cleanup volume '%s'", st.runner.volume.Name)
+		}
 	}
 	return nil
 }
