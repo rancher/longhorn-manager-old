@@ -170,8 +170,17 @@ def test_recurring_snapshot_live_update_retain(clients):  # NOQA
 
     time.sleep(15)
 
-    retained = filter(lambda s: s["removed"] is False, volume.snapshotList())
+    snapshots = volume.snapshotList()
+    retained = filter(lambda s: s["removed"] is False, snapshots)
     assert len(retained) == 3
+
+    time.sleep(2)
+
+    removed = filter(lambda s: s["removed"] is True, snapshots)
+    removed_names = map(lambda s: s["name"], removed)
+
+    left = filter(lambda s: s["name"] in removed_names, volume.snapshotList())
+    assert len(left) == 0
 
 
 def test_snapshot(clients):  # NOQA

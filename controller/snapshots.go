@@ -95,6 +95,18 @@ func (c *controller) Revert(name string) error {
 }
 
 func (c *controller) Purge() error {
+	logrus.Debugf("Snapshot purge called, volume '%s', purgeQueue '%v'", c.name, c.purgeQueue)
+
+	select {
+	case c.purgeQueue <- struct{}{}:
+		defer func() { <-c.purgeQueue }()
+	default:
+		logrus.Debugf("Skipping snapshot purge: another one is pending, volume '%s'", c.name)
+		return nil
+	}
+
+	c.Lock()
+	defer c.Unlock()
 	if _, err := util.ExecuteWithTimeout(purgeTimeout, "longhorn", "--url", c.url,
 		"snapshot", "purge"); err != nil {
 		return errors.Wrapf(err, "error purging snapshots")

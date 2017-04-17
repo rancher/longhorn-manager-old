@@ -52,7 +52,7 @@ func holdControllers() {
 		c := cs[r.volume.Name]
 		cURL := getControllerURL(r.volume.Controller.Address)
 		if c == nil || c.url != cURL {
-			c = &controller{name: r.volume.Name, url: cURL}
+			c = &controller{name: r.volume.Name, url: cURL, purgeQueue: make(chan struct{}, 2)}
 			cs[r.volume.Name] = c
 		}
 		r.result <- c
@@ -67,6 +67,8 @@ type controller struct {
 
 	backupStatus     *types.BackupStatusInfo
 	backupStatusLock sync.Mutex
+
+	purgeQueue chan struct{}
 }
 
 type volumeInfo struct {
