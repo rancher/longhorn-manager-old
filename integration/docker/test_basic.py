@@ -7,12 +7,9 @@ from common import SIZE, VOLUME_NAME, DEV_PATH
 
 def test_hosts_and_settings(clients):  # NOQA
     hosts = clients.itervalues().next().list_host()
-    assert hosts[0]["uuid"] is not None
-    assert hosts[0]["address"] is not None
-    assert hosts[1]["uuid"] is not None
-    assert hosts[1]["address"] is not None
-    assert hosts[2]["uuid"] is not None
-    assert hosts[2]["address"] is not None
+    for host in hosts:
+        assert host["uuid"] is not None
+        assert host["address"] is not None
 
     host0_id = hosts[0]["uuid"]
     host1_id = hosts[1]["uuid"]
@@ -29,41 +26,30 @@ def test_hosts_and_settings(clients):  # NOQA
 
     client = clients[host0_id]
 
+    setting_names = ["engineImage", "backupTarget"]
     settings = client.list_setting()
-    assert len(settings) == 2
+    assert len(settings) == len(setting_names)
 
     settingMap = {}
     for setting in settings:
         settingMap[setting["name"]] = setting
 
-    assert settingMap["backupTarget"]["value"] == ""
-    assert settingMap["engineImage"]["value"] != ""
+    for name in setting_names:
+        assert settingMap[name] is not None
 
-    setting = client.by_id_setting("engineImage")
-    assert settingMap["engineImage"]["value"] == setting["value"]
+    for name in setting_names:
+        setting = client.by_id_setting(name)
+        assert settingMap[name]["value"] == setting["value"]
 
-    old_image = setting["value"]
+        old_value = setting["value"]
 
-    setting = client.update(setting, value="testimage")
-    assert setting["value"] == "testimage"
-    setting = client.by_id_setting("engineImage")
-    assert setting["value"] == "testimage"
+        setting = client.update(setting, value="testvalue")
+        assert setting["value"] == "testvalue"
+        setting = client.by_id_setting(name)
+        assert setting["value"] == "testvalue"
 
-    setting = client.update(setting, value=old_image)
-    assert setting["value"] == old_image
-
-    setting = client.by_id_setting("backupTarget")
-    assert settingMap["backupTarget"]["value"] == setting["value"]
-
-    old_target = setting["value"]
-
-    setting = client.update(setting, value="testbackup")
-    assert setting["value"] == "testbackup"
-    setting = client.by_id_setting("backupTarget")
-    assert setting["value"] == "testbackup"
-
-    setting = client.update(setting, value=old_target)
-    assert setting["value"] == old_target
+        setting = client.update(setting, value=old_value)
+        assert setting["value"] == old_value
 
 
 def test_volume_basic(clients):  # NOQA
