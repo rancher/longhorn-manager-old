@@ -33,13 +33,16 @@ func (s *SettingsHandlers) Get(w http.ResponseWriter, req *http.Request) error {
 	if err != nil || si == nil {
 		return errors.Wrap(err, "fail to read settings")
 	}
-	if name == "backupTarget" {
-		apiContext.Write(toSettingResource(name, si.BackupTarget))
-	} else if name == "engineImage" {
-		apiContext.Write(toSettingResource(name, si.EngineImage))
-	} else {
+	var value string
+	switch name {
+	case "backupTarget":
+		value = si.BackupTarget
+	case "engineImage":
+		value = si.EngineImage
+	default:
 		return errors.Errorf("invalid setting name %v", name)
 	}
+	apiContext.Write(toSettingResource(name, value))
 	return nil
 }
 
