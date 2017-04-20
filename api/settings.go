@@ -58,11 +58,12 @@ func (s *SettingsHandlers) Set(w http.ResponseWriter, req *http.Request) error {
 		return errors.Wrap(err, "fail to read settings")
 	}
 
-	if name == "backupTarget" {
+	switch name {
+	case "backupTarget":
 		si.BackupTarget = setting.Value
-	} else if name == "longhornImage" {
+	case "engineImage":
 		si.EngineImage = setting.Value
-	} else {
+	default:
 		return errors.Wrapf(err, "invalid setting name %v", name)
 	}
 	if err := s.settings.SetSettings(si); err != nil {
