@@ -42,6 +42,16 @@ def test_hosts_and_settings(clients):  # NOQA
     setting = client.by_id_setting("engineImage")
     assert settingMap["engineImage"]["value"] == setting["value"]
 
+    old_image = setting["value"]
+
+    setting = client.update(setting, value="testimage")
+    assert setting["value"] == "testimage"
+    setting = client.by_id_setting("engineImage")
+    assert setting["value"] == "testimage"
+
+    setting = client.update(setting, value=old_image)
+    assert setting["value"] == old_image
+
     setting = client.by_id_setting("backupTarget")
     assert settingMap["backupTarget"]["value"] == setting["value"]
 
