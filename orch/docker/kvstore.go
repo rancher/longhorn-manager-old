@@ -33,7 +33,7 @@ func (d *dockerOrc) setHost(host *types.HostInfo) error {
 	if err != nil {
 		return err
 	}
-	if _, err := d.kapi.Set(context.Background(), d.hostKey(host.UUID), string(value), nil); err != nil {
+	if _, err := d.kvSet(d.hostKey(host.UUID), string(value), nil); err != nil {
 		return err
 	}
 	logrus.Infof("Add host %v name %v longhorn-manager address %v", host.UUID, host.Name, host.Address)
@@ -41,7 +41,7 @@ func (d *dockerOrc) setHost(host *types.HostInfo) error {
 }
 
 func (d *dockerOrc) getHost(id string) (*types.HostInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.hostKey(id), nil)
+	resp, err := d.kvGet(d.hostKey(id), nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get host")
 	}
@@ -49,7 +49,7 @@ func (d *dockerOrc) getHost(id string) (*types.HostInfo, error) {
 }
 
 func (d *dockerOrc) listHosts() (map[string]*types.HostInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.key(keyHosts), nil)
+	resp, err := d.kvGet(d.key(keyHosts), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -92,14 +92,14 @@ func (d *dockerOrc) setVolume(volume *types.VolumeInfo) error {
 	if err != nil {
 		return err
 	}
-	if _, err := d.kapi.Set(context.Background(), d.volumeKey(volume.Name), string(value), nil); err != nil {
+	if _, err := d.kvSet(d.volumeKey(volume.Name), string(value), nil); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (d *dockerOrc) getVolume(id string) (*types.VolumeInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.volumeKey(id), nil)
+	resp, err := d.kvGet(d.volumeKey(id), nil)
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
 			return nil, nil
@@ -110,7 +110,7 @@ func (d *dockerOrc) getVolume(id string) (*types.VolumeInfo, error) {
 }
 
 func (d *dockerOrc) rmVolume(id string) error {
-	_, err := d.kapi.Delete(context.Background(), d.volumeKey(id), &eCli.DeleteOptions{Recursive: true})
+	_, err := d.kvDelete(d.volumeKey(id), &eCli.DeleteOptions{Recursive: true})
 	if err != nil {
 		return errors.Wrap(err, "unable to remove volume")
 	}
@@ -118,7 +118,7 @@ func (d *dockerOrc) rmVolume(id string) error {
 }
 
 func (d *dockerOrc) listVolumes() ([]*types.VolumeInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.key(keyVolumes), nil)
+	resp, err := d.kvGet(d.key(keyVolumes), nil)
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
 			return nil, nil
@@ -164,14 +164,14 @@ func (d *dockerOrc) setSettings(settings *types.SettingsInfo) error {
 	if err != nil {
 		return err
 	}
-	if _, err := d.kapi.Set(context.Background(), d.settingsKey(), string(value), nil); err != nil {
+	if _, err := d.kvSet(d.settingsKey(), string(value), nil); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (d *dockerOrc) getSettings() (*types.SettingsInfo, error) {
-	resp, err := d.kapi.Get(context.Background(), d.settingsKey(), nil)
+	resp, err := d.kvGet(d.settingsKey(), nil)
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
 			return nil, nil
@@ -189,4 +189,16 @@ func (d *dockerOrc) getSettings() (*types.SettingsInfo, error) {
 		return nil, errors.Wrap(err, "fail to unmarshall json for settings")
 	}
 	return settings, nil
+}
+
+func (d *dockerOrc) kvSet(key, value string, opts *eCli.SetOptions) (*eCli.Response, error) {
+	return d.kapi.Set(context.Background(), key, value, opts)
+}
+
+func (d *dockerOrc) kvGet(key string, opts *eCli.GetOptions) (*eCli.Response, error) {
+	return d.kapi.Get(context.Background(), key, opts)
+}
+
+func (d *dockerOrc) kvDelete(key string, opts *eCli.DeleteOptions) (*eCli.Response, error) {
+	return d.kapi.Delete(context.Background(), key, opts)
 }
