@@ -3,6 +3,7 @@ package docker
 import (
 	"encoding/json"
 	"path/filepath"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
@@ -13,22 +14,49 @@ import (
 	"github.com/rancher/longhorn-manager/types"
 )
 
+type KVStore struct {
+	Servers []string
+	Prefix  string
+
+	kapi eCli.KeysAPI
+}
+
 const (
 	keyHosts    = "hosts"
 	keyVolumes  = "volumes"
 	keySettings = "settings"
 )
 
-func (d *dockerOrc) key(key string) string {
+func NewKVStore(servers []string, prefix string) (*KVStore, error) {
+	eCfg := eCli.Config{
+		Endpoints:               servers,
+		Transport:               eCli.DefaultTransport,
+		HeaderTimeoutPerRequest: time.Second,
+	}
+
+	etcdc, err := eCli.New(eCfg)
+	if err != nil {
+		return nil, err
+	}
+	kvStore := &KVStore{
+		Servers: servers,
+		Prefix:  prefix,
+
+		kapi: eCli.NewKeysAPI(etcdc),
+	}
+	return kvStore, nil
+}
+
+func (d *KVStore) key(key string) string {
 	// It's not file path, but we use it to deal with '/'
 	return filepath.Join(d.Prefix, key)
 }
 
-func (d *dockerOrc) hostKey(id string) string {
+func (d *KVStore) hostKey(id string) string {
 	return filepath.Join(d.key(keyHosts), id)
 }
 
-func (d *dockerOrc) setHost(host *types.HostInfo) error {
+func (d *KVStore) SetHost(host *types.HostInfo) error {
 	value, err := json.Marshal(host)
 	if err != nil {
 		return err
@@ -40,7 +68,7 @@ func (d *dockerOrc) setHost(host *types.HostInfo) error {
 	return nil
 }
 
-func (d *dockerOrc) getHost(id string) (*types.HostInfo, error) {
+func (d *KVStore) GetHost(id string) (*types.HostInfo, error) {
 	resp, err := d.kvGet(d.hostKey(id), nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get host")
@@ -48,7 +76,7 @@ func (d *dockerOrc) getHost(id string) (*types.HostInfo, error) {
 	return node2Host(resp.Node)
 }
 
-func (d *dockerOrc) listHosts() (map[string]*types.HostInfo, error) {
+func (d *KVStore) ListHosts() (map[string]*types.HostInfo, error) {
 	resp, err := d.kvGet(d.key(keyHosts), nil)
 	if err != nil {
 		return nil, err
@@ -83,11 +111,11 @@ func node2Host(node *eCli.Node) (*types.HostInfo, error) {
 	return host, nil
 }
 
-func (d *dockerOrc) volumeKey(id string) string {
+func (d *KVStore) volumeKey(id string) string {
 	return filepath.Join(d.key(keyVolumes), id)
 }
 
-func (d *dockerOrc) setVolume(volume *types.VolumeInfo) error {
+func (d *KVStore) SetVolume(volume *types.VolumeInfo) error {
 	value, err := json.Marshal(volume)
 	if err != nil {
 		return err
@@ -98,7 +126,7 @@ func (d *dockerOrc) setVolume(volume *types.VolumeInfo) error {
 	return nil
 }
 
-func (d *dockerOrc) getVolume(id string) (*types.VolumeInfo, error) {
+func (d *KVStore) GetVolume(id string) (*types.VolumeInfo, error) {
 	resp, err := d.kvGet(d.volumeKey(id), nil)
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
@@ -109,7 +137,7 @@ func (d *dockerOrc) getVolume(id string) (*types.VolumeInfo, error) {
 	return node2Volume(resp.Node)
 }
 
-func (d *dockerOrc) rmVolume(id string) error {
+func (d *KVStore) DeleteVolume(id string) error {
 	_, err := d.kvDelete(d.volumeKey(id), &eCli.DeleteOptions{Recursive: true})
 	if err != nil {
 		return errors.Wrap(err, "unable to remove volume")
@@ -117,7 +145,7 @@ func (d *dockerOrc) rmVolume(id string) error {
 	return nil
 }
 
-func (d *dockerOrc) listVolumes() ([]*types.VolumeInfo, error) {
+func (d *KVStore) ListVolumes() ([]*types.VolumeInfo, error) {
 	resp, err := d.kvGet(d.key(keyVolumes), nil)
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
@@ -155,11 +183,11 @@ func node2Volume(node *eCli.Node) (*types.VolumeInfo, error) {
 	return volume, nil
 }
 
-func (d *dockerOrc) settingsKey() string {
+func (d *KVStore) settingsKey() string {
 	return d.key(keySettings)
 }
 
-func (d *dockerOrc) setSettings(settings *types.SettingsInfo) error {
+func (d *KVStore) SetSettings(settings *types.SettingsInfo) error {
 	value, err := json.Marshal(settings)
 	if err != nil {
 		return err
@@ -170,7 +198,7 @@ func (d *dockerOrc) setSettings(settings *types.SettingsInfo) error {
 	return nil
 }
 
-func (d *dockerOrc) getSettings() (*types.SettingsInfo, error) {
+func (d *KVStore) GetSettings() (*types.SettingsInfo, error) {
 	resp, err := d.kvGet(d.settingsKey(), nil)
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
@@ -191,14 +219,14 @@ func (d *dockerOrc) getSettings() (*types.SettingsInfo, error) {
 	return settings, nil
 }
 
-func (d *dockerOrc) kvSet(key, value string, opts *eCli.SetOptions) (*eCli.Response, error) {
+func (d *KVStore) kvSet(key, value string, opts *eCli.SetOptions) (*eCli.Response, error) {
 	return d.kapi.Set(context.Background(), key, value, opts)
 }
 
-func (d *dockerOrc) kvGet(key string, opts *eCli.GetOptions) (*eCli.Response, error) {
+func (d *KVStore) kvGet(key string, opts *eCli.GetOptions) (*eCli.Response, error) {
 	return d.kapi.Get(context.Background(), key, opts)
 }
 
-func (d *dockerOrc) kvDelete(key string, opts *eCli.DeleteOptions) (*eCli.Response, error) {
+func (d *KVStore) kvDelete(key string, opts *eCli.DeleteOptions) (*eCli.Response, error) {
 	return d.kapi.Delete(context.Background(), key, opts)
 }

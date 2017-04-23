@@ -125,7 +125,7 @@ func (d *dockerOrc) CreateController(volumeName, controllerName string, replicas
 }
 
 func (d *dockerOrc) prepareCreateController(volumeName, controllerName string, replicaNames []string) (*types.ScheduleData, error) {
-	volume, err := d.getVolume(volumeName)
+	volume, err := d.kv.GetVolume(volumeName)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create controller")
 	}
@@ -226,7 +226,7 @@ func (d *dockerOrc) getDeviceName(volumeName string) string {
 }
 
 func (d *dockerOrc) CreateReplica(volumeName, replicaName string) (*types.ReplicaInfo, error) {
-	volume, err := d.getVolume(volumeName)
+	volume, err := d.kv.GetVolume(volumeName)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create replica")
 	}
@@ -488,7 +488,7 @@ func (d *dockerOrc) updateInstanceMetadata(instance *types.InstanceInfo) (err er
 		return errors.Errorf("invalid instance to update metadata: %+v", instance)
 	}
 
-	volume, err := d.getVolume(instance.VolumeName)
+	volume, err := d.kv.GetVolume(instance.VolumeName)
 	if err != nil {
 		return errors.Wrapf(err, "fail to update instance metadata: %+v", instance)
 	}
@@ -519,7 +519,7 @@ func (d *dockerOrc) updateInstanceMetadata(instance *types.InstanceInfo) (err er
 		}
 		volume.Replicas[instance.Name] = replica
 	}
-	if err := d.setVolume(volume); err != nil {
+	if err := d.kv.SetVolume(volume); err != nil {
 		return errors.Wrap(err, "fail to update instance metadata")
 	}
 
@@ -534,7 +534,7 @@ func (d *dockerOrc) removeInstanceMetadata(instance *types.InstanceInfo) (err er
 		return errors.Errorf("invalid instance to update metadata for %+v", instance)
 	}
 
-	volume, err := d.getVolume(instance.VolumeName)
+	volume, err := d.kv.GetVolume(instance.VolumeName)
 	if err != nil {
 		return errors.Wrapf(err, "fail to update instance metadata for %+v", instance)
 	}
@@ -578,7 +578,7 @@ func (d *dockerOrc) removeInstanceMetadata(instance *types.InstanceInfo) (err er
 		delete(volume.Replicas, replica.Name)
 	}
 
-	if err := d.setVolume(volume); err != nil {
+	if err := d.kv.SetVolume(volume); err != nil {
 		return errors.Wrap(err, "fail to remove instance metadata")
 	}
 
