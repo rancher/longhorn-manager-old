@@ -114,6 +114,10 @@ func (s *TestSuite) TestHost(c *C) {
 	c.Assert(hosts[host1.UUID], DeepEquals, host1)
 	c.Assert(hosts[host2.UUID], DeepEquals, host2)
 	c.Assert(hosts[host3.UUID], DeepEquals, host3)
+
+	host, err = s.s.GetHost("random")
+	c.Assert(err, IsNil)
+	c.Assert(host, IsNil)
 }
 
 func (s *TestSuite) TestSettings(c *C) {
@@ -171,6 +175,10 @@ func generateTestReplica(volName, replicaName string) *types.ReplicaInfo {
 
 func (s *TestSuite) TestVolume(c *C) {
 	var err error
+
+	volume, err := s.s.GetVolume("random")
+	c.Assert(err, IsNil)
+	c.Assert(volume, IsNil)
 
 	volume1 := generateTestVolume("volume1")
 	controller1 := generateTestController(volume1.Name)

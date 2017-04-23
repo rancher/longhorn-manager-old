@@ -23,7 +23,6 @@ type KVStore struct {
 
 const (
 	keyHosts    = "hosts"
-	keyVolumes  = "volumes"
 	keySettings = "settings"
 )
 
@@ -57,11 +56,7 @@ func (s *KVStore) hostKey(id string) string {
 }
 
 func (s *KVStore) SetHost(host *types.HostInfo) error {
-	value, err := json.Marshal(host)
-	if err != nil {
-		return err
-	}
-	if _, err := s.kvSet(s.hostKey(host.UUID), string(value), nil); err != nil {
+	if err := s.kvSet(s.hostKey(host.UUID), host); err != nil {
 		return err
 	}
 	logrus.Infof("Add host %v name %v longhorn-manager address %v", host.UUID, host.Name, host.Address)
@@ -69,118 +64,41 @@ func (s *KVStore) SetHost(host *types.HostInfo) error {
 }
 
 func (s *KVStore) GetHost(id string) (*types.HostInfo, error) {
-	resp, err := s.kvGet(s.hostKey(id), nil)
+	host, err := s.getHostByKey(s.hostKey(id))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get host")
-	}
-	return node2Host(resp.Node)
-}
-
-func (s *KVStore) ListHosts() (map[string]*types.HostInfo, error) {
-	resp, err := s.kvGet(s.key(keyHosts), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	if !resp.Node.Dir {
-		return nil, errors.Errorf("Invalid node %v is not a directory",
-			resp.Node.Key)
-	}
-
-	hosts := make(map[string]*types.HostInfo)
-	for _, node := range resp.Node.Nodes {
-		host, err := node2Host(node)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Invalid node %v:%v, %v",
-				node.Key, node.Value, err)
-		}
-		hosts[host.UUID] = host
-	}
-	return hosts, nil
-}
-
-func node2Host(node *eCli.Node) (*types.HostInfo, error) {
-	host := &types.HostInfo{}
-	if node.Dir {
-		return nil, errors.Errorf("Invalid node %v is a directory",
-			node.Key)
-	}
-	if err := json.Unmarshal([]byte(node.Value), host); err != nil {
-		return nil, errors.Wrap(err, "fail to unmarshall json for host")
 	}
 	return host, nil
 }
 
-func (s *KVStore) volumeKey(id string) string {
-	return filepath.Join(s.key(keyVolumes), id)
-}
-
-func (s *KVStore) SetVolume(volume *types.VolumeInfo) error {
-	value, err := json.Marshal(volume)
-	if err != nil {
-		return err
-	}
-	if _, err := s.kvSet(s.volumeKey(volume.Name), string(value), nil); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *KVStore) GetVolume(id string) (*types.VolumeInfo, error) {
-	resp, err := s.kvGet(s.volumeKey(id), nil)
-	if err != nil {
-		if eCli.IsKeyNotFound(err) {
-			return nil, nil
-		}
-		return nil, errors.Wrap(err, "unable to get volume")
-	}
-	return node2Volume(resp.Node)
-}
-
-func (s *KVStore) DeleteVolume(id string) error {
-	_, err := s.kvDelete(s.volumeKey(id), &eCli.DeleteOptions{Recursive: true})
-	if err != nil {
-		return errors.Wrap(err, "unable to remove volume")
-	}
-	return nil
-}
-
-func (s *KVStore) ListVolumes() ([]*types.VolumeInfo, error) {
-	resp, err := s.kvGet(s.key(keyVolumes), nil)
-	if err != nil {
-		if eCli.IsKeyNotFound(err) {
+func (s *KVStore) getHostByKey(key string) (*types.HostInfo, error) {
+	host := types.HostInfo{}
+	if err := s.kvGet(key, &host); err != nil {
+		if s.IsNotFoundError(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-
-	if !resp.Node.Dir {
-		return nil, errors.Errorf("Invalid node %v is not a directory",
-			resp.Node.Key)
-	}
-
-	volumes := []*types.VolumeInfo{}
-	for _, node := range resp.Node.Nodes {
-		volume, err := node2Volume(node)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Invalid node %v:%v, %v",
-				node.Key, node.Value, err)
-		}
-		volumes = append(volumes, volume)
-	}
-	return volumes, nil
+	return &host, nil
 }
 
-func node2Volume(node *eCli.Node) (*types.VolumeInfo, error) {
-	volume := &types.VolumeInfo{}
-	if node.Dir {
-		return nil, errors.Errorf("Invalid node %v is a directory",
-			node.Key)
+func (s *KVStore) ListHosts() (map[string]*types.HostInfo, error) {
+	hostKeys, err := s.kvListKeys(s.key(keyHosts))
+	if err != nil {
+		return nil, err
 	}
-	if err := json.Unmarshal([]byte(node.Value), volume); err != nil {
-		return nil, errors.Wrap(err, "fail to unmarshall json for volume")
+
+	hosts := make(map[string]*types.HostInfo)
+	for _, key := range hostKeys {
+		host, err := s.getHostByKey(key)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid key %v", key)
+		}
+		if host != nil {
+			hosts[host.UUID] = host
+		}
 	}
-	return volume, nil
+	return hosts, nil
 }
 
 func (s *KVStore) settingsKey() string {
@@ -188,47 +106,86 @@ func (s *KVStore) settingsKey() string {
 }
 
 func (s *KVStore) SetSettings(settings *types.SettingsInfo) error {
-	value, err := json.Marshal(settings)
-	if err != nil {
-		return err
-	}
-	if _, err := s.kvSet(s.settingsKey(), string(value), nil); err != nil {
+	if err := s.kvSet(s.settingsKey(), settings); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (s *KVStore) GetSettings() (*types.SettingsInfo, error) {
-	resp, err := s.kvGet(s.settingsKey(), nil)
-	if err != nil {
-		if eCli.IsKeyNotFound(err) {
+	settings := &types.SettingsInfo{}
+	if err := s.kvGet(s.settingsKey(), &settings); err != nil {
+		if s.IsNotFoundError(err) {
 			return nil, nil
 		}
 		return nil, errors.Wrap(err, "unable to get settings")
 	}
 
-	settings := &types.SettingsInfo{}
-	node := resp.Node
-	if node.Dir {
-		return nil, errors.Errorf("Invalid node %v is a directory",
-			node.Key)
-	}
-	if err := json.Unmarshal([]byte(node.Value), settings); err != nil {
-		return nil, errors.Wrap(err, "fail to unmarshall json for settings")
-	}
 	return settings, nil
 }
 
-func (s *KVStore) kvSet(key, value string, opts *eCli.SetOptions) (*eCli.Response, error) {
-	return s.kapi.Set(context.Background(), key, value, opts)
+func (s *KVStore) kvSet(key string, obj interface{}) error {
+	value, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	if _, err := s.kapi.Set(context.Background(), key, string(value), nil); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (s *KVStore) kvGet(key string, opts *eCli.GetOptions) (*eCli.Response, error) {
-	return s.kapi.Get(context.Background(), key, opts)
+func (s *KVStore) IsNotFoundError(err error) bool {
+	return eCli.IsKeyNotFound(err)
 }
 
-func (s *KVStore) kvDelete(key string, opts *eCli.DeleteOptions) (*eCli.Response, error) {
-	return s.kapi.Delete(context.Background(), key, opts)
+func (s *KVStore) kvGet(key string, obj interface{}) error {
+	resp, err := s.kapi.Get(context.Background(), key, nil)
+	if err != nil {
+		return err
+	}
+	node := resp.Node
+	if node.Dir {
+		return errors.Errorf("invalid node %v is a directory",
+			node.Key)
+	}
+	if err := json.Unmarshal([]byte(node.Value), obj); err != nil {
+		return errors.Wrap(err, "fail to unmarshal json")
+	}
+	return nil
+}
+
+func (s *KVStore) kvListKeys(key string) ([]string, error) {
+	resp, err := s.kapi.Get(context.Background(), key, nil)
+	if err != nil {
+		if eCli.IsKeyNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if !resp.Node.Dir {
+		return nil, errors.Errorf("invalid node %v is not a directory",
+			resp.Node.Key)
+	}
+
+	ret := []string{}
+	for _, node := range resp.Node.Nodes {
+		ret = append(ret, node.Key)
+	}
+	return ret, nil
+}
+
+func (s *KVStore) kvDelete(key string, recursive bool) error {
+	_, err := s.kapi.Delete(context.Background(), key, &eCli.DeleteOptions{
+		Recursive: recursive,
+	})
+	if err != nil {
+		if eCli.IsKeyNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // kuNuclear is test only function, which will wipe all longhorn entries
@@ -236,11 +193,7 @@ func (s *KVStore) kvNuclear(nuclearCode string) error {
 	if nuclearCode != "nuke key value store" {
 		return errors.Errorf("invalid nuclear code!")
 	}
-	_, err := s.kvDelete(s.key(""), &eCli.DeleteOptions{Recursive: true})
-	if err != nil {
-		if eCli.IsKeyNotFound(err) {
-			return nil
-		}
+	if err := s.kvDelete(s.key(""), true); err != nil {
 		return err
 	}
 	return nil
