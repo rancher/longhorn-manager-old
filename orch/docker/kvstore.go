@@ -47,37 +47,37 @@ func NewKVStore(servers []string, prefix string) (*KVStore, error) {
 	return kvStore, nil
 }
 
-func (d *KVStore) key(key string) string {
+func (s *KVStore) key(key string) string {
 	// It's not file path, but we use it to deal with '/'
-	return filepath.Join(d.Prefix, key)
+	return filepath.Join(s.Prefix, key)
 }
 
-func (d *KVStore) hostKey(id string) string {
-	return filepath.Join(d.key(keyHosts), id)
+func (s *KVStore) hostKey(id string) string {
+	return filepath.Join(s.key(keyHosts), id)
 }
 
-func (d *KVStore) SetHost(host *types.HostInfo) error {
+func (s *KVStore) SetHost(host *types.HostInfo) error {
 	value, err := json.Marshal(host)
 	if err != nil {
 		return err
 	}
-	if _, err := d.kvSet(d.hostKey(host.UUID), string(value), nil); err != nil {
+	if _, err := s.kvSet(s.hostKey(host.UUID), string(value), nil); err != nil {
 		return err
 	}
 	logrus.Infof("Add host %v name %v longhorn-manager address %v", host.UUID, host.Name, host.Address)
 	return nil
 }
 
-func (d *KVStore) GetHost(id string) (*types.HostInfo, error) {
-	resp, err := d.kvGet(d.hostKey(id), nil)
+func (s *KVStore) GetHost(id string) (*types.HostInfo, error) {
+	resp, err := s.kvGet(s.hostKey(id), nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get host")
 	}
 	return node2Host(resp.Node)
 }
 
-func (d *KVStore) ListHosts() (map[string]*types.HostInfo, error) {
-	resp, err := d.kvGet(d.key(keyHosts), nil)
+func (s *KVStore) ListHosts() (map[string]*types.HostInfo, error) {
+	resp, err := s.kvGet(s.key(keyHosts), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -111,23 +111,23 @@ func node2Host(node *eCli.Node) (*types.HostInfo, error) {
 	return host, nil
 }
 
-func (d *KVStore) volumeKey(id string) string {
-	return filepath.Join(d.key(keyVolumes), id)
+func (s *KVStore) volumeKey(id string) string {
+	return filepath.Join(s.key(keyVolumes), id)
 }
 
-func (d *KVStore) SetVolume(volume *types.VolumeInfo) error {
+func (s *KVStore) SetVolume(volume *types.VolumeInfo) error {
 	value, err := json.Marshal(volume)
 	if err != nil {
 		return err
 	}
-	if _, err := d.kvSet(d.volumeKey(volume.Name), string(value), nil); err != nil {
+	if _, err := s.kvSet(s.volumeKey(volume.Name), string(value), nil); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *KVStore) GetVolume(id string) (*types.VolumeInfo, error) {
-	resp, err := d.kvGet(d.volumeKey(id), nil)
+func (s *KVStore) GetVolume(id string) (*types.VolumeInfo, error) {
+	resp, err := s.kvGet(s.volumeKey(id), nil)
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
 			return nil, nil
@@ -137,16 +137,16 @@ func (d *KVStore) GetVolume(id string) (*types.VolumeInfo, error) {
 	return node2Volume(resp.Node)
 }
 
-func (d *KVStore) DeleteVolume(id string) error {
-	_, err := d.kvDelete(d.volumeKey(id), &eCli.DeleteOptions{Recursive: true})
+func (s *KVStore) DeleteVolume(id string) error {
+	_, err := s.kvDelete(s.volumeKey(id), &eCli.DeleteOptions{Recursive: true})
 	if err != nil {
 		return errors.Wrap(err, "unable to remove volume")
 	}
 	return nil
 }
 
-func (d *KVStore) ListVolumes() ([]*types.VolumeInfo, error) {
-	resp, err := d.kvGet(d.key(keyVolumes), nil)
+func (s *KVStore) ListVolumes() ([]*types.VolumeInfo, error) {
+	resp, err := s.kvGet(s.key(keyVolumes), nil)
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
 			return nil, nil
@@ -183,23 +183,23 @@ func node2Volume(node *eCli.Node) (*types.VolumeInfo, error) {
 	return volume, nil
 }
 
-func (d *KVStore) settingsKey() string {
-	return d.key(keySettings)
+func (s *KVStore) settingsKey() string {
+	return s.key(keySettings)
 }
 
-func (d *KVStore) SetSettings(settings *types.SettingsInfo) error {
+func (s *KVStore) SetSettings(settings *types.SettingsInfo) error {
 	value, err := json.Marshal(settings)
 	if err != nil {
 		return err
 	}
-	if _, err := d.kvSet(d.settingsKey(), string(value), nil); err != nil {
+	if _, err := s.kvSet(s.settingsKey(), string(value), nil); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *KVStore) GetSettings() (*types.SettingsInfo, error) {
-	resp, err := d.kvGet(d.settingsKey(), nil)
+func (s *KVStore) GetSettings() (*types.SettingsInfo, error) {
+	resp, err := s.kvGet(s.settingsKey(), nil)
 	if err != nil {
 		if eCli.IsKeyNotFound(err) {
 			return nil, nil
@@ -219,14 +219,14 @@ func (d *KVStore) GetSettings() (*types.SettingsInfo, error) {
 	return settings, nil
 }
 
-func (d *KVStore) kvSet(key, value string, opts *eCli.SetOptions) (*eCli.Response, error) {
-	return d.kapi.Set(context.Background(), key, value, opts)
+func (s *KVStore) kvSet(key, value string, opts *eCli.SetOptions) (*eCli.Response, error) {
+	return s.kapi.Set(context.Background(), key, value, opts)
 }
 
-func (d *KVStore) kvGet(key string, opts *eCli.GetOptions) (*eCli.Response, error) {
-	return d.kapi.Get(context.Background(), key, opts)
+func (s *KVStore) kvGet(key string, opts *eCli.GetOptions) (*eCli.Response, error) {
+	return s.kapi.Get(context.Background(), key, opts)
 }
 
-func (d *KVStore) kvDelete(key string, opts *eCli.DeleteOptions) (*eCli.Response, error) {
-	return d.kapi.Delete(context.Background(), key, opts)
+func (s *KVStore) kvDelete(key string, opts *eCli.DeleteOptions) (*eCli.Response, error) {
+	return s.kapi.Delete(context.Background(), key, opts)
 }
