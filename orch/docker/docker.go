@@ -16,6 +16,7 @@ import (
 	dCli "github.com/docker/docker/client"
 
 	"github.com/rancher/longhorn-manager/api"
+	"github.com/rancher/longhorn-manager/kvstore"
 	"github.com/rancher/longhorn-manager/orch"
 	"github.com/rancher/longhorn-manager/scheduler"
 	"github.com/rancher/longhorn-manager/types"
@@ -34,7 +35,7 @@ type dockerOrc struct {
 
 	currentHost *types.HostInfo
 
-	kv  *KVStore
+	kv  *kvstore.KVStore
 	cli *dCli.Client
 
 	scheduler types.Scheduler
@@ -64,7 +65,7 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 }
 
 func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
-	kvStore, err := NewKVStore(cfg.servers, cfg.prefix)
+	kvStore, err := kvstore.NewKVStore(cfg.servers, cfg.prefix)
 	if err != nil {
 		return nil, err
 	}

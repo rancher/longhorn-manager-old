@@ -1,4 +1,4 @@
-package docker
+package kvstore
 
 import (
 	"encoding/json"
