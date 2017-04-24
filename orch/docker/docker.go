@@ -12,12 +12,11 @@ import (
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
 
-	eCli "github.com/coreos/etcd/client"
-
 	dTypes "github.com/docker/docker/api/types"
 	dCli "github.com/docker/docker/client"
 
 	"github.com/rancher/longhorn-manager/api"
+	"github.com/rancher/longhorn-manager/kvstore"
 	"github.com/rancher/longhorn-manager/orch"
 	"github.com/rancher/longhorn-manager/scheduler"
 	"github.com/rancher/longhorn-manager/types"
@@ -30,16 +29,14 @@ const (
 )
 
 type dockerOrc struct {
-	Servers     []string //etcd servers
-	Prefix      string   //prefix in k/v store
 	EngineImage string
 	Network     string
 	IP          string
 
 	currentHost *types.HostInfo
 
-	kapi eCli.KeysAPI
-	cli  *dCli.Client
+	kv  *kvstore.KVStore
+	cli *dCli.Client
 
 	scheduler types.Scheduler
 }
@@ -68,23 +65,14 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 }
 
 func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
-	eCfg := eCli.Config{
-		Endpoints:               cfg.servers,
-		Transport:               eCli.DefaultTransport,
-		HeaderTimeoutPerRequest: time.Second,
-	}
-
-	etcdc, err := eCli.New(eCfg)
+	kvStore, err := kvstore.NewKVStore(cfg.servers, cfg.prefix)
 	if err != nil {
 		return nil, err
 	}
 
 	docker := &dockerOrc{
-		Servers:     cfg.servers,
-		Prefix:      cfg.prefix,
 		EngineImage: cfg.image,
-
-		kapi: eCli.NewKeysAPI(etcdc),
+		kv:          kvStore,
 	}
 	docker.scheduler = scheduler.NewOrcScheduler(docker)
 
@@ -182,7 +170,7 @@ func (d *dockerOrc) Register(address string) error {
 		return err
 	}
 
-	if err := d.setHost(currentHost); err != nil {
+	if err := d.kv.SetHost(currentHost); err != nil {
 		return err
 	}
 	d.currentHost = currentHost
@@ -190,11 +178,11 @@ func (d *dockerOrc) Register(address string) error {
 }
 
 func (d *dockerOrc) GetHost(id string) (*types.HostInfo, error) {
-	return d.getHost(id)
+	return d.kv.GetHost(id)
 }
 
 func (d *dockerOrc) ListHosts() (map[string]*types.HostInfo, error) {
-	return d.listHosts()
+	return d.kv.ListHosts()
 }
 
 func (d *dockerOrc) GetCurrentHostID() string {
@@ -213,38 +201,38 @@ func (d *dockerOrc) GetAddress(hostID string) (string, error) {
 }
 
 func (d *dockerOrc) CreateVolume(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
-	v, err := d.getVolume(volume.Name)
+	v, err := d.kv.GetVolumeBase(volume.Name)
 	if err == nil && v != nil {
 		return nil, errors.Errorf("volume %v already exists %+v", volume.Name, v)
 	}
-	if err := d.setVolume(volume); err != nil {
+	if err := d.kv.SetVolumeBase(volume); err != nil {
 		return nil, errors.Wrap(err, "fail to create new volume metadata")
 	}
 	return volume, nil
 }
 
 func (d *dockerOrc) DeleteVolume(volumeName string) error {
-	return d.rmVolume(volumeName)
+	return d.kv.DeleteVolume(volumeName)
 }
 
 func (d *dockerOrc) GetVolume(volumeName string) (*types.VolumeInfo, error) {
-	return d.getVolume(volumeName)
+	return d.kv.GetVolume(volumeName)
 }
 
 func (d *dockerOrc) UpdateVolume(volume *types.VolumeInfo) error {
-	v, err := d.getVolume(volume.Name)
+	v, err := d.kv.GetVolumeBase(volume.Name)
 	if err != nil {
 		return errors.Errorf("cannot update volume %v because it doesn't exists %+v", volume.Name, v)
 	}
-	return d.setVolume(volume)
+	return d.kv.SetVolumeBase(volume)
 }
 
 func (d *dockerOrc) ListVolumes() ([]*types.VolumeInfo, error) {
-	return d.listVolumes()
+	return d.kv.ListVolumes()
 }
 
 func (d *dockerOrc) MarkBadReplica(volumeName string, replica *types.ReplicaInfo) error {
-	v, err := d.getVolume(volumeName)
+	v, err := d.kv.GetVolume(volumeName)
 	if err != nil {
 		return errors.Wrap(err, "fail to mark bad replica, cannot get volume")
 	}
@@ -262,7 +250,7 @@ func (d *dockerOrc) MarkBadReplica(volumeName string, replica *types.ReplicaInfo
 }
 
 func (d *dockerOrc) GetSettings() (*types.SettingsInfo, error) {
-	settings, err := d.getSettings()
+	settings, err := d.kv.GetSettings()
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +264,7 @@ func (d *dockerOrc) GetSettings() (*types.SettingsInfo, error) {
 }
 
 func (d *dockerOrc) SetSettings(settings *types.SettingsInfo) error {
-	return d.setSettings(settings)
+	return d.kv.SetSettings(settings)
 }
 
 func (d *dockerOrc) Scheduler() types.Scheduler {
