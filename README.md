@@ -32,7 +32,7 @@ The backupstore URL will show up as: `nfs://xxx.xxx.xxx.xxx:/opt/backupstore` in
 `make server-cleanup` will cleanup the servers.
 
 ## License
-Copyright (c) 2014-2016 [Rancher Labs, Inc.](http://rancher.com)
+Copyright (c) 2014-2017 [Rancher Labs, Inc.](http://rancher.com)
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
