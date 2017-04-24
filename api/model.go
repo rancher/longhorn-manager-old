@@ -265,6 +265,7 @@ func toSettingCollection(settings *types.SettingsInfo) *client.GenericCollection
 	data := []interface{}{
 		toSettingResource("backupTarget", settings.BackupTarget),
 		toSettingResource("engineImage", settings.EngineImage),
+		toSettingResource("syslogTarget", settings.SyslogTarget),
 	}
 	return &client.GenericCollection{Data: data, Collection: client.Collection{ResourceType: "setting"}}
 }
@@ -503,6 +504,7 @@ func NewServer(m types.VolumeManager, sl types.ServiceLocator, proxy http.Handle
 		},
 		settings: &SettingsHandlers{
 			m.Settings(),
+			m,
 		},
 		backups: &BackupsHandlers{
 			m,

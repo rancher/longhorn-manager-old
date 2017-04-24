@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rancher/go-rancher/api"
 
+	"github.com/rancher/longhorn-manager/eventlog"
 	"github.com/rancher/longhorn-manager/types"
 )
 
@@ -39,4 +40,15 @@ func (s *Server) Schedule(rw http.ResponseWriter, req *http.Request) error {
 	}
 	json.NewEncoder(rw).Encode(output)
 	return nil
+}
+
+func (s *Server) BumpEventLog(rw http.ResponseWriter, req *http.Request) error {
+	logrus.Debug("Bump event log: updating syslogTarget")
+	si, err := s.man.Settings().GetSettings()
+	if err != nil {
+		return errors.Wrap(err, "unable to get settings")
+	}
+
+	err = eventlog.Update(si.SyslogTarget)
+	return errors.Wrapf(err, "unable to set up event logger, syslogTarget '%s'", si.SyslogTarget)
 }
