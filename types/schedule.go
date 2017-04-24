@@ -37,6 +37,7 @@ type ScheduleInstance struct {
 	Type       InstanceType
 	HostID     string
 	VolumeName string
+	Name       string
 }
 
 type ScheduleSpec struct {

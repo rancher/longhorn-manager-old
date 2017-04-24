@@ -61,6 +61,7 @@ func (d *dockerOrc) ProcessSchedule(item *types.ScheduleItem) (*types.InstanceIn
 		HostID:     item.Instance.HostID,
 		Type:       item.Instance.Type,
 		VolumeName: item.Instance.VolumeName,
+		Name:       item.Instance.Name,
 	}
 	switch item.Action {
 	case types.ScheduleActionCreateController:
@@ -367,7 +368,8 @@ func (d *dockerOrc) refreshInstanceInfo(instance *types.InstanceInfo) (*types.In
 func getScheduleInstanceFromInstance(instance *types.InstanceInfo) (*types.ScheduleInstance, error) {
 	if instance.ID == "" || instance.HostID == "" ||
 		instance.Type == types.InstanceTypeNone ||
-		instance.VolumeName == "" {
+		instance.VolumeName == "" ||
+		instance.Name == "" {
 		return nil, errors.Errorf("Invalid instance info for schedule %+v", instance)
 	}
 
@@ -376,6 +378,7 @@ func getScheduleInstanceFromInstance(instance *types.InstanceInfo) (*types.Sched
 		Type:       instance.Type,
 		HostID:     instance.HostID,
 		VolumeName: instance.VolumeName,
+		Name:       instance.Name,
 	}, nil
 }
 
@@ -463,14 +466,7 @@ func (d *dockerOrc) removeInstance(instance *types.InstanceInfo) (*types.Instanc
 	if err := d.removeContainer(instance.ID); err != nil {
 		return nil, errors.Wrapf(err, "Fail to remove instance %v", instance.ID)
 	}
-	ret := &types.InstanceInfo{
-		ID:         instance.ID,
-		Name:       instance.Name,
-		HostID:     instance.HostID,
-		Type:       instance.Type,
-		VolumeName: instance.VolumeName,
-	}
-	return ret, nil
+	return instance, nil
 }
 
 func (d *dockerOrc) removeContainer(id string) error {
@@ -528,6 +524,7 @@ func (d *dockerOrc) updateInstanceMetadata(instance *types.InstanceInfo) (err er
 
 func (d *dockerOrc) removeInstanceMetadata(instance *types.InstanceInfo) (err error) {
 	if instance.ID == "" ||
+		instance.Name == "" ||
 		instance.HostID == "" ||
 		instance.Type == types.InstanceTypeNone ||
 		instance.VolumeName == "" {
@@ -554,18 +551,7 @@ func (d *dockerOrc) removeInstanceMetadata(instance *types.InstanceInfo) (err er
 		}
 		volume.Controller = nil
 	} else if instance.Type == types.InstanceTypeReplica {
-		var replica *types.ReplicaInfo
-		if instance.Name != "" {
-			replica = volume.Replicas[instance.Name]
-		} else {
-			for _, v := range volume.Replicas {
-				// In case we have same instance ID in different host
-				if v.ID == instance.ID && v.HostID == instance.HostID {
-					replica = v
-					break
-				}
-			}
-		}
+		replica := volume.Replicas[instance.Name]
 		if replica == nil {
 			return errors.Errorf("unable to remove instance metadata: unable to find replica as %+v",
 				instance)
