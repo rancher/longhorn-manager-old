@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 
+	"github.com/rancher/longhorn-manager/eventlog"
 	"github.com/rancher/longhorn-manager/types"
 	"github.com/rancher/longhorn-manager/util"
 )
@@ -69,8 +70,10 @@ func (s *Server) UpdateRecurring(rw http.ResponseWriter, req *http.Request) erro
 	}
 
 	if err := s.man.UpdateRecurring(id, jobs); err != nil {
+		eventlog.Errorf("Error updating recurring jobs, volume '%s'", id)
 		return errors.Wrapf(err, "unable to update volume recurring schedule")
 	}
+	eventlog.Infof("Updated recurring jobs, volume '%s'", id)
 
 	return s.GetVolume(rw, req)
 }
@@ -92,8 +95,10 @@ func (s *Server) DeleteVolume(rw http.ResponseWriter, req *http.Request) error {
 	id := mux.Vars(req)["name"]
 
 	if err := s.man.Delete(id); err != nil {
+		eventlog.Errorf("Error deleting volume '%s'", id)
 		return errors.Wrap(err, "unable to delete volume")
 	}
+	eventlog.Infof("Deleted volume '%s'", id)
 
 	return nil
 }
@@ -113,8 +118,11 @@ func (s *Server) CreateVolume(rw http.ResponseWriter, req *http.Request) error {
 
 	volumeResp, err := s.man.Create(volume)
 	if err != nil {
+		eventlog.Errorf("Error creating volume '%s'", volume.Name)
 		return errors.Wrap(err, "unable to create volume")
 	}
+	eventlog.Infof("Created volume '%s'", volume.Name)
+
 	apiContext.Write(toVolumeResource(volumeResp, apiContext))
 	return nil
 }
@@ -138,8 +146,10 @@ func (s *Server) AttachVolume(rw http.ResponseWriter, req *http.Request) error {
 	id := mux.Vars(req)["name"]
 
 	if err := s.man.Attach(id); err != nil {
+		eventlog.Errorf("Error attaching volume '%s' to host '%s'", id, s.sl.GetCurrentHostID())
 		return errors.Wrap(err, "unable to attach volume")
 	}
+	eventlog.Infof("Attached volume '%s' to host '%s'", id, s.sl.GetCurrentHostID())
 
 	return s.GetVolume(rw, req)
 }
@@ -148,8 +158,10 @@ func (s *Server) DetachVolume(rw http.ResponseWriter, req *http.Request) error {
 	id := mux.Vars(req)["name"]
 
 	if err := s.man.Detach(id); err != nil {
+		eventlog.Errorf("Error detaching volume '%s'", id)
 		return errors.Wrap(err, "unable to detach volume")
 	}
+	eventlog.Infof("Detached volume '%s'", id)
 
 	return s.GetVolume(rw, req)
 }
@@ -165,8 +177,10 @@ func (s *Server) ReplicaRemove(rw http.ResponseWriter, req *http.Request) error 
 	id := mux.Vars(req)["name"]
 
 	if err := s.man.ReplicaRemove(id, input.Name); err != nil {
+		eventlog.Errorf("Error removing replica '%s', volume '%s'", input.Name, id)
 		return errors.Wrap(err, "unable to remove replica")
 	}
+	eventlog.Infof("Removed replica '%s', volume '%s'", input.Name, id)
 
 	return s.GetVolume(rw, req)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rancher/go-rancher/api"
 
+	"github.com/rancher/longhorn-manager/eventlog"
 	"github.com/rancher/longhorn-manager/types"
 )
 
@@ -157,8 +158,10 @@ func (bh *BackupsHandlers) Delete(w http.ResponseWriter, req *http.Request) erro
 
 	url := backupURL(backupTarget, input.Name, volName)
 	if err := backups.Delete(url); err != nil {
+		eventlog.Errorf("Error deleting backup '%s'", url)
 		return errors.Wrapf(err, "error deleting backup '%s'", url)
 	}
+	eventlog.Infof("Deleted backup '%s'", url)
 	logrus.Debugf("success: removed backup '%s'", url)
 	apiContext.Write(&Empty{})
 	return nil
