@@ -201,11 +201,11 @@ func (d *dockerOrc) GetAddress(hostID string) (string, error) {
 }
 
 func (d *dockerOrc) CreateVolume(volume *types.VolumeInfo) (*types.VolumeInfo, error) {
-	v, err := d.kv.GetVolume(volume.Name)
+	v, err := d.kv.GetVolumeBase(volume.Name)
 	if err == nil && v != nil {
 		return nil, errors.Errorf("volume %v already exists %+v", volume.Name, v)
 	}
-	if err := d.kv.SetVolume(volume); err != nil {
+	if err := d.kv.SetVolumeBase(volume); err != nil {
 		return nil, errors.Wrap(err, "fail to create new volume metadata")
 	}
 	return volume, nil
@@ -220,11 +220,11 @@ func (d *dockerOrc) GetVolume(volumeName string) (*types.VolumeInfo, error) {
 }
 
 func (d *dockerOrc) UpdateVolume(volume *types.VolumeInfo) error {
-	v, err := d.kv.GetVolume(volume.Name)
+	v, err := d.kv.GetVolumeBase(volume.Name)
 	if err != nil {
 		return errors.Errorf("cannot update volume %v because it doesn't exists %+v", volume.Name, v)
 	}
-	return d.kv.SetVolume(volume)
+	return d.kv.SetVolumeBase(volume)
 }
 
 func (d *dockerOrc) ListVolumes() ([]*types.VolumeInfo, error) {

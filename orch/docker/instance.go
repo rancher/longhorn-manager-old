@@ -484,23 +484,25 @@ func (d *dockerOrc) updateInstanceMetadata(instance *types.InstanceInfo) (err er
 		return errors.Errorf("invalid instance to update metadata: %+v", instance)
 	}
 
-	volume, err := d.kv.GetVolume(instance.VolumeName)
-	if err != nil {
-		return errors.Wrapf(err, "fail to update instance metadata: %+v", instance)
-	}
-	if volume == nil {
-		return errors.Errorf("fail to find volume %v", instance.VolumeName)
-	}
-
 	if instance.Type == types.InstanceTypeController {
-		controller := volume.Controller
+		controller, err := d.kv.GetVolumeController(instance.VolumeName)
+		if err != nil {
+			return errors.Errorf("unable to update instance metadata: cannot get controller for volume %v",
+				instance.VolumeName)
+		}
 		if controller != nil && (controller.ID != instance.ID || controller.HostID != instance.HostID) {
 			return errors.Errorf("unable to update instance metadata: metadata conflict: %+v %+v",
 				controller, instance)
 		}
-		volume.Controller = &types.ControllerInfo{*instance}
+		if err := d.kv.SetVolumeController(&types.ControllerInfo{*instance}); err != nil {
+			return errors.Wrapf(err, "fail to update controller metadata: %+v", controller)
+		}
 	} else if instance.Type == types.InstanceTypeReplica {
-		replica := volume.Replicas[instance.Name]
+		replica, err := d.kv.GetVolumeReplica(instance.VolumeName, instance.Name)
+		if err != nil {
+			return errors.Wrapf(err, "unable to update instance metadata: cannot get replica %v for volume %v",
+				instance.Name, instance.VolumeName)
+		}
 		if replica != nil {
 			if replica.ID != instance.ID || replica.HostID != instance.HostID {
 				return errors.Errorf("unable to update instance metadata: replica %v metadata conflict: %+v %+v",
@@ -510,13 +512,9 @@ func (d *dockerOrc) updateInstanceMetadata(instance *types.InstanceInfo) (err er
 		} else {
 			replica = &types.ReplicaInfo{InstanceInfo: *instance}
 		}
-		if volume.Replicas == nil {
-			volume.Replicas = make(map[string]*types.ReplicaInfo)
+		if err := d.kv.SetVolumeReplica(replica); err != nil {
+			return errors.Wrapf(err, "fail to update replica metadata: %+v", replica)
 		}
-		volume.Replicas[instance.Name] = replica
-	}
-	if err := d.kv.SetVolume(volume); err != nil {
-		return errors.Wrap(err, "fail to update instance metadata")
 	}
 
 	return nil
@@ -531,16 +529,12 @@ func (d *dockerOrc) removeInstanceMetadata(instance *types.InstanceInfo) (err er
 		return errors.Errorf("invalid instance to update metadata for %+v", instance)
 	}
 
-	volume, err := d.kv.GetVolume(instance.VolumeName)
-	if err != nil {
-		return errors.Wrapf(err, "fail to update instance metadata for %+v", instance)
-	}
-	if volume == nil {
-		return errors.Errorf("fail to find volume %v", instance.VolumeName)
-	}
-
 	if instance.Type == types.InstanceTypeController {
-		controller := volume.Controller
+		controller, err := d.kv.GetVolumeController(instance.VolumeName)
+		if err != nil {
+			return errors.Errorf("unable to remove instance metadata: cannot get controller for volume %v",
+				instance.VolumeName)
+		}
 		if controller == nil {
 			return errors.Errorf("unable to remove instance metadata: unable to find controller for volume %v",
 				instance.VolumeName)
@@ -549,11 +543,17 @@ func (d *dockerOrc) removeInstanceMetadata(instance *types.InstanceInfo) (err er
 			return errors.Errorf("unable to remove instance metadata: metadata conflict: %+v %+v",
 				controller, instance)
 		}
-		volume.Controller = nil
+		if err := d.kv.DeleteVolumeController(instance.VolumeName); err != nil {
+			return errors.Wrapf(err, "unable to remove instance metadata: %+v", controller)
+		}
 	} else if instance.Type == types.InstanceTypeReplica {
-		replica := volume.Replicas[instance.Name]
+		replica, err := d.kv.GetVolumeReplica(instance.VolumeName, instance.Name)
+		if err != nil {
+			return errors.Wrapf(err, "unable to remove instance metadata: cannot get replica %v for volume %v",
+				instance.Name, instance.VolumeName)
+		}
 		if replica == nil {
-			return errors.Errorf("unable to remove instance metadata: unable to find replica as %+v",
+			return errors.Errorf("unable to remove instance metadata: unable to find replica: %+v",
 				instance)
 		}
 
@@ -561,11 +561,9 @@ func (d *dockerOrc) removeInstanceMetadata(instance *types.InstanceInfo) (err er
 			return errors.Errorf("unable to remove instance metadata: metadata conflict: %+v %+v",
 				replica, instance)
 		}
-		delete(volume.Replicas, replica.Name)
-	}
-
-	if err := d.kv.SetVolume(volume); err != nil {
-		return errors.Wrap(err, "fail to remove instance metadata")
+		if err := d.kv.DeleteVolumeReplica(replica.VolumeName, replica.Name); err != nil {
+			return errors.Wrapf(err, "unable to remove instance metadata: %+v", replica)
+		}
 	}
 
 	return nil
