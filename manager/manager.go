@@ -141,6 +141,10 @@ func (man *volumeManager) Delete(name string) error {
 	if err != nil {
 		return err
 	}
+	if volume == nil {
+		logrus.Warnf("volume %v no longer exist for delete", name)
+		return nil
+	}
 
 	if err := man.doDetach(volume); err != nil {
 		return errors.Wrapf(err, "error detaching for delete, volume '%s'", volume.Name)
@@ -344,6 +348,10 @@ func (man *volumeManager) Detach(name string) error {
 	volume, err := man.Get(name)
 	if err != nil {
 		return err
+	}
+	if volume == nil {
+		logrus.Warnf("volume %v no longer exist for detach", name)
+		return nil
 	}
 	return man.doDetach(volume)
 }
