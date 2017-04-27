@@ -523,6 +523,10 @@ func (man *volumeManager) Cleanup(v *types.VolumeInfo) error {
 	if err != nil {
 		return errors.Wrapf(err, "error getting volume '%s'", v.Name)
 	}
+	if volume == nil {
+		logrus.Warnf("volume %v no longer exists for cleanup", v.Name)
+		return nil
+	}
 	logrus.Infof("running cleanup, volume '%s'", volume.Name)
 	now := time.Now().UTC()
 	errCh := make(chan error)
