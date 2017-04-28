@@ -1,5 +1,4 @@
 Longhorn Manager [![Build Status](https://drone.rancher.io/api/badges/rancher/longhorn-manager/status.svg)](https://drone.rancher.io/rancher/longhorn-manager)
-
 ========
 
 Manager for Longhorn.
@@ -7,10 +6,9 @@ Manager for Longhorn.
 ## Requirement
 
 1. Ubuntu v16.04
-2. Docker v1.12
-3. For development, you need to have `nfs-kernel-server` package install on the host for testing NFS server.
-
-For using Docker orchestrator, make sure you have `iscsiadm`/`open-iscsi` installed on the host.
+2. Docker v1.13+
+3. Make sure `iscsiadm`/`open-iscsi` has been installed on the host.
+4. Make sure `nfs-kernel-server` has been installed on the host for testing NFS server.
 
 ## Building
 
