@@ -5,9 +5,9 @@ cd $(dirname $0)/..
 
 source ./scripts/common.sh
 
-echo Running tests
+echo Running quick tests
 
-PACKAGES="$(find . -name '*.go' | xargs -I{} dirname {} | sort -u | grep -Ev '(.git|.trash-cache|vendor|bin|orch/docker|kvstore)')"
+PACKAGES="$(find . -name '*.go' | xargs -I{} dirname {} | sort -u | grep -Ev '(.git|.trash-cache|vendor|bin)')"
 
 echo Packages: ${PACKAGES}
 

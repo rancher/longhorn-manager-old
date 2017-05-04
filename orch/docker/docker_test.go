@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"flag"
 	"os"
 	"strconv"
 	"testing"
@@ -13,11 +14,14 @@ import (
 const (
 	TestPrefix = "longhorn-manager-test"
 
+	EnvCompTest    = "LONGHORN_MANAGER_TEST_COMP"
 	EnvEtcdServer  = "LONGHORN_MANAGER_TEST_ETCD_SERVER"
 	EnvEngineImage = "LONGHORN_ENGINE_IMAGE"
 )
 
 var (
+	quick = flag.Bool("quick", false, "Skip tests require other services")
+
 	VolumeName     = TestPrefix + "-vol"
 	ControllerName = VolumeName + "-controller"
 	Replica1Name   = VolumeName + "-replica1"
@@ -35,6 +39,13 @@ type TestSuite struct {
 }
 
 var _ = Suite(&TestSuite{})
+
+func (s *TestSuite) SetUpSuite(c *C) {
+	compTest := os.Getenv(EnvCompTest)
+	if compTest != "true" {
+		c.Skip("-quick specified")
+	}
+}
 
 func (s *TestSuite) SetUpTest(c *C) {
 	var err error

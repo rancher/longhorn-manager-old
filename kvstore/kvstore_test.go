@@ -14,6 +14,7 @@ import (
 const (
 	TestPrefix = "longhorn-manager-test"
 
+	EnvCompTest    = "LONGHORN_MANAGER_TEST_COMP"
 	EnvEtcdServer  = "LONGHORN_MANAGER_TEST_ETCD_SERVER"
 	EnvEngineImage = "LONGHORN_ENGINE_IMAGE"
 )
@@ -30,7 +31,8 @@ var (
 func Test(t *testing.T) { TestingT(t) }
 
 type TestSuite struct {
-	s           *KVStore
+	etcd        *KVStore
+	memory      *KVStore
 	engineImage string
 }
 
@@ -39,6 +41,21 @@ var _ = Suite(&TestSuite{})
 func (s *TestSuite) SetUpTest(c *C) {
 	var err error
 
+	compTest := os.Getenv(EnvCompTest)
+
+	memoryBackend, err := NewMemoryBackend()
+	c.Assert(err, IsNil)
+
+	memory, err := NewKVStore("/longhorn", memoryBackend)
+	c.Assert(err, IsNil)
+	s.memory = memory
+
+	// Skip other backends if quick is set
+	if compTest != "true" {
+		return
+	}
+
+	// Setup ETCD kv store
 	etcdIP := os.Getenv(EnvEtcdServer)
 	c.Assert(etcdIP, Not(Equals), "")
 
@@ -48,20 +65,33 @@ func (s *TestSuite) SetUpTest(c *C) {
 	etcdBackend, err := NewETCDBackend([]string{"http://" + etcdIP + ":2379"})
 	c.Assert(err, IsNil)
 
-	store, err := NewKVStore("/longhorn", etcdBackend)
+	etcd, err := NewKVStore("/longhorn", etcdBackend)
 	c.Assert(err, IsNil)
-	s.s = store
+	s.etcd = etcd
 
-	err = s.s.kvNuclear("nuke key value store")
+	err = s.etcd.kvNuclear("nuke key value store")
 	c.Assert(err, IsNil)
 }
 
 func (s *TestSuite) TeardownTest(c *C) {
-	err := s.s.kvNuclear("nuke key value store")
+	err := s.memory.kvNuclear("nuke key value store")
 	c.Assert(err, IsNil)
+
+	if s.etcd != nil {
+		err := s.etcd.kvNuclear("nuke key value store")
+		c.Assert(err, IsNil)
+	}
 }
 
 func (s *TestSuite) TestHost(c *C) {
+	s.testHost(c, s.memory)
+
+	if s.etcd != nil {
+		s.testHost(c, s.etcd)
+	}
+}
+
+func (s *TestSuite) testHost(c *C, st *KVStore) {
 	host1 := &types.HostInfo{
 		UUID:    util.UUID(),
 		Name:    "host-1",
@@ -78,53 +108,61 @@ func (s *TestSuite) TestHost(c *C) {
 		Address: "127.0.1.3",
 	}
 
-	err := s.s.SetHost(host1)
+	err := st.SetHost(host1)
 	c.Assert(err, IsNil)
 
-	host, err := s.s.GetHost(host1.UUID)
+	host, err := st.GetHost(host1.UUID)
 	c.Assert(err, IsNil)
 	c.Assert(host, DeepEquals, host1)
 
 	host1.Address = "127.0.2.2"
-	err = s.s.SetHost(host1)
+	err = st.SetHost(host1)
 	c.Assert(err, IsNil)
 
-	host, err = s.s.GetHost(host1.UUID)
-	c.Assert(err, IsNil)
-	c.Assert(host, DeepEquals, host1)
-
-	err = s.s.SetHost(host2)
-	c.Assert(err, IsNil)
-
-	err = s.s.SetHost(host3)
-	c.Assert(err, IsNil)
-
-	host, err = s.s.GetHost(host1.UUID)
+	host, err = st.GetHost(host1.UUID)
 	c.Assert(err, IsNil)
 	c.Assert(host, DeepEquals, host1)
 
-	host, err = s.s.GetHost(host2.UUID)
+	err = st.SetHost(host2)
+	c.Assert(err, IsNil)
+
+	err = st.SetHost(host3)
+	c.Assert(err, IsNil)
+
+	host, err = st.GetHost(host1.UUID)
+	c.Assert(err, IsNil)
+	c.Assert(host, DeepEquals, host1)
+
+	host, err = st.GetHost(host2.UUID)
 	c.Assert(err, IsNil)
 	c.Assert(host, DeepEquals, host2)
 
-	host, err = s.s.GetHost(host3.UUID)
+	host, err = st.GetHost(host3.UUID)
 	c.Assert(err, IsNil)
 	c.Assert(host, DeepEquals, host3)
 
-	hosts, err := s.s.ListHosts()
+	hosts, err := st.ListHosts()
 	c.Assert(err, IsNil)
 
 	c.Assert(hosts[host1.UUID], DeepEquals, host1)
 	c.Assert(hosts[host2.UUID], DeepEquals, host2)
 	c.Assert(hosts[host3.UUID], DeepEquals, host3)
 
-	host, err = s.s.GetHost("random")
+	host, err = st.GetHost("random")
 	c.Assert(err, IsNil)
 	c.Assert(host, IsNil)
 }
 
 func (s *TestSuite) TestSettings(c *C) {
-	existing, err := s.s.GetSettings()
+	s.testSettings(c, s.memory)
+
+	if s.etcd != nil {
+		s.testSettings(c, s.etcd)
+	}
+}
+
+func (s *TestSuite) testSettings(c *C, st *KVStore) {
+	existing, err := st.GetSettings()
 	c.Assert(err, IsNil)
 	c.Assert(existing, IsNil)
 
@@ -133,10 +171,10 @@ func (s *TestSuite) TestSettings(c *C) {
 		EngineImage:  "rancher/longhorn",
 	}
 
-	err = s.s.SetSettings(settings)
+	err = st.SetSettings(settings)
 	c.Assert(err, IsNil)
 
-	newSettings, err := s.s.GetSettings()
+	newSettings, err := st.GetSettings()
 	c.Assert(err, IsNil)
 	c.Assert(newSettings.BackupTarget, Equals, settings.BackupTarget)
 	c.Assert(newSettings.EngineImage, Equals, settings.EngineImage)
@@ -176,16 +214,39 @@ func generateTestReplica(volName, replicaName string) *types.ReplicaInfo {
 	}
 }
 
-func (s *TestSuite) verifyVolume(c *C, volume *types.VolumeInfo) {
-	comp, err := s.s.GetVolume(volume.Name)
+func (s *TestSuite) verifyVolume(c *C, st *KVStore, volume *types.VolumeInfo) {
+	var (
+		volumeBase1, volumeBase2 types.VolumeInfo
+	)
+	comp, err := st.GetVolume(volume.Name)
+	volumeBase1 = *comp
+	volumeBase1.Controller = nil
+	volumeBase1.Replicas = nil
+	volumeBase2 = *volume
+	volumeBase2.Controller = nil
+	volumeBase2.Replicas = nil
+
 	c.Assert(err, IsNil)
-	c.Assert(comp, DeepEquals, volume)
+	c.Assert(volumeBase1, DeepEquals, volumeBase2)
+	c.Assert(comp.Controller, DeepEquals, volume.Controller)
+	c.Assert(len(comp.Replicas), Equals, len(volume.Replicas))
+	for key := range comp.Replicas {
+		c.Assert(comp.Replicas[key], DeepEquals, volume.Replicas[key])
+	}
 }
 
 func (s *TestSuite) TestVolume(c *C) {
+	s.testVolume(c, s.memory)
+
+	if s.etcd != nil {
+		s.testVolume(c, s.etcd)
+	}
+}
+
+func (s *TestSuite) testVolume(c *C, st *KVStore) {
 	var err error
 
-	volume, err := s.s.GetVolume("random")
+	volume, err := st.GetVolume("random")
 	c.Assert(err, IsNil)
 	c.Assert(volume, IsNil)
 
@@ -199,9 +260,9 @@ func (s *TestSuite) TestVolume(c *C) {
 		replica12.Name: replica12,
 	}
 
-	err = s.s.SetVolume(volume1)
+	err = st.SetVolume(volume1)
 	c.Assert(err, IsNil)
-	s.verifyVolume(c, volume1)
+	s.verifyVolume(c, st, volume1)
 
 	volume2 := generateTestVolume("volume2")
 	controller2 := generateTestController(volume2.Name)
@@ -213,93 +274,93 @@ func (s *TestSuite) TestVolume(c *C) {
 		replica22.Name: replica22,
 	}
 
-	err = s.s.SetVolume(volume2)
+	err = st.SetVolume(volume2)
 	c.Assert(err, IsNil)
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
-	volumes, err := s.s.ListVolumes()
+	volumes, err := st.ListVolumes()
 	c.Assert(err, IsNil)
 	c.Assert(len(volumes), Equals, 2)
 
 	volume2.Controller = nil
-	err = s.s.SetVolume(volume2)
+	err = st.SetVolume(volume2)
 	c.Assert(err, IsNil)
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
 	volume2.Replicas = nil
-	err = s.s.SetVolume(volume2)
+	err = st.SetVolume(volume2)
 	c.Assert(err, IsNil)
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
 	volume2.Replicas = map[string]*types.ReplicaInfo{
 		replica21.Name: replica21,
 	}
-	err = s.s.SetVolume(volume2)
+	err = st.SetVolume(volume2)
 	c.Assert(err, IsNil)
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
 	volume2.Replicas[replica22.Name] = replica22
-	err = s.s.SetVolume(volume2)
+	err = st.SetVolume(volume2)
 	c.Assert(err, IsNil)
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
 	volume2.Controller = controller2
-	err = s.s.SetVolume(volume2)
+	err = st.SetVolume(volume2)
 	c.Assert(err, IsNil)
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
-	err = s.s.DeleteVolumeReplicas(volume2.Name)
+	err = st.DeleteVolumeReplicas(volume2.Name)
 	c.Assert(err, IsNil)
 	volume2.Replicas = nil
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
-	err = s.s.SetVolumeReplica(replica21)
+	err = st.SetVolumeReplica(replica21)
 	c.Assert(err, IsNil)
 	volume2.Replicas = map[string]*types.ReplicaInfo{
 		replica21.Name: replica21,
 	}
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
-	err = s.s.SetVolumeReplica(replica22)
+	err = st.SetVolumeReplica(replica22)
 	c.Assert(err, IsNil)
 	volume2.Replicas[replica22.Name] = replica22
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
-	err = s.s.DeleteVolumeReplicas(volume2.Name)
+	err = st.DeleteVolumeReplicas(volume2.Name)
 	c.Assert(err, IsNil)
 	volume2.Replicas = nil
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
 	volume2.Replicas = map[string]*types.ReplicaInfo{
 		replica21.Name: replica21,
 		replica22.Name: replica22,
 	}
-	err = s.s.SetVolumeReplicas(volume2.Replicas)
+	err = st.SetVolumeReplicas(volume2.Replicas)
 	c.Assert(err, IsNil)
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
-	err = s.s.DeleteVolumeController(volume2.Name)
+	err = st.DeleteVolumeController(volume2.Name)
 	c.Assert(err, IsNil)
 	volume2.Controller = nil
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
-	err = s.s.SetVolumeController(controller2)
+	err = st.SetVolumeController(controller2)
 	c.Assert(err, IsNil)
 	volume2.Controller = controller2
-	s.verifyVolume(c, volume2)
+	s.verifyVolume(c, st, volume2)
 
-	err = s.s.DeleteVolume(volume1.Name)
+	err = st.DeleteVolume(volume1.Name)
 	c.Assert(err, IsNil)
 
-	volumes, err = s.s.ListVolumes()
+	volumes, err = st.ListVolumes()
 	c.Assert(err, IsNil)
 	c.Assert(len(volumes), Equals, 1)
 	c.Assert(volumes[0], DeepEquals, volume2)
 
-	err = s.s.DeleteVolume(volume2.Name)
+	err = st.DeleteVolume(volume2.Name)
 	c.Assert(err, IsNil)
 
-	volumes, err = s.s.ListVolumes()
+	volumes, err = st.ListVolumes()
 	c.Assert(err, IsNil)
 	c.Assert(len(volumes), Equals, 0)
 }

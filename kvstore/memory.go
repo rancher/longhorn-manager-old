@@ -2,6 +2,7 @@ package kvstore
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -11,6 +12,8 @@ import (
 
 var (
 	MemoryKeyNotFoundError = errors.Errorf("key not found")
+
+	Separator = "/"
 )
 
 type MemoryBackend struct {
@@ -45,7 +48,17 @@ func (m *MemoryBackend) Get(key string, obj interface{}) error {
 }
 
 func (m *MemoryBackend) Delete(key string) error {
-	m.c.Delete(key)
+	keys, err := m.Keys(key)
+	if err != nil {
+		return err
+	}
+	if keys == nil {
+		return nil
+	}
+
+	for _, key := range keys {
+		m.c.Delete(key)
+	}
 	return nil
 }
 
@@ -54,9 +67,36 @@ func (m *MemoryBackend) Keys(prefix string) ([]string, error) {
 
 	items := m.c.Items()
 	for key := range items {
-		if strings.HasPrefix(key, prefix) {
-			keys = append(keys, key)
+		exists := false
+		for _, k := range keys {
+			if strings.HasPrefix(key, k) {
+				exists = true
+				break
+
+			}
 		}
+		if exists {
+			continue
+		}
+
+		if !strings.HasPrefix(key, prefix) {
+			continue
+		}
+
+		if key == prefix {
+			keys = append(keys, key)
+			continue
+		}
+
+		k := ""
+		key = strings.TrimLeft(key, "/")
+		prefixLevel := strings.Count(prefix, Separator)
+		entries := strings.Split(key, Separator)
+		for i := 0; i < prefixLevel+1; i++ {
+			k = filepath.Join(k, entries[i])
+		}
+		k = "/" + k
+		keys = append(keys, k)
 	}
 	if len(keys) == 0 {
 		return nil, nil
