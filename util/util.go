@@ -180,6 +180,11 @@ func Now() string {
 	return time.Now().UTC().Format(time.RFC3339)
 }
 
+func ParseTime(t string) (time.Time, error) {
+	return time.Parse(time.RFC3339, t)
+
+}
+
 func Execute(binary string, args ...string) (string, error) {
 	return ExecuteWithTimeout(cmdTimeout, binary, args...)
 }

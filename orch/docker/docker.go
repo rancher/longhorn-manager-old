@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
@@ -242,7 +241,7 @@ func (d *dockerOrc) MarkBadReplica(volumeName string, replica *types.ReplicaInfo
 	}
 	for k, r := range v.Replicas {
 		if r.Name == replica.Name {
-			r.BadTimestamp = time.Now().UTC()
+			r.BadTimestamp = util.Now()
 			v.Replicas[k] = r
 			break
 		}

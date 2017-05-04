@@ -182,7 +182,7 @@ type ReplicaInfo struct {
 	InstanceInfo
 
 	Mode         ReplicaMode
-	BadTimestamp time.Time
+	BadTimestamp string
 }
 
 type SnapshotInfo struct {

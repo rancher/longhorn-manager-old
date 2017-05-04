@@ -162,7 +162,7 @@ func (man *volumeManager) Delete(name string) error {
 func volumeState(volume *types.VolumeInfo) types.VolumeState {
 	goodReplicaCount := 0
 	for _, replica := range volume.Replicas {
-		if replica.BadTimestamp.IsZero() {
+		if replica.BadTimestamp == "" {
 			goodReplicaCount++
 		}
 	}
@@ -285,11 +285,23 @@ func (man *volumeManager) doAttach(volume *types.VolumeInfo) error {
 				}
 			}(replica)
 		}
-		if replica.BadTimestamp.IsZero() {
+		if replica.BadTimestamp == "" {
 			replicas[k] = replica
-		} else if recentBadReplica == nil || replica.BadTimestamp.After(recentBadReplica.BadTimestamp) {
-			recentBadReplica = replica
-			recentBadK = k
+		} else {
+			replicaBadTime, err := util.ParseTime(replica.BadTimestamp)
+			if err != nil {
+				logrus.Errorf("%+v", err)
+				continue
+			}
+			recentBadTime, err := util.ParseTime(recentBadReplica.BadTimestamp)
+			if err != nil {
+				logrus.Errorf("%+v", err)
+				continue
+			}
+			if recentBadReplica == nil || replicaBadTime.After(recentBadTime) {
+				recentBadReplica = replica
+				recentBadK = k
+			}
 		}
 	}
 	go func() {
@@ -532,7 +544,7 @@ func (man *volumeManager) Cleanup(v *types.VolumeInfo) error {
 	errCh := make(chan error)
 	wg := &sync.WaitGroup{}
 	for _, replica := range volume.Replicas {
-		if replica.BadTimestamp.IsZero() {
+		if replica.BadTimestamp == "" {
 			continue
 		}
 		wg.Add(1)
@@ -546,7 +558,12 @@ func (man *volumeManager) Cleanup(v *types.VolumeInfo) error {
 					errCh <- errors.Wrapf(err, "error stopping bad replica '%s', volume '%s'", replica.Name, volume.Name)
 				}()
 			}
-			if replica.BadTimestamp.Add(KeepBadReplicasPeriod).Before(now) {
+			badTime, err := util.ParseTime(replica.BadTimestamp)
+			if err != nil {
+				errCh <- errors.Wrapf(err, "fail to parse bad timestamp %v", replica.BadTimestamp)
+				return
+			}
+			if badTime.Add(KeepBadReplicasPeriod).Before(now) {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()

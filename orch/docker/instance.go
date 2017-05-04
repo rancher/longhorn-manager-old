@@ -267,7 +267,7 @@ func (d *dockerOrc) prepareCreateReplicaPolicy(volume *types.VolumeInfo) *types.
 		HostIDMap: map[string]struct{}{},
 	}
 	for _, replica := range volume.Replicas {
-		if replica.BadTimestamp.IsZero() {
+		if replica.BadTimestamp == "" {
 			policy.HostIDMap[replica.HostID] = struct{}{}
 		}
 	}

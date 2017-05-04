@@ -6,7 +6,6 @@ import (
 	"github.com/rancher/go-rancher/api"
 	"github.com/rancher/go-rancher/client"
 	"github.com/rancher/longhorn-manager/types"
-	"github.com/rancher/longhorn-manager/util"
 	"net/http"
 	"strconv"
 	"time"
@@ -276,10 +275,6 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 		if r.Running {
 			mode = string(r.Mode)
 		}
-		badTimestamp := ""
-		if !r.BadTimestamp.IsZero() {
-			badTimestamp = util.FormatTimeZ(r.BadTimestamp)
-		}
 		replicas = append(replicas, Replica{
 			Instance: Instance{
 				Running: r.Running,
@@ -288,7 +283,7 @@ func toVolumeResource(v *types.VolumeInfo, apiContext *api.ApiContext) *Volume {
 			},
 			Name:         r.Name,
 			Mode:         mode,
-			BadTimestamp: badTimestamp,
+			BadTimestamp: r.BadTimestamp,
 		})
 	}
 
