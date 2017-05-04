@@ -1,24 +1,26 @@
 package kvstore
 
 import (
-	"encoding/json"
 	"path/filepath"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
-
-	eCli "github.com/coreos/etcd/client"
 
 	"github.com/rancher/longhorn-manager/types"
 )
 
-type KVStore struct {
-	Servers []string
-	Prefix  string
+type Backend interface {
+	Set(key string, obj interface{}) error
+	Get(key string, obj interface{}) error
+	Delete(key string) error
+	Keys(prefix string) ([]string, error)
+	IsNotFoundError(err error) bool
+}
 
-	kapi eCli.KeysAPI
+type KVStore struct {
+	Prefix string
+
+	b Backend
 }
 
 const (
@@ -26,24 +28,14 @@ const (
 	keySettings = "settings"
 )
 
-func NewKVStore(servers []string, prefix string) (*KVStore, error) {
-	eCfg := eCli.Config{
-		Endpoints:               servers,
-		Transport:               eCli.DefaultTransport,
-		HeaderTimeoutPerRequest: time.Second,
+func NewKVStore(prefix string, backend Backend) (*KVStore, error) {
+	if backend == nil {
+		return nil, errors.Errorf("invalid empty backend")
 	}
-
-	etcdc, err := eCli.New(eCfg)
-	if err != nil {
-		return nil, err
-	}
-	kvStore := &KVStore{
-		Servers: servers,
-		Prefix:  prefix,
-
-		kapi: eCli.NewKeysAPI(etcdc),
-	}
-	return kvStore, nil
+	return &KVStore{
+		Prefix: prefix,
+		b:      backend,
+	}, nil
 }
 
 func (s *KVStore) key(key string) string {
@@ -56,7 +48,7 @@ func (s *KVStore) hostKey(id string) string {
 }
 
 func (s *KVStore) SetHost(host *types.HostInfo) error {
-	if err := s.kvSet(s.hostKey(host.UUID), host); err != nil {
+	if err := s.b.Set(s.hostKey(host.UUID), host); err != nil {
 		return err
 	}
 	logrus.Infof("Add host %v name %v longhorn-manager address %v", host.UUID, host.Name, host.Address)
@@ -73,8 +65,8 @@ func (s *KVStore) GetHost(id string) (*types.HostInfo, error) {
 
 func (s *KVStore) getHostByKey(key string) (*types.HostInfo, error) {
 	host := types.HostInfo{}
-	if err := s.kvGet(key, &host); err != nil {
-		if s.IsNotFoundError(err) {
+	if err := s.b.Get(key, &host); err != nil {
+		if s.b.IsNotFoundError(err) {
 			return nil, nil
 		}
 		return nil, err
@@ -83,7 +75,7 @@ func (s *KVStore) getHostByKey(key string) (*types.HostInfo, error) {
 }
 
 func (s *KVStore) ListHosts() (map[string]*types.HostInfo, error) {
-	hostKeys, err := s.kvListKeys(s.key(keyHosts))
+	hostKeys, err := s.b.Keys(s.key(keyHosts))
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +98,7 @@ func (s *KVStore) settingsKey() string {
 }
 
 func (s *KVStore) SetSettings(settings *types.SettingsInfo) error {
-	if err := s.kvSet(s.settingsKey(), settings); err != nil {
+	if err := s.b.Set(s.settingsKey(), settings); err != nil {
 		return err
 	}
 	return nil
@@ -114,8 +106,8 @@ func (s *KVStore) SetSettings(settings *types.SettingsInfo) error {
 
 func (s *KVStore) GetSettings() (*types.SettingsInfo, error) {
 	settings := &types.SettingsInfo{}
-	if err := s.kvGet(s.settingsKey(), &settings); err != nil {
-		if s.IsNotFoundError(err) {
+	if err := s.b.Get(s.settingsKey(), &settings); err != nil {
+		if s.b.IsNotFoundError(err) {
 			return nil, nil
 		}
 		return nil, errors.Wrap(err, "unable to get settings")
@@ -124,76 +116,12 @@ func (s *KVStore) GetSettings() (*types.SettingsInfo, error) {
 	return settings, nil
 }
 
-func (s *KVStore) kvSet(key string, obj interface{}) error {
-	value, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-	if _, err := s.kapi.Set(context.Background(), key, string(value), nil); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *KVStore) IsNotFoundError(err error) bool {
-	return eCli.IsKeyNotFound(err)
-}
-
-func (s *KVStore) kvGet(key string, obj interface{}) error {
-	resp, err := s.kapi.Get(context.Background(), key, nil)
-	if err != nil {
-		return err
-	}
-	node := resp.Node
-	if node.Dir {
-		return errors.Errorf("invalid node %v is a directory",
-			node.Key)
-	}
-	if err := json.Unmarshal([]byte(node.Value), obj); err != nil {
-		return errors.Wrap(err, "fail to unmarshal json")
-	}
-	return nil
-}
-
-func (s *KVStore) kvListKeys(key string) ([]string, error) {
-	resp, err := s.kapi.Get(context.Background(), key, nil)
-	if err != nil {
-		if eCli.IsKeyNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	if !resp.Node.Dir {
-		return nil, errors.Errorf("invalid node %v is not a directory",
-			resp.Node.Key)
-	}
-
-	ret := []string{}
-	for _, node := range resp.Node.Nodes {
-		ret = append(ret, node.Key)
-	}
-	return ret, nil
-}
-
-func (s *KVStore) kvDelete(key string, recursive bool) error {
-	_, err := s.kapi.Delete(context.Background(), key, &eCli.DeleteOptions{
-		Recursive: recursive,
-	})
-	if err != nil {
-		if eCli.IsKeyNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	return nil
-}
-
 // kuNuclear is test only function, which will wipe all longhorn entries
 func (s *KVStore) kvNuclear(nuclearCode string) error {
 	if nuclearCode != "nuke key value store" {
 		return errors.Errorf("invalid nuclear code!")
 	}
-	if err := s.kvDelete(s.key(""), true); err != nil {
+	if err := s.b.Delete(s.key("")); err != nil {
 		return err
 	}
 	return nil

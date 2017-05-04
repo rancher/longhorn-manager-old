@@ -65,7 +65,11 @@ func New(c *cli.Context) (types.Orchestrator, error) {
 }
 
 func newDocker(cfg *dockerOrcConfig) (types.Orchestrator, error) {
-	kvStore, err := kvstore.NewKVStore(cfg.servers, cfg.prefix)
+	etcdBackend, err := kvstore.NewETCDBackend(cfg.servers)
+	if err != nil {
+		return nil, err
+	}
+	kvStore, err := kvstore.NewKVStore(cfg.prefix, etcdBackend)
 	if err != nil {
 		return nil, err
 	}

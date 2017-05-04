@@ -45,7 +45,10 @@ func (s *TestSuite) SetUpTest(c *C) {
 	s.engineImage = os.Getenv(EnvEngineImage)
 	c.Assert(s.engineImage, Not(Equals), "")
 
-	store, err := NewKVStore([]string{"http://" + etcdIP + ":2379"}, "/longhorn")
+	etcdBackend, err := NewETCDBackend([]string{"http://" + etcdIP + ":2379"})
+	c.Assert(err, IsNil)
+
+	store, err := NewKVStore("/longhorn", etcdBackend)
 	c.Assert(err, IsNil)
 	s.s = store
 

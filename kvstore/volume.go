@@ -67,14 +67,14 @@ func (s *KVStore) SetVolumeBase(volume *types.VolumeInfo) error {
 	volumeBase := *volume
 	volumeBase.Controller = nil
 	volumeBase.Replicas = nil
-	return s.kvSet(s.NewVolumeKeyFromName(volume.Name).Base(), &volumeBase)
+	return s.b.Set(s.NewVolumeKeyFromName(volume.Name).Base(), &volumeBase)
 }
 
 func (s *KVStore) SetVolumeController(controller *types.ControllerInfo) error {
 	if controller.VolumeName == "" {
 		return errors.Errorf("controller doesn't have valid volume name: %+v", controller)
 	}
-	return s.kvSet(s.NewVolumeKeyFromName(controller.VolumeName).Controller(), controller)
+	return s.b.Set(s.NewVolumeKeyFromName(controller.VolumeName).Controller(), controller)
 }
 
 func (s *KVStore) SetVolumeReplicas(replicas map[string]*types.ReplicaInfo) error {
@@ -90,7 +90,7 @@ func (s *KVStore) SetVolumeReplica(replica *types.ReplicaInfo) error {
 	if replica.VolumeName == "" {
 		return errors.Errorf("replica doesn't have valid volume name: %+v", replica)
 	}
-	return s.kvSet(s.NewVolumeKeyFromName(replica.VolumeName).Replica(replica.Name), replica)
+	return s.b.Set(s.NewVolumeKeyFromName(replica.VolumeName).Replica(replica.Name), replica)
 }
 
 func (s *KVStore) GetVolumeBase(id string) (*types.VolumeInfo, error) {
@@ -103,8 +103,8 @@ func (s *KVStore) GetVolumeBase(id string) (*types.VolumeInfo, error) {
 
 func (s *KVStore) getVolumeBaseByKey(key string) (*types.VolumeInfo, error) {
 	volume := types.VolumeInfo{}
-	if err := s.kvGet(key, &volume); err != nil {
-		if s.IsNotFoundError(err) {
+	if err := s.b.Get(key, &volume); err != nil {
+		if s.b.IsNotFoundError(err) {
 			return nil, nil
 		}
 		return nil, err
@@ -125,8 +125,8 @@ func (s *KVStore) GetVolumeController(volumeName string) (*types.ControllerInfo,
 
 func (s *KVStore) getVolumeControllerByKey(key string) (*types.ControllerInfo, error) {
 	controller := types.ControllerInfo{}
-	if err := s.kvGet(key, &controller); err != nil {
-		if s.IsNotFoundError(err) {
+	if err := s.b.Get(key, &controller); err != nil {
+		if s.b.IsNotFoundError(err) {
 			return nil, nil
 		}
 		return nil, err
@@ -144,8 +144,8 @@ func (s *KVStore) GetVolumeReplica(volumeName, replicaName string) (*types.Repli
 
 func (s *KVStore) getVolumeReplicaByKey(key string) (*types.ReplicaInfo, error) {
 	replica := types.ReplicaInfo{}
-	if err := s.kvGet(key, &replica); err != nil {
-		if s.IsNotFoundError(err) {
+	if err := s.b.Get(key, &replica); err != nil {
+		if s.b.IsNotFoundError(err) {
 			return nil, nil
 		}
 		return nil, err
@@ -162,7 +162,7 @@ func (s *KVStore) GetVolumeReplicas(volumeName string) (map[string]*types.Replic
 }
 
 func (s *KVStore) getVolumeReplicasByKey(key string) (map[string]*types.ReplicaInfo, error) {
-	replicaKeys, err := s.kvListKeys(key)
+	replicaKeys, err := s.b.Keys(key)
 	if err != nil {
 		return nil, err
 	}
@@ -181,21 +181,21 @@ func (s *KVStore) getVolumeReplicasByKey(key string) (map[string]*types.ReplicaI
 }
 
 func (s *KVStore) DeleteVolumeController(volumeName string) error {
-	if err := s.kvDelete(s.NewVolumeKeyFromName(volumeName).Controller(), false); err != nil {
+	if err := s.b.Delete(s.NewVolumeKeyFromName(volumeName).Controller()); err != nil {
 		return errors.Wrapf(err, "unable to remove controller of volume %v", volumeName)
 	}
 	return nil
 }
 
 func (s *KVStore) DeleteVolumeReplicas(volumeName string) error {
-	if err := s.kvDelete(s.NewVolumeKeyFromName(volumeName).Replicas(), true); err != nil {
+	if err := s.b.Delete(s.NewVolumeKeyFromName(volumeName).Replicas()); err != nil {
 		return errors.Wrapf(err, "unable to remove replicas of volume %v", volumeName)
 	}
 	return nil
 }
 
 func (s *KVStore) DeleteVolumeReplica(volumeName, replicaName string) error {
-	if err := s.kvDelete(s.NewVolumeKeyFromName(volumeName).Replica(replicaName), false); err != nil {
+	if err := s.b.Delete(s.NewVolumeKeyFromName(volumeName).Replica(replicaName)); err != nil {
 		return errors.Wrapf(err, "unable to remove replica %v of volume %v", replicaName, volumeName)
 	}
 	return nil
@@ -272,14 +272,14 @@ func (s *KVStore) getVolumeByKey(key string) (*types.VolumeInfo, error) {
 }
 
 func (s *KVStore) DeleteVolume(id string) error {
-	if err := s.kvDelete(s.volumeRootKey(id), true); err != nil {
+	if err := s.b.Delete(s.volumeRootKey(id)); err != nil {
 		return errors.Wrap(err, "unable to remove volume")
 	}
 	return nil
 }
 
 func (s *KVStore) ListVolumes() ([]*types.VolumeInfo, error) {
-	volumeKeys, err := s.kvListKeys(s.key(keyVolumes))
+	volumeKeys, err := s.b.Keys(s.key(keyVolumes))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list volumes")
 	}
