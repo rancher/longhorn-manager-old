@@ -14,7 +14,6 @@ import (
 
 	dTypes "github.com/docker/docker/api/types"
 	dContainer "github.com/docker/docker/api/types/container"
-	dNat "github.com/docker/go-connections/nat"
 
 	"github.com/rancher/longhorn-manager/types"
 	"github.com/rancher/longhorn-manager/util"
@@ -303,9 +302,6 @@ func (d *dockerOrc) createReplica(data *dockerScheduleData) (*types.InstanceInfo
 	}
 	createBody, err := d.cli.ContainerCreate(context.Background(),
 		&dContainer.Config{
-			ExposedPorts: dNat.PortSet{
-				"9502-9504": struct{}{},
-			},
 			Image: data.EngineImage,
 			Volumes: map[string]struct{}{
 				"/volume": {},
