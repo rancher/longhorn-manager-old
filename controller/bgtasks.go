@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
+	"github.com/rancher/longhorn-manager/eventlog"
 	"github.com/rancher/longhorn-manager/types"
 	"github.com/rancher/longhorn-manager/util"
 	"os/exec"
@@ -67,7 +68,10 @@ func (c *controller) runTask(t *types.BgTask) {
 		err = errors.Errorf("unknown task type: %#v", task)
 	}
 	if err != nil {
+		eventlog.Errorf("Error running background task %+v", t.Task)
 		logrus.Errorf("%+v", err)
+	} else {
+		eventlog.Infof("Completed background task %+v", t.Task)
 	}
 }
 

@@ -8,6 +8,9 @@ ETCD_IMAGE=quay.io/coreos/etcd:v3.1.5
 NFS_SERVER=${TEST_PREFIX}-nfs-server
 NFS_IMAGE=docker.io/erezhorev/dockerized_nfs_server
 
+SYSLOG_SERVER=${TEST_PREFIX}-syslog-server
+SYSLOG_PORT=5140
+
 LONGHORN_ENGINE_IMAGE=rancher/longhorn-engine:046b5a5
 
 LONGHORN_ENGINE_BINARY_NAME=${TEST_PREFIX}-engine-binary
@@ -168,4 +171,17 @@ function start_nfs {
 
     docker run -d --name ${NFS_SERVER} --privileged ${NFS_IMAGE} ${BACKUPSTORE_PATH}
     echo nfs server is up
+}
+
+function start_syslog {
+    local name=${SYSLOG_SERVER}
+    local exists=$(check_exists $name)
+
+    if [ "$exists" == "true" ]; then
+        docker rm -fv ${name}
+    fi
+
+    docker run -d --name ${SYSLOG_SERVER} admiralobvious/tinysyslog tinysyslog --address 0.0.0.0:${SYSLOG_PORT} --log-file stderr --sink-type console
+
+    echo syslog server is up
 }

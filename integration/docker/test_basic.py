@@ -26,7 +26,7 @@ def test_hosts_and_settings(clients):  # NOQA
 
     client = clients[host0_id]
 
-    setting_names = ["engineImage", "backupTarget"]
+    setting_names = ["engineImage", "backupTarget", "syslogTarget"]
     settings = client.list_setting()
     assert len(settings) == len(setting_names)
 
@@ -43,10 +43,11 @@ def test_hosts_and_settings(clients):  # NOQA
 
         old_value = setting["value"]
 
-        setting = client.update(setting, value="testvalue")
-        assert setting["value"] == "testvalue"
+        test_value = name + "_test_val"
+        setting = client.update(setting, value=test_value)
+        assert setting["value"] == test_value
         setting = client.by_id_setting(name)
-        assert setting["value"] == "testvalue"
+        assert setting["value"] == test_value
 
         setting = client.update(setting, value=old_value)
         assert setting["value"] == old_value

@@ -5,11 +5,13 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
 	"github.com/rancher/longhorn-manager/api"
 	"github.com/rancher/longhorn-manager/backups"
 	"github.com/rancher/longhorn-manager/controller"
+	"github.com/rancher/longhorn-manager/eventlog"
 	"github.com/rancher/longhorn-manager/manager"
 	"github.com/rancher/longhorn-manager/orch"
 	"github.com/rancher/longhorn-manager/orch/docker"
@@ -97,6 +99,13 @@ func RunManager(c *cli.Context) error {
 	}
 
 	man := manager.New(orc, manager.Monitor(controller.Get), controller.Get, backups.New)
+	si, err := man.Settings().GetSettings()
+	if err != nil {
+		return err
+	}
+	if err := eventlog.Update(si.SyslogTarget); err != nil {
+		logrus.Warnf("%v", errors.Wrap(err, "unable to set up event log"))
+	}
 	if err := man.Start(); err != nil {
 		return err
 	}

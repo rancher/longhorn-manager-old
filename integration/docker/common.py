@@ -7,6 +7,7 @@ import cattle
 
 ENV_MANAGER_IPS = "LONGHORN_MANAGER_TEST_SERVER_IPS"
 ENV_BACKUPSTORE_URL = "LONGHORN_MANAGER_TEST_BACKUPSTORE_URL"
+ENV_SYSLOG_TARGET = "LONGHORN_MANAGER_TEST_SYSLOG_TARGET"
 
 MANAGER = 'http://localhost:9500'
 
@@ -21,12 +22,20 @@ PORT = ":9500"
 def clients(request):
     ips = get_mgr_ips()
     client = get_client(ips[0] + PORT)
+    setup_syslog(client)
     hosts = client.list_host()
     assert len(hosts) == len(ips)
     clis = get_clients(hosts)
     request.addfinalizer(lambda: cleanup_clients(clis))
     cleanup_clients(clis)
     return clis
+
+
+def setup_syslog(client):
+    setting = client.by_id_setting("syslogTarget")
+    syslog_server = get_syslog_target()
+    setting = client.update(setting, value=syslog_server)
+    assert setting["value"] == syslog_server
 
 
 def cleanup_clients(clis):
@@ -48,6 +57,10 @@ def get_mgr_ips():
 
 def get_backupstore_url():
     return os.environ[ENV_BACKUPSTORE_URL]
+
+
+def get_syslog_target():
+    return os.environ[ENV_SYSLOG_TARGET]
 
 
 def get_clients(hosts):

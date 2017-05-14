@@ -24,6 +24,9 @@ wait_for_etcd $etcd_ip
 start_nfs
 nfs_ip=$(get_container_ip $NFS_SERVER)
 
+start_syslog
+syslog_ip=$(get_container_ip $SYSLOG_SERVER)
+
 start_engine_binary
 
 image=`cat ./bin/latest_image`
@@ -51,6 +54,7 @@ echo $mgr3 is ready
 
 export LONGHORN_MANAGER_TEST_SERVER_IPS="$mgr1_ip,$mgr2_ip,$mgr3_ip"
 export LONGHORN_MANAGER_TEST_BACKUPSTORE_URL="nfs://${nfs_ip}:${BACKUPSTORE_PATH}"
+export LONGHORN_MANAGER_TEST_SYSLOG_TARGET="${syslog_ip}:${SYSLOG_PORT}"
 
 cd integration
 find -depth -name __pycache__ -o -name "*.pyc" -exec rm -rf {} \;

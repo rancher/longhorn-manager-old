@@ -143,9 +143,17 @@ type ServiceLocator interface {
 	GetAddress(hostID string) (string, error) // Return <host>:<port>
 }
 
+type EventLogger interface {
+	Infof(format string, args ...interface{})
+	Info(args ...interface{})
+	Errorf(format string, args ...interface{})
+	Error(args ...interface{})
+}
+
 type SettingsInfo struct {
 	BackupTarget string `json:"backupTarget" mapstructure:"backupTarget"`
 	EngineImage  string `json:"engineImage" mapstructure:"engineImage"`
+	SyslogTarget string `json:"syslogTarget" mapstructure:"syslogTarget"`
 }
 
 type VolumeInfo struct {

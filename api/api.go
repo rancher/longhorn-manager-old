@@ -80,6 +80,7 @@ func Handler(s *Server) http.Handler {
 
 	// Internal API
 	r.Methods("POST").Path("/v1/schedule").Handler(f(schemas, s.Schedule))
+	r.Methods("POST").Path("/v1/bumpEventLog").Handler(f(schemas, s.BumpEventLog))
 
 	return r
 }

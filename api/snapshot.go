@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/rancher/go-rancher/api"
+	"github.com/rancher/longhorn-manager/eventlog"
 	"github.com/rancher/longhorn-manager/types"
 )
 
@@ -40,8 +41,10 @@ func (sh *SnapshotHandlers) Create(w http.ResponseWriter, req *http.Request) err
 	}
 	snapName, err := snapOps.Create(input.Name, input.Labels)
 	if err != nil {
+		eventlog.Errorf("Error creating snapshot '%s', volume '%s'", input.Name, volName)
 		return errors.Wrapf(err, "error creating snapshot '%s', for volume '%s'", input.Name, volName)
 	}
+	eventlog.Infof("Created snapshot '%s', volume '%s'", snapName, volName)
 	logrus.Debugf("created snapshot '%s'", snapName)
 
 	snap, err := snapOps.Get(snapName)
@@ -131,8 +134,10 @@ func (sh *SnapshotHandlers) Delete(w http.ResponseWriter, req *http.Request) err
 	}
 
 	if err := snapOps.Delete(input.Name); err != nil {
+		eventlog.Errorf("Error deleting snapshot '%s', volume '%s'", input.Name, volName)
 		return errors.Wrapf(err, "error deleting snapshot '%+v', for volume '%+v'", input.Name, volName)
 	}
+	eventlog.Infof("Deleted snapshot '%s', volume '%s'", input.Name, volName)
 
 	snap, err := snapOps.Get(input.Name)
 	if err != nil {
@@ -169,8 +174,10 @@ func (sh *SnapshotHandlers) Revert(w http.ResponseWriter, req *http.Request) err
 	}
 
 	if err := snapOps.Revert(input.Name); err != nil {
+		eventlog.Errorf("Error reverting to snapshot '%s', volume '%s'", input.Name, volName)
 		return errors.Wrapf(err, "error reverting to snapshot '%+v', for volume '%+v'", input.Name, volName)
 	}
+	eventlog.Infof("Reverted to snapshot '%s', volume '%s'", input.Name, volName)
 
 	snap, err := snapOps.Get(input.Name)
 	if err != nil {
@@ -216,8 +223,10 @@ func (sh *SnapshotHandlers) Backup(w http.ResponseWriter, req *http.Request) err
 	}
 
 	if err := backups.StartBackup(input.Name, backupTarget); err != nil {
+		eventlog.Errorf("Error submitting backup task, snapshot '%s', volume '%s', backupTarget '%s'", input.Name, volName, backupTarget)
 		return errors.Wrapf(err, "error creating backup: snapshot '%s', volume '%s', dest '%s'", input.Name, volName, backupTarget)
 	}
+	eventlog.Infof("Submitted backup task, snapshot '%s', volume '%s', backupTarget '%s'", input.Name, volName, backupTarget)
 	logrus.Debugf("success: started backup: snapshot '%s', volume '%s', dest '%s'", input.Name, volName, backupTarget)
 	apiContext.Write(&Empty{})
 	return nil
@@ -235,8 +244,10 @@ func (sh *SnapshotHandlers) Purge(w http.ResponseWriter, req *http.Request) erro
 	}
 
 	if err := snapOps.Purge(); err != nil {
+		eventlog.Errorf("Error purging removed snapshots, volume '%s'", volName)
 		return errors.Wrapf(err, "error purging snapshots, for volume '%+v'", volName)
 	}
+	eventlog.Infof("Purged removed snapshots, volume '%s'", volName)
 	logrus.Debugf("success: purge snapshots for volume '%s'", volName)
 	api.GetApiContext(req).Write(&Empty{})
 	return nil
